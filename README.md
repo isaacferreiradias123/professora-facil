@@ -71,7 +71,17 @@ O Playwright serve o build de produção e gera um relatório HTML em `playwrigh
 - Ajuste as cores e estilos da aplicação no início de `src/styles.css`. A composição das artes fica em `src/media.ts` e as paletas dos modelos em `src/visual.tsx`.
 - React, React Router, Vite, Tailwind e Lucide compõem a interface. `docx` escreve Word, Mammoth lê seu texto, PDF.js lê PDFs em worker local, `pdf-lib` gera PDFs, JSZip valida a estrutura DOCX e Canvas desenha as artes.
 - Para integrar serviços no futuro, preserve o catálogo e os tipos de materiais. Introduza uma implementação de serviço atrás de uma interface por capacidade, com uma ação de envio explícita, permissões reais, consentimento adequado e chaves no servidor. Mantenha os geradores locais disponíveis. A disponibilidade atual de ferramentas é definida pelas rotas locais em `src/pages.tsx` e pela lista de recursos futuros em `src/catalog.ts`.
-## Coleção de modelos e imagens
+## Coleção de sala de aula
+
+A [vitrine nova](https://isaacferreiradias123.github.io/professora-facil/#/app/colecao) tem 43 materiais. Inclui 16 atividades próprias, seis recados, quatro painéis, oito planos, dois registros, três artes, três álbuns e uma folha pronta de origem externa. Filtros por nome de turma usam os grupos etários da BNCC como referência, conforme as práticas de cada rede.
+
+- Os recados podem sair em uma folha inteira ou em duas vias recortáveis. O passeio inclui canhoto. A prévia e o PDF A4 compartilham a composição de página. O Word mantém títulos, tabelas e campos editáveis e pode variar conforme a fonte e a versão do editor.
+- O painel de boas-vindas é um mosaico de quatro folhas, mais um guia com mapa. Imprima a 100%, com sobreposição de 5 mm. Os outros painéis têm cabeçalho e cartões individuais para recortar.
+- Os dados estão em `src/classroom-catalog.ts`. A geometria de prévia e PDF está em `src/classroom-layout.ts`. As ilustrações locais estão em `public/colecao/`. As artes editoriais e do mural foram produzidas para este projeto com geração de imagem durante o desenvolvimento. As figuras PNG foram desenhadas para o projeto ou recortadas dessas artes. O aplicativo funciona localmente.
+
+A folha [Fruits Lineart](https://openclipart.org/detail/244989/fruits-lineart), de **frankes**, é distribuída sob [CC0 segundo a política do Openclipart](https://openclipart.org/share). O PDF original e a imagem de prévia são redistribuídos sem mudanças no arquivo. As orientações de uso em português são do projeto. O [caderno de uma turma Pré II do eduCAPES](https://educapes.capes.gov.br/handle/capes/722502), os [Percursos Curriculares de Belo Horizonte](https://wiki.pbh.gov.br/educacao/percursos-curriculares/doku.php/5_acoes_mediacoes_e_estimulacoes_para_o_desenvolvimento_e_a_aquisicao_de_aprendizagens_das_criancas_de_0_a_3_anos) e a [proposta curricular de Marília](https://educacao.marilia.sp.gov.br/arquivos/proposta_curricular_para_a_educacao_infantil_-_marilia_15110632_17125235.pdf) orientaram conteúdos e formatos próprios.
+
+## Modelos anteriores
 
 A coleção local acrescenta 327 modelos à biblioteca anterior. Os modelos de cada ferramenta são carregados sob demanda. A licença do material recebido está em `src/pack/LICENCA.txt`. Fichas têm download vetorial independente e uma página ilustrada em Word e PDF. A ilustração editorial da Home foi produzida para o projeto e é servida como WebP local. A galeria combina os 24 elementos licenciados do pacote com cinco SVGs próprios.
 

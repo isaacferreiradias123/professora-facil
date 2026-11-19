@@ -1,0 +1,103 @@
+import { PDFDocument, rgb, type PDFImage } from 'pdf-lib'
+import { fonts, printable } from './pdf'
+import { assetUrl, paper, type Sheet } from './classroom-layout'
+
+const point = (mm: number) => (mm * 72) / 25.4
+function color(hex: string) {
+  return rgb(
+    parseInt(hex.slice(1, 3), 16) / 255,
+    parseInt(hex.slice(3, 5), 16) / 255,
+    parseInt(hex.slice(5, 7), 16) / 255,
+  )
+}
+export async function imageBytes(asset: string): Promise<Uint8Array> {
+  if (asset.endsWith('.png')) {
+    const result = await fetch(assetUrl(asset))
+    if (!result.ok) throw new Error('Imagem indisponível: ' + asset)
+    return new Uint8Array(await result.arrayBuffer())
+  }
+  const image = new Image()
+  image.src = assetUrl(asset)
+  await image.decode()
+  const canvas = document.createElement('canvas')
+  canvas.width = image.naturalWidth
+  canvas.height = image.naturalHeight
+  try {
+    canvas.getContext('2d')!.drawImage(image, 0, 0)
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (value) => (value ? resolve(value) : reject(new Error())),
+        'image/png',
+      ),
+    )
+    return new Uint8Array(await blob.arrayBuffer())
+  } finally {
+    canvas.width = 0
+  }
+}
+
+export async function classroomPdf(title: string, sheets: Sheet[]) {
+  const document = await PDFDocument.create()
+  document.setTitle(title)
+  const face = await fonts(document, true)
+  const images = new Map<string, PDFImage>()
+  for (const sheet of sheets) {
+    const page = document.addPage([point(paper.width), point(paper.height)])
+    for (const mark of sheet.marks) {
+      const x = point(mark.x)
+      const y = point(paper.height - mark.y)
+      const width = point(mark.width)
+      if (mark.kind === 'text') {
+        if (!mark.text || width <= 0) continue
+        const font = mark.bold ? face.bold : face.regular
+        const size = point(mark.size)
+        const text = printable(mark.text.replace(/\s+/g, ' '), font)
+        const actualSize = Math.min(
+          size,
+          (size * width) / (font.widthOfTextAtSize(text, size) || width),
+        )
+        page.drawText(text, {
+          x,
+          y: y - actualSize * 0.87,
+          size: actualSize,
+          font,
+          color: color(mark.color),
+        })
+      } else if (mark.kind === 'box') {
+        page.drawRectangle({
+          x,
+          y: y - point(mark.height),
+          width,
+          height: point(mark.height),
+          color: mark.fill ? color(mark.fill) : undefined,
+          borderColor: mark.stroke ? color(mark.stroke) : undefined,
+          borderWidth: mark.stroke ? 0.6 : 0,
+          borderDashArray: mark.dashed ? [3, 3] : undefined,
+        })
+      } else if (mark.kind === 'line') {
+        page.drawLine({
+          start: { x, y },
+          end: { x: x + width, y },
+          color: color(mark.color),
+          thickness: 0.6,
+          dashArray: mark.dashed ? [4, 3] : undefined,
+        })
+      } else {
+        let image = images.get(mark.asset)
+        if (!image) {
+          image = await document.embedPng(await imageBytes(mark.asset))
+          images.set(mark.asset, image)
+        }
+        page.drawImage(image, {
+          x,
+          y: y - point(mark.height),
+          width,
+          height: point(mark.height),
+        })
+      }
+    }
+  }
+  return new Blob([new Uint8Array(await document.save())], {
+    type: 'application/pdf',
+  })
+}
