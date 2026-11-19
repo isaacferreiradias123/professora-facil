@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import { activity, fields, groups, rights } from '../../src/catalog'
 import { material, seed, dateLabel } from '../../src/model'
-import { fitted, tiles } from '../../src/media'
+import { fitted, photoPages, tiles, type Photo } from '../../src/media'
+import { readValues } from '../../src/draft-transfer'
+import { parseMoments } from '../../src/lesson-moments'
 
 describe('Educação Infantil', () => {
   it('cadastra grupos, campos e direitos e aplica experiências por faixa', () => {
     expect([groups.length, fields.length, rights.length]).toEqual([3, 5, 6])
     for (let i = 0; i < activity.length; i++) {
       const v = seed('atividade', i)
-      const younger = material('atividade', { ...v, count: '12' }).sections.at(
-        -1,
-      )!
+      const younger = material('atividade', {
+        ...v,
+        count: '12',
+        group: groups[0],
+      }).sections.at(-1)!
       const older = material('atividade', {
         ...v,
         group: groups[2],
@@ -20,10 +24,17 @@ describe('Educação Infantil', () => {
         kind: 'list',
         items: expect.arrayContaining([activity[i][3]]),
       })
-      expect(older.blocks[0]).toMatchObject({
-        kind: 'list',
-        items: expect.arrayContaining([activity[i][4]]),
-      })
+      if (i < 10)
+        expect(older.blocks[0]).toMatchObject({
+          kind: 'list',
+          items: expect.arrayContaining([activity[i][4]]),
+        })
+      else {
+        expect(older.title).toBe(
+          i < 12 ? 'Gabarito para a professora' : 'Folha de atividade',
+        )
+        if (i < 12) expect(older.newPage).toBe(true)
+      }
       expect(JSON.stringify(younger)).not.toContain('undefined')
     }
   })
@@ -64,4 +75,33 @@ describe('Geometria de impressão', () => {
     expect(positions.at(-1)!.x + size.width).toBe(width)
     expect(positions.at(-1)!.y + size.height).toBe(height)
   })
+})
+it('mantém uma quebra explícita sem criar folhas vazias', () => {
+  const pictures: Photo[] = Array.from({ length: 7 }, (_, i) => ({
+    id: String(i),
+    url: '',
+    blob: new Blob(),
+    caption: '',
+    breakBefore: i === 0 || i === 2,
+  }))
+  expect(
+    photoPages(pictures, 4).map((sheet) => sheet.map((picture) => picture.id)),
+  ).toEqual([['0', '1'], ['2', '3', '4', '5'], ['6']])
+  expect(tiles(4, 2).positions.map((p) => p.y)).toEqual([
+    0, 0, 0, 0, 1002, 1002, 1002, 1002,
+  ])
+})
+
+it('valida campos de cópia e preserva a ordem dos momentos válidos', () => {
+  expect(() => readValues(JSON.parse('{"constructor":"x"}'))).toThrow()
+  expect(() => readValues({ title: { value: 'inválido' } })).toThrow()
+  expect(readValues({ title: 'Coração' })).toEqual({ title: 'Coração' })
+  expect(
+    parseMoments(
+      '[{"title":"Roda","minutes":10},null,{"title":"Brincadeira","minutes":20},{"title":"Inválido","minutes":-1}]',
+    ),
+  ).toEqual([
+    { title: 'Roda', minutes: 10 },
+    { title: 'Brincadeira', minutes: 20 },
+  ])
 })

@@ -103,6 +103,27 @@ export const activity = [
     'Explore materiais naturais seguros junto com as crianças e registre suas iniciativas.',
     'Desenhe ou descreva uma descoberta feita durante a exploração.',
   ],
+  [
+    'Pareamento de figuras',
+    2,
+    2,
+    'Explore formas com objetos grandes e observe as semelhanças.',
+    'Faça pares entre as figuras iguais.',
+  ],
+  [
+    'Sequência ilustrada',
+    2,
+    4,
+    'Crie ritmos simples com gestos e objetos de cores diferentes.',
+    'Observe as formas e complete a sequência.',
+  ],
+  [
+    'Traçado de caminhos',
+    7,
+    1,
+    'Explore caminhos grandes no chão e convide as crianças a percorrê-los.',
+    'Passe o lápis pelos três caminhos pontilhados.',
+  ],
 ] as const
 export const lesson = [
   [

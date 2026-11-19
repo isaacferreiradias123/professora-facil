@@ -38,13 +38,15 @@ Na pasta do projeto, execute `npm run build` e depois `npm run preview -- --host
 | --- | --- |
 | Atividades, planos e relatórios | Modelos editáveis, prévia, Word, PDF A4 e impressão |
 | Documentos | Modelos editáveis, leitura de texto de DOCX e PDF, resposta manual em um novo Word ou PDF |
-| Fotos em PDF | Até 24 imagens JPG, PNG ou WebP, ordem e legendas, 1, 2 ou 4 fotos por folha A4 vertical ou horizontal |
+| Fotos em PDF | Até 24 imagens JPG, PNG ou WebP, com rotação, recorte, legendas, quebras manuais e 1, 2 ou 4 fotos por folha A4 |
 | Postagens | Cinco formatos, modelos, foto opcional, personalização de cores e fontes, download PNG e legenda |
-| Painéis | Sete temas e PDFs A4 em grades de 4 ou 9 folhas com sobreposição e marcas de corte |
-| Meus materiais | Rascunhos locais, reabertura, renomeação, duplicação, exclusão e limpeza |
-| Modelos prontos | Busca por nome e filtro por ferramenta |
+| Painéis | Sete temas, grades A4 de até 4 × 4, tamanho final, mapa, sobreposição e marcas de corte |
+| Meus materiais | Rascunhos locais, recuperação após recarregar, cópia editável em JSON, duplicação e limpeza |
+| Modelos prontos | Busca e filtros por ferramenta, faixa etária, tema e campo de experiências |
 
-Os rascunhos ficam no IndexedDB do navegador. Fotos e texto extraído são temporários. Se mudar de dispositivo, navegador, porta ou endereço, abra novamente a origem anterior para encontrar seus rascunhos. Use dados fictícios nos testes.
+Experimente pareamento, sequência ilustrada e traçado no catálogo de atividades. No plano, adicione e ordene os momentos da aula e confira o tempo total. A prévia aparece durante a edição e também antes de baixar.
+
+Os rascunhos ficam no IndexedDB do navegador. O navegador também guarda temporariamente os campos da edição para recuperar o trabalho após recarregar. Para transferir o conteúdo de um rascunho entre dispositivos, use **Baixar cópia editável** e **Importar cópia editável** em **Meus materiais**. Fotos e texto extraído são temporários. Se mudar de dispositivo, navegador, porta ou endereço, abra novamente a origem anterior para encontrar seus rascunhos. Use dados fictícios nos testes.
 
 A primeira versão não inclui OCR, edição do arquivo original, geração de vídeo, IA, voz, contas, sincronização, colaboração ou cobrança. Os planos são ilustrativos. A impressão depende do suporte do navegador a PDF. Se necessário, baixe o arquivo e imprima pelo leitor de PDF do aparelho.
 
@@ -61,7 +63,7 @@ npx playwright install chromium webkit
 npm run e2e
 ```
 
-O Playwright serve o build de produção e gera um relatório HTML em `playwright-report/`. A verificação inicial cobriu 5 testes unitários e 14 testes de navegador, incluindo um lote de 18 imagens. A checagem móvel usou emulação. A impressão em papel ficou sem verificação.
+O Playwright serve o build de produção e gera um relatório HTML em `playwright-report/`. A suíte cobre os editores, a recuperação e importação de rascunhos, o gabarito em folha separada, as grades de painel e um lote de 18 fotos. A checagem móvel usou emulação. A impressão em papel ficou sem verificação.
 
 ## Manutenção
 

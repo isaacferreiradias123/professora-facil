@@ -3,7 +3,8 @@ import fontkit from '@pdf-lib/fontkit'
 import regularUrl from '@fontsource/noto-sans/files/noto-sans-latin-400-normal.woff?url'
 import boldUrl from '@fontsource/noto-sans/files/noto-sans-latin-700-normal.woff?url'
 import type { Material } from './model'
-export const a4 = [595.28, 841.89] as const
+export { a4Points as a4 } from './media'
+import { a4Points as a4 } from './media'
 export async function fonts(doc: PDFDocument, withBold = false) {
   doc.registerFontkit(fontkit)
   const load = async (url: string) => {
@@ -100,6 +101,10 @@ export async function pdf(data: Material): Promise<Blob> {
   write(data.title, 24, bold, accent)
   if (data.metadata.length) write(data.metadata.join(' · '), 10)
   for (const section of data.sections) {
+    if (section.newPage) {
+      page = doc.addPage([...a4])
+      y = a4[1] - margin
+    }
     if (section.title) {
       space(lines(section.title, bold, 14).length * 19 + 25)
       y -= 5

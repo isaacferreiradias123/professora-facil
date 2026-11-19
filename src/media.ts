@@ -36,6 +36,9 @@ export interface Photo {
   url: string
   blob: Blob
   caption: string
+  breakBefore?: boolean
+  cropX?: number
+  cropY?: number
 }
 export interface PhotoOptions {
   orientation: 'vertical' | 'horizontal'
@@ -44,6 +47,59 @@ export interface PhotoOptions {
   crop: boolean
   quality: 'standard' | 'high'
 }
+export function photoPages(items: Photo[], perPage: number) {
+  const pages: Photo[][] = []
+  for (const item of items) {
+    const last = pages.at(-1)
+    if (!last || last.length === perPage || item.breakBefore) pages.push([item])
+    else last.push(item)
+  }
+  return pages
+}
+
+export function photoColumns(options: PhotoOptions) {
+  return options.perPage === 4 ||
+    (options.perPage === 2 && options.orientation === 'horizontal')
+    ? 2
+    : 1
+}
+
+export const a4Points = [595.28, 841.89] as const
+export const panelMargin = 23
+
+export function photoLayout(options: PhotoOptions) {
+  const [pageWidth, pageHeight] =
+    options.orientation === 'vertical' ? a4Points : [a4Points[1], a4Points[0]]
+  const cols = photoColumns(options)
+  const rows = options.perPage / cols
+  const margin = (options.margin * 72) / 25.4
+  const gap = 12
+  const width = (pageWidth - 2 * margin - (cols - 1) * gap) / cols
+  const height = (pageHeight - 2 * margin - (rows - 1) * gap) / rows
+  return {
+    pageWidth,
+    pageHeight,
+    width,
+    height,
+    x: (index: number) => margin + (index % cols) * (width + gap),
+    y: (index: number) => margin + Math.floor(index / cols) * (height + gap),
+  }
+}
+
+export async function rotatePhoto(url: string) {
+  const source = await openImage(url)
+  const target = canvas(source.naturalHeight, source.naturalWidth)
+  const context = target.getContext('2d')!
+  context.translate(target.width, 0)
+  context.rotate(Math.PI / 2)
+  context.drawImage(source, 0, 0)
+  try {
+    return await blobOf(target, 'image/jpeg', 0.92)
+  } finally {
+    target.width = 0
+  }
+}
+
 export function canvas(width: number, height: number) {
   const element = document.createElement('canvas')
   element.width = width
@@ -135,7 +191,13 @@ export async function photoCell(
     target.height,
     options.crop,
   )
-  ctx.drawImage(img, fit.x, fit.y, fit.width, fit.height)
+  const x = options.crop
+    ? ((target.width - fit.width) * (photo.cropX ?? 50)) / 100
+    : fit.x
+  const y = options.crop
+    ? ((target.height - fit.height) * (photo.cropY ?? 50)) / 100
+    : fit.y
+  ctx.drawImage(img, x, y, fit.width, fit.height)
   try {
     return new Uint8Array(
       await (
@@ -151,6 +213,7 @@ export async function photoCell(
   }
 }
 export interface ArtOptions {
+  crop?: boolean
   title: string
   body: string
   date: string
@@ -280,17 +343,26 @@ export function drawArt(
       image.naturalHeight,
       w - 2 * pad,
       imageH,
-      false,
+      Boolean(options.crop),
     )
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(pad, y, w - 2 * pad, imageH)
+    ctx.clip()
     ctx.drawImage(image, pad + rect.x, y + rect.y, rect.width, rect.height)
+    ctx.restore()
     y += imageH
   }
   if (options.body) {
     y += gap
     draw(body)
   }
+  return (
+    title.size < unit * 0.033 ||
+    Boolean(options.body && body.size < unit * 0.022)
+  )
 }
-export function tiles(grid: number) {
+export function tiles(grid: number, rows = grid) {
   const size = { width: 720, height: 1018 },
     overlap = 16
   const stepX = size.width - overlap,
@@ -298,8 +370,8 @@ export function tiles(grid: number) {
   return {
     size,
     width: stepX * (grid - 1) + size.width,
-    height: stepY * (grid - 1) + size.height,
-    positions: Array.from({ length: grid * grid }, (_, index) => ({
+    height: stepY * (rows - 1) + size.height,
+    positions: Array.from({ length: grid * rows }, (_, index) => ({
       x: (index % grid) * stepX,
       y: Math.floor(index / grid) * stepY,
     })),

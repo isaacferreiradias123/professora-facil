@@ -185,57 +185,6 @@ p {
 .hero p {
   font-size: 1.15rem;
 }
-.example-composition {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border-radius: 1.5rem;
-  background: var(--sage);
-  min-height: 17rem;
-  display: grid;
-  place-items: center;
-  margin-bottom: 1rem;
-}
-.sample-art,
-.sample-paper {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 1rem;
-  width: 52%;
-  max-width: 15rem;
-  height: 73%;
-  border-radius: 0.5rem;
-  box-shadow: 0 8px 20px #25352a26;
-  font-weight: bold;
-}
-.sample-art {
-  transform: translateX(-30%) rotate(-10deg);
-  background: var(--peach);
-  color: #633528;
-  font-size: clamp(1rem, 3vw, 1.7rem);
-}
-.sample-paper {
-  transform: translateX(35%) rotate(10deg);
-  background: white;
-  color: var(--green);
-  font-size: clamp(0.95rem, 2.5vw, 1.55rem);
-}
-.sample-art small,
-.sample-paper small {
-  font-size: 0.75rem;
-}
-.sample-sun {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 50%;
-  background: #c67959;
-}
-.sample-lines {
-  height: 2rem;
-  background: repeating-linear-gradient(transparent 0 7px, var(--line) 7px 9px);
-}
 .band {
   margin: 2.5rem 0;
 }
@@ -525,14 +474,13 @@ input[type='checkbox'] {
   margin: 0.4rem 0 0;
 }
 .photo-sheet {
-  display: grid;
-  gap: 4%;
+  position: relative;
   border: 1px solid #87978b;
   background: white;
-  padding: 5%;
   overflow: hidden;
 }
 .photo-sheet figure {
+  position: absolute;
   min-height: 0;
   min-width: 0;
   display: flex;
@@ -571,9 +519,6 @@ input[type='checkbox'] {
 @media (min-width: 48rem) {
   .hero {
     grid-template-columns: 1.05fr 1fr;
-  }
-  .example-composition {
-    min-height: 24rem;
   }
   .steps-public {
     grid-template-columns: repeat(3, 1fr);
@@ -624,5 +569,191 @@ input[type='checkbox'] {
     scroll-behavior: auto !important;
     animation: none !important;
     transition: none !important;
+  }
+}
+/* The workspace keeps task selection distinct from the document being edited. */
+:root {
+  --pine: #174b3b;
+  --graphite: #263630;
+  --coral: #b4513d;
+}
+.welcome {
+  border: 1px solid #d5e2d8;
+  background: #e8f0e7;
+}
+.material-samples {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+.sample-tile {
+  display: grid;
+  align-content: start;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  min-width: 0;
+  color: var(--graphite);
+  text-decoration: none;
+  border-radius: 0.85rem;
+  border: 1px solid #d3ddd1;
+  background: #e9f1e8;
+}
+.sample-tile:nth-child(2) {
+  background: #f9e4da;
+  border-color: #eed4c9;
+}
+.sample-tile:last-child {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(4rem, 35%) 1fr;
+  align-items: center;
+  column-gap: 1rem;
+  background: #f5eddb;
+}
+.sample-tile:last-child svg {
+  grid-row: span 2;
+}
+.sample-tile span {
+  font-size: 0.85rem;
+}
+.sample-tile strong {
+  overflow-wrap: anywhere;
+}
+.sample-tile svg {
+  display: block;
+  width: 100%;
+  max-height: 7rem;
+  color: var(--pine);
+}
+.sample-tile:hover {
+  border-color: var(--pine);
+}
+.catalog-search {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0 1.5rem;
+  max-width: 58rem;
+}
+.catalog-group {
+  margin: 0 0 1.5rem;
+}
+.recent-materials {
+  margin: 0 0 1.5rem;
+}
+.recent-materials ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+.recent-materials a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.sidebar nav {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.editor-stages {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  padding: 0;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: #466154;
+}
+.editor-stages [aria-current] {
+  font-weight: 750;
+  color: var(--pine);
+  border-bottom: 2px solid var(--coral);
+}
+.editor-columns,
+.visual-columns {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.editor-live {
+  min-width: 0;
+}
+.editor-live .preview-doc {
+  margin: 0.6rem 0;
+}
+.live-preview-desktop {
+  display: none;
+}
+.lesson-moments {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  min-width: 0;
+}
+.lesson-moment {
+  border: 1px solid #d8e2d8;
+  padding: 1rem;
+  border-radius: 0.7rem;
+  min-width: 0;
+}
+.import-draft {
+  max-width: 32rem;
+  margin: 1rem 0;
+}
+.panel-map {
+  display: inline-grid;
+  gap: 0.25rem;
+  margin: 0.7rem 0;
+  padding: 0;
+  list-style: none;
+}
+.panel-map a {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-height: 44px;
+  background: #e7efe7;
+  border-radius: 0.3rem;
+}
+.photo-position {
+  margin: 0.8rem 0;
+}
+[data-editor-step] {
+  animation: step-open 150ms ease-out;
+}
+@keyframes step-open {
+  from {
+    opacity: 0.65;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (min-width: 49rem) {
+  .sidebar nav {
+    grid-template-columns: 1fr;
+  }
+}
+@media (min-width: 69rem) {
+  .editor-card {
+    max-width: 73rem;
+  }
+  .editor-columns,
+  .visual-columns {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    align-items: start;
+  }
+  .live-preview-desktop {
+    display: block;
+  }
+  .live-preview-mobile {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-editor-step] {
+    animation: none;
   }
 }

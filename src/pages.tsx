@@ -25,15 +25,27 @@ import {
   Image,
   LayoutGrid,
   Files,
-  Home,
   Plus,
   Folder,
   LifeBuoy,
   ArrowUpRight,
   Settings2,
 } from 'lucide-react'
-import { catalog, tools, tutorials, upcoming, type Tool } from './catalog'
+import {
+  activity,
+  catalog,
+  fields,
+  groups,
+  themes,
+  tools,
+  tutorials,
+  upcoming,
+  type Tool,
+} from './catalog'
 import { drafts, newId, type Draft } from './store'
+
+import { clearRecovery, editableFile, importEditable } from './draft-transfer'
+import { download, filename } from './workflow'
 
 const Editor = lazy(() => import('./editor'))
 const Visual = lazy(() => import('./visual'))
@@ -50,13 +62,17 @@ const icons = {
 }
 const mainLinks = [
   ['/como-funciona', 'Como funciona'],
-  ['/planos', 'Planos'],
   ['/ajuda', 'Ajuda'],
 ]
 function Brand() {
   return (
     <Link to="/" className="brand">
-      <img src={import.meta.env.BASE_URL + 'marca.svg'} alt="" width="42" height="42" />
+      <img
+        src={import.meta.env.BASE_URL + 'marca.svg'}
+        alt=""
+        width="42"
+        height="42"
+      />
       Professora Fácil
     </Link>
   )
@@ -82,6 +98,7 @@ function PublicLayout() {
         <nav aria-label="Informações">
           {[
             ['/sobre', 'Sobre'],
+            ['/planos', 'Planos'],
             ['/privacidade', 'Privacidade'],
             ['/termos', 'Termos'],
           ].map(([p, n]) => (
@@ -95,7 +112,6 @@ function PublicLayout() {
   )
 }
 const destinations = [
-  ['/app', 'Início', Home],
   ['/app/criar', 'Criar', Plus],
   ['/app/materiais', 'Meus materiais', Folder],
   ['/app/ajuda', 'Ajuda', LifeBuoy],
@@ -108,7 +124,7 @@ function InternalLayout() {
         <Brand />
         <nav aria-label="Área de trabalho">
           {destinations.map(([p, n, Icon]) => (
-            <NavLink key={p} end={p === '/app'} to={p}>
+            <NavLink key={p} end={p === '/app/criar'} to={p}>
               <Icon size={21} aria-hidden="true" />
               <span>{n}</span>
             </NavLink>
@@ -225,30 +241,88 @@ function Faq() {
     </div>
   )
 }
+const samples = [
+  {
+    name: 'Atividade de cores',
+    category: 'Atividade',
+    path: '/app/criar/atividade',
+    shape: 'activity',
+  },
+  {
+    name: 'Convite para a mostra',
+    category: 'Comunicado',
+    path: '/app/criar/postagem',
+    shape: 'invite',
+  },
+  {
+    name: 'Bem-vindos à turma',
+    category: 'Painel',
+    path: '/app/criar/painel',
+    shape: 'panel',
+  },
+] as const
+
 function Examples() {
   return (
-    <div
-      className="example-composition"
-      aria-label="Exemplo de plano de aula e arte escolar"
-    >
-      <div className="sample-art">
-        <span>
-          Mostra de
-          <br />
-          experiências
-        </span>
-        <div className="sample-sun" />
-        <small>Turma Ipê · 21 de novembro</small>
-      </div>
-      <div className="sample-paper">
-        <span>Plano de aula</span>
-        <strong>
-          Histórias que
-          <br />a gente conta
-        </strong>
-        <div className="sample-lines" />
-        <small>Educação Infantil</small>
-      </div>
+    <div className="material-samples" aria-label="Exemplos de materiais">
+      {samples.map(({ name, category, path, shape }) => (
+        <Link className={'sample-tile sample-' + shape} key={shape} to={path}>
+          <svg viewBox="0 0 140 100" aria-hidden="true" focusable="false">
+            {shape === 'activity' && (
+              <>
+                <circle cx="35" cy="35" r="17" fill="#d28365" />
+                <rect
+                  x="57"
+                  y="54"
+                  width="28"
+                  height="28"
+                  rx="4"
+                  fill="#668572"
+                />
+                <path d="M105 19l21 35H84z" fill="#d9ab49" />
+                <path
+                  d="M20 80h25m53 0h25"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                />
+              </>
+            )}
+            {shape === 'invite' && (
+              <>
+                <path d="M22 24h96v58H22z" fill="#fff8ef" />
+                <path
+                  d="m23 25 47 35 47-35"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                />
+                <circle cx="70" cy="59" r="10" fill="#c46d58" />
+                <path
+                  d="M10 14v16m-8-8h16m111 49v16m-8-8h16"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+              </>
+            )}
+            {shape === 'panel' && (
+              <>
+                <path d="M18 75V46a52 34 0 0 1 104 0v29" fill="#e9ae72" />
+                <path d="M36 75V50a34 24 0 0 1 68 0v25" fill="#f8ecd9" />
+                <path d="M58 75V53a12 10 0 0 1 24 0v22" fill="#6d8e78" />
+                <path
+                  d="M70 9v78M12 48h116"
+                  stroke="currentColor"
+                  strokeDasharray="4 4"
+                  opacity=".55"
+                />
+              </>
+            )}
+          </svg>
+          <span>{category}</span>
+          <strong>{name}</strong>
+        </Link>
+      ))}
     </div>
   )
 }
@@ -263,7 +337,7 @@ function Landing() {
             Escolha um modelo, personalize e use na sua turma.
           </p>
           <Link className="button" to="/app">
-            Experimentar gratuitamente
+            Criar um material
           </Link>
         </div>
         <Examples />
@@ -283,10 +357,6 @@ function Landing() {
           baixar e quais rascunhos guardar.
         </p>
         <Link to="/privacidade">Entenda a privacidade</Link>
-      </section>
-      <section className="band">
-        <h2>Planos</h2>
-        <Plans />
       </section>
       <section className="band">
         <h2>Perguntas frequentes</h2>
@@ -390,106 +460,244 @@ function StaticPage({ kind }: { kind: string }) {
     </>
   )
 }
-function ToolGrid({ limit }: { limit?: number }) {
+function ToolGrid({
+  limit,
+  selection,
+}: {
+  limit?: number
+  selection?: Tool[]
+}) {
   return (
     <div className="grid tools">
-      {(Object.keys(tools) as Tool[]).slice(0, limit).map((k, i) => {
-        const Icon = icons[k]
-        return (
-          <Link className="tool card" to={'/app/criar/' + k} key={k}>
-            <span className={'tool-icon tone-' + i}>
-              <Icon size={25} aria-hidden="true" />
-            </span>
-            <div>
-              <h3>{tools[k].name}</h3>
-              <p>{tools[k].description}</p>
-            </div>
-            <ArrowUpRight className="tool-arrow" size={19} aria-hidden="true" />
-          </Link>
-        )
-      })}
+      {(selection ?? (Object.keys(tools) as Tool[]))
+        .slice(0, limit)
+        .map((k) => {
+          const i = Object.keys(tools).indexOf(k)
+          const Icon = icons[k]
+          return (
+            <Link className="tool card" to={'/app/criar/' + k} key={k}>
+              <span className={'tool-icon tone-' + i}>
+                <Icon size={25} aria-hidden="true" />
+              </span>
+              <div>
+                <h3>{tools[k].name}</h3>
+                <p>{tools[k].description}</p>
+              </div>
+              <ArrowUpRight
+                className="tool-arrow"
+                size={19}
+                aria-hidden="true"
+              />
+            </Link>
+          )
+        })}
     </div>
   )
 }
+const normalize = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+const toolGroups: [string, Tool[]][] = [
+  ['Planejar e registrar', ['atividade', 'plano-de-aula', 'relatorio']],
+  [
+    'Preparar arquivos e imprimir',
+    ['documento', 'fotos-em-pdf', 'postagem', 'painel'],
+  ],
+]
+
 function Dashboard({ create = false }: { create?: boolean }) {
+  const [recent, setRecent] = useState<Draft[]>([])
+  useEffect(() => {
+    let active = true
+    void drafts
+      .list()
+      .then((items) => {
+        if (active) setRecent(items.slice(0, 3))
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
   return (
     <>
       <section className="welcome">
         <h1>
-          {create
-            ? 'Qual material você deseja preparar?'
-            : 'Olá! O que vamos preparar hoje?'}
+          {create ? 'Criar um material' : 'Olá! O que vamos preparar hoje?'}
         </h1>
-        <p>Escolha o que deseja criar.</p>
+        <p>Escolha uma tarefa ou comece por um modelo pronto.</p>
       </section>
-      <ToolGrid limit={create ? undefined : 6} />
+      {recent.length > 0 && (
+        <section className="recent-materials">
+          <h2>Continuar um material</h2>
+          <ul>
+            {recent.map((item) => (
+              <li key={item.id}>
+                <Link to={'/app/criar/' + item.tool + '?rascunho=' + item.id}>
+                  {item.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <Library embedded />
+      <Link className="button secondary" to="/app/modelos">
+        Explorar todos os modelos
+      </Link>
       <nav className="extra-links" aria-label="Mais recursos">
-        {!create && (
-          <Link to="/app/criar/documento">Documentos Word e PDF</Link>
-        )}
-        <Link to="/app/modelos">Modelos prontos</Link>
-        <Link to="/app/em-breve/videos">Vídeos escolares</Link>
         <Link to="/app/em-breve">Recursos em breve</Link>
       </nav>
     </>
   )
 }
-function Library() {
+
+function Library({ embedded = false }: { embedded?: boolean }) {
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
-  const found = (Object.keys(catalog) as Tool[])
-    .filter((k) => !category || category === k)
-    .flatMap((k) => catalog[k].map((name, i) => ({ k, name, i })))
-    .filter((x) =>
-      x.name
-        .toLocaleLowerCase('pt-BR')
-        .includes(q.trim().toLocaleLowerCase('pt-BR')),
+  const [age, setAge] = useState('')
+  const [theme, setTheme] = useState('')
+  const [field, setField] = useState('')
+  const term = normalize(q.trim())
+  const selection = (Object.keys(tools) as Tool[])
+    .filter((key) => !category || category === key)
+    .filter(
+      (key) =>
+        !term ||
+        normalize(tools[key].name + ' ' + tools[key].description).includes(
+          term,
+        ),
     )
+  const found = (Object.keys(catalog) as Tool[])
+    .filter((key) => !category || category === key)
+    .flatMap((key) => catalog[key].map((name, i) => ({ key, name, i })))
+    .filter(({ key, i, name }) => {
+      if (!normalize(name + ' ' + tools[key].name).includes(term)) return false
+      if (age && key !== 'atividade' && key !== 'plano-de-aula') return false
+      if (age && age !== groups[2] && key === 'atividade' && i >= 10)
+        return false
+      if ((theme || field) && key !== 'atividade') return false
+      return (
+        (!theme || themes[activity[i]?.[1]] === theme) &&
+        (!field || fields[activity[i]?.[2]] === field)
+      )
+    })
+  const filtered = Boolean(term || category || age || theme || field)
   return (
-    <>
-      <h1>Modelos prontos</h1>
-      <div className="controls">
+    <section aria-label="Catálogo">
+      {embedded ? <h2>Ferramentas e modelos</h2> : <h1>Modelos prontos</h1>}
+      <div className="catalog-search">
         <label>
           Pesquisar modelos
           <input
             type="search"
+            placeholder="Ex.: atividade, convite ou plano"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(event) => setQ(event.target.value)}
           />
         </label>
-        <label>
-          Categoria
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="">Todas</option>
-            {Object.keys(catalog)
-              .filter((k) => catalog[k as Tool].length)
-              .map((k) => (
-                <option key={k} value={k}>
-                  {tools[k as Tool].name}
-                </option>
-              ))}
-          </select>
-        </label>
+        <details>
+          <summary>Filtrar por categoria, faixa ou tema</summary>
+          <div className="controls">
+            <label>
+              Categoria
+              <select
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+              >
+                <option value="">Todas</option>
+                {(Object.keys(tools) as Tool[]).map((key) => (
+                  <option value={key} key={key}>
+                    {tools[key].name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Faixa etária
+              <select
+                value={age}
+                onChange={(event) => setAge(event.target.value)}
+              >
+                <option value="">Todas</option>
+                {groups.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Tema de atividade
+              <select
+                value={theme}
+                onChange={(event) => setTheme(event.target.value)}
+              >
+                <option value="">Todos</option>
+                {themes.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Campo de experiências
+              <select
+                value={field}
+                onChange={(event) => setField(event.target.value)}
+              >
+                <option value="">Todos</option>
+                {fields.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </details>
       </div>
-      <div className="grid">
-        {found.map(({ k, name, i }) => (
-          <Link
-            className="card library-link"
-            key={k + i}
-            to={'/app/criar/' + k + '?modelo=' + i}
-          >
-            <strong>{name}</strong>
-            <span>{tools[k].name}</span>
-          </Link>
-        ))}
-      </div>
-      {!found.length && (
-        <p>Nenhum modelo encontrado. Experimente outro nome ou categoria.</p>
+      {embedded &&
+        !age &&
+        !theme &&
+        !field &&
+        toolGroups.map(([heading, keys]) => {
+          const visible = keys.filter((key) => selection.includes(key))
+          return (
+            visible.length > 0 && (
+              <section className="catalog-group" key={heading}>
+                <h3>{heading}</h3>
+                <ToolGrid selection={visible} />
+              </section>
+            )
+          )
+        })}
+      {(!embedded || filtered) && (
+        <>
+          {embedded && <h3>Modelos encontrados</h3>}
+          <div className="grid">
+            {found.map(({ key, i, name }) => (
+              <Link
+                className="card library-link"
+                key={key + i}
+                to={
+                  '/app/criar/' +
+                  key +
+                  '?modelo=' +
+                  i +
+                  (age ? '&faixa=' + groups.indexOf(age) : '')
+                }
+              >
+                <strong>{name}</strong>
+                <span>{tools[key].name}</span>
+              </Link>
+            ))}
+          </div>
+          {!found.length && (
+            <p>
+              Nenhum modelo encontrado. Experimente outro nome ou categoria.
+            </p>
+          )}
+        </>
       )}
-    </>
+    </section>
   )
 }
 function Materials() {
@@ -530,6 +738,21 @@ function Materials() {
     <>
       <h1>Meus materiais</h1>
       <p>Os rascunhos ficam neste navegador, neste dispositivo.</p>
+      <label className="import-draft">
+        Importar cópia editável
+        <input
+          type="file"
+          accept=".json,application/json"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            event.target.value = ''
+            if (file)
+              void mutate(async () => {
+                await drafts.put(await importEditable(file))
+              }, 'Cópia importada.')
+          }}
+        />
+      </label>
       <p role="status">{message}</p>
       {list?.length === 0 ? (
         <div className="card">
@@ -618,6 +841,17 @@ function Materials() {
                 </button>
                 <button
                   className="secondary"
+                  onClick={() =>
+                    download(
+                      editableFile(d),
+                      filename(d.name) + '.professora-facil.json',
+                    )
+                  }
+                >
+                  Baixar cópia editável
+                </button>
+                <button
+                  className="secondary"
                   onClick={() => setConfirmation(d.id)}
                 >
                   Excluir
@@ -645,6 +879,7 @@ function Materials() {
                   async () => {
                     if (confirmation === 'all') {
                       await drafts.clear()
+                      clearRecovery()
                       if (!easy) toggle()
                       localStorage.removeItem('pf-easy')
                     } else await drafts.remove(confirmation)
@@ -700,12 +935,14 @@ function Future() {
 function CreateRoute() {
   const { tool } = useParams()
   const [params] = useSearchParams()
+  const group = params.get('faixa')
   if (!tool || !Object.hasOwn(tools, tool)) return <Missing />
   const key = tool as Tool
   const props = {
     tool: key,
     model: Number(params.get('modelo') ?? 0),
     draftId: params.get('rascunho'),
+    age: group !== null && groups[Number(group)] ? Number(group) : undefined,
   }
   return (
     <Suspense fallback={<p role="status">Abrindo ferramenta…</p>}>
@@ -759,10 +996,14 @@ export function App() {
         },
       }}
     >
-      <a className="skip" href="#conteudo" onClick={(event) => {
-        event.preventDefault()
-        document.getElementById('conteudo')?.focus()
-      }}>
+      <a
+        className="skip"
+        href="#conteudo"
+        onClick={(event) => {
+          event.preventDefault()
+          document.getElementById('conteudo')?.focus()
+        }}
+      >
         Pular para o conteúdo
       </a>
       <Routes>

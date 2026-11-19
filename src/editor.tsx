@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { bncc, catalog, tools } from './catalog'
 import {
@@ -17,6 +17,9 @@ import {
   useWorkflow,
   type EditorProps,
 } from './workflow'
+
+import { groups } from './catalog'
+import { LessonMoments } from './lesson-moments'
 
 function Input({
   field,
@@ -134,18 +137,21 @@ function ImageBlock({
   )
 }
 export default function Editor(props: EditorProps) {
-  const { tool, model } = props
+  const { tool, model, age } = props
   const models = catalog[tool]
   const initial =
     Number.isInteger(model) && model >= 0 && model < models.length ? model : 0
-  const flow = useWorkflow(props, () => seed(tool, initial))
+  const flow = useWorkflow(props, () => ({
+    ...seed(tool, initial),
+    ...(age !== undefined ? { group: groups[age] } : {}),
+  }))
   const [step, setStep] = useState(0)
   const [imported, setImported] = useState('')
   const [importMode, setImportMode] = useState(false)
   const [busy, setBusy] = useState(false)
   const easy = useEasy()
   const { values, set, replace, error, message, setError, setMessage } = flow
-  const data = material(tool, values)
+  const data = useMemo(() => material(tool, values), [tool, values])
   const detail = details[tool] ?? []
   function choose(index: number) {
     const next = seed(tool, index)
@@ -213,14 +219,6 @@ export default function Editor(props: EditorProps) {
       setBusy(false)
     }
   }
-  const future =
-    tool === 'atividade'
-      ? 'Criar atividade livre com IA'
-      : tool === 'plano-de-aula'
-        ? 'Criar plano automaticamente com IA'
-        : tool === 'relatorio'
-          ? 'Escrever relatório com IA'
-          : 'Responder automaticamente com IA'
   const field = (f: Field) => (
     <Input
       key={f.key}
@@ -244,7 +242,13 @@ export default function Editor(props: EditorProps) {
       </button>
       <h1>{tools[tool].name}</h1>
       <div className="card editor-card">
-        <p className="progress">Etapa {step + 1} de 3</p>
+        <ol className="editor-stages" aria-label="Etapas do material">
+          {['Escolher', 'Ajustar', 'Baixar'].map((label, index) => (
+            <li aria-current={step === index ? 'step' : undefined} key={label}>
+              {index + 1}. {label}
+            </li>
+          ))}
+        </ol>
         <h2 id="editor-step" tabIndex={-1}>
           {['Escolher', 'Personalizar', 'Conferir'][step]}
         </h2>
@@ -269,119 +273,147 @@ export default function Editor(props: EditorProps) {
           </p>
         )}
         {step < 2 ? (
-          <form onSubmit={next}>
-            {step === 0 ? (
-              <>
-                {tool === 'documento' && (
-                  <div className="actions">
-                    <button
-                      type="button"
-                      className={importMode ? 'secondary' : ''}
-                      onClick={() => setImportMode(false)}
-                    >
-                      Criar documento
-                    </button>
-                    <button
-                      type="button"
-                      className={importMode ? '' : 'secondary'}
-                      onClick={() => setImportMode(true)}
-                    >
-                      Abrir Word ou PDF
-                    </button>
-                  </div>
-                )}
-                {tool === 'documento' && importMode ? (
-                  <>
-                    <p>
-                      O arquivo é lido neste dispositivo. Você poderá consultar
-                      o texto e escrever uma resposta em um novo documento.
-                    </p>
-                    <label>
-                      Selecionar documento
-                      <input
-                        type="file"
-                        accept=".docx,.pdf"
-                        disabled={busy}
-                        onChange={(e) => {
-                          void read(e.target.files?.[0])
-                          e.target.value = ''
-                        }}
-                      />
-                    </label>
-                  </>
-                ) : (
-                  <>
-                    <div className="form-grid">
-                      <label>
-                        {tool === 'atividade' ? 'Tipo de atividade' : 'Modelo'}
-                        <select
-                          value={values.model}
-                          onChange={(e) => choose(Number(e.target.value))}
-                        >
-                          {models.map((m, i) => (
-                            <option key={m} value={i}>
-                              {m}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      {chooseFields[tool]?.map(field)}
+          <div
+            className={step === 1 ? 'editor-columns' : undefined}
+            data-editor-step
+            key={step}
+          >
+            <form onSubmit={next}>
+              {step === 0 ? (
+                <>
+                  {tool === 'documento' && (
+                    <div className="actions">
+                      <button
+                        type="button"
+                        className={importMode ? 'secondary' : ''}
+                        onClick={() => setImportMode(false)}
+                      >
+                        Criar documento
+                      </button>
+                      <button
+                        type="button"
+                        className={importMode ? '' : 'secondary'}
+                        onClick={() => setImportMode(true)}
+                      >
+                        Abrir Word ou PDF
+                      </button>
                     </div>
-                    {(tool === 'atividade' || tool === 'plano-de-aula') && (
+                  )}
+                  {tool === 'documento' && importMode ? (
+                    <>
                       <p>
-                        <a href={bncc}>Consultar a BNCC do MEC</a>. Os objetivos
-                        editáveis são sugestões pedagógicas. Confira eventuais
-                        códigos na fonte oficial.
+                        O arquivo é lido neste dispositivo. Você poderá
+                        consultar o texto e criar um novo documento a partir
+                        dele.
                       </p>
-                    )}
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                {values.importMode === 'yes' && (
-                  <details open={Boolean(imported)}>
-                    <summary>Texto do documento original</summary>
-                    {imported ? (
-                      <div className="file-text">{imported}</div>
-                    ) : (
-                      <p>
-                        Para consultar o original novamente, volte à etapa
-                        anterior e abra o arquivo.
-                      </p>
-                    )}
-                  </details>
-                )}
-                <div className="form-grid">
-                  {detail.filter((f) => !easy || !f.optional).map(field)}
-                  {easy && detail.some((f) => f.optional) && (
-                    <details className="wide">
-                      <summary>Informações opcionais</summary>
+                      <label>
+                        Selecionar documento
+                        <input
+                          type="file"
+                          accept=".docx,.pdf"
+                          disabled={busy}
+                          onChange={(e) => {
+                            void read(e.target.files?.[0])
+                            e.target.value = ''
+                          }}
+                        />
+                      </label>
+                    </>
+                  ) : (
+                    <>
                       <div className="form-grid">
-                        {detail.filter((f) => f.optional).map(field)}
+                        <label>
+                          {tool === 'atividade'
+                            ? 'Tipo de atividade'
+                            : 'Modelo'}
+                          <select
+                            value={values.model}
+                            onChange={(e) => choose(Number(e.target.value))}
+                          >
+                            {models.map((m, i) => (
+                              <option key={m} value={i}>
+                                {m}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {chooseFields[tool]?.map(field)}
                       </div>
+                      {(tool === 'atividade' || tool === 'plano-de-aula') && (
+                        <p>
+                          <a href={bncc}>Consultar a BNCC do MEC</a>. Os
+                          objetivos editáveis são sugestões pedagógicas. Confira
+                          eventuais códigos na fonte oficial.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  {values.importMode === 'yes' && (
+                    <details open={Boolean(imported)}>
+                      <summary>Texto do documento original</summary>
+                      {imported ? (
+                        <div className="file-text">{imported}</div>
+                      ) : (
+                        <p>
+                          Para consultar o original novamente, volte à etapa
+                          anterior e abra o arquivo.
+                        </p>
+                      )}
                     </details>
                   )}
+                  <div className="form-grid">
+                    {detail.filter((f) => !easy || !f.optional).map(field)}
+                    {easy && detail.some((f) => f.optional) && (
+                      <details className="wide">
+                        <summary>Informações opcionais</summary>
+                        <div className="form-grid">
+                          {detail.filter((f) => f.optional).map(field)}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                  {tool === 'plano-de-aula' && (
+                    <LessonMoments
+                      value={values.moments}
+                      duration={values.duration}
+                      onChange={(value) => set('moments', value)}
+                    />
+                  )}
+                </>
+              )}
+              <div className="actions">
+                {step > 0 && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => changeStep(step - 1)}
+                  >
+                    Voltar
+                  </button>
+                )}
+                {!(step === 0 && tool === 'documento' && importMode) && (
+                  <button disabled={busy}>
+                    {step === 0 ? 'Personalizar' : 'Conferir material'}
+                  </button>
+                )}
+              </div>
+            </form>
+            {step === 1 && (
+              <aside className="editor-live" aria-label="Prévia do material">
+                <div className="live-preview-desktop">
+                  <h3>Prévia atualizada</h3>
+                  <Preview data={data} />
                 </div>
-              </>
+                <details className="live-preview-mobile">
+                  <summary>Ver prévia</summary>
+                  <Preview data={data} />
+                </details>
+              </aside>
             )}
-            <div className="actions">
-              {step > 0 && (
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => changeStep(step - 1)}
-                >
-                  Voltar
-                </button>
-              )}
-              {!(step === 0 && tool === 'documento' && importMode) && (
-                <button disabled={busy}>
-                  {step === 0 ? 'Personalizar' : 'Conferir material'}
-                </button>
-              )}
-            </div>
-          </form>
+          </div>
         ) : (
           <>
             <Preview data={data} />
@@ -412,7 +444,6 @@ export default function Editor(props: EditorProps) {
             </div>
           </>
         )}
-        <Link to="/app/em-breve/ia">{future} · Em breve</Link>
       </div>
     </>
   )
