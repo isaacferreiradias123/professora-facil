@@ -151,7 +151,10 @@ function noticeContents(
                   margins: { top: 90, bottom: 90, left: 110, right: 110 },
                   children: [
                     text(field.label, { bold: true, size: 17, after: 25 }),
-                    text(field.text, { size: 20, after: 25 }),
+                    text(field.text.trim() || '________________', {
+                      size: 20,
+                      after: 25,
+                    }),
                   ],
                 }),
             ),
@@ -280,7 +283,36 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
       const cache = new Map<string, Uint8Array>()
       for (const p of pictures)
         if (!cache.has(p.asset)) cache.set(p.asset, await imageBytes(p.asset))
-      if (task.mode === 'table' || task.mode === 'count') {
+      if (task.mode === 'answer') {
+        contents.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: pictures.map(
+              (p) =>
+                new ImageRun({
+                  type: 'png',
+                  data: cache.get(p.asset)!,
+                  transformation: { width: 110, height: 110 },
+                  altText: { name: p.asset, title: p.alt, description: p.alt },
+                }),
+            ),
+          }),
+        )
+        for (const label of task.prompts ?? []) {
+          contents.push(
+            text(label, { bold: true }),
+            new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              rows: [
+                new TableRow({
+                  height: { value: 1800, rule: HeightRule.ATLEAST },
+                  children: [new TableCell({ children: [text('')] })],
+                }),
+              ],
+            }),
+          )
+        }
+      } else if (task.mode === 'table' || task.mode === 'count') {
         const rows = worksheetGroups(item, values).map((label) => {
           const images = pictures.filter((p) => p.alt === label)
           return new TableRow({

@@ -40,6 +40,7 @@ import { AdjustLayout } from './editor-ui'
 import { download, filename, printBlob, useWorkflow } from './workflow'
 import { tools, type Tool } from './catalog'
 import type { Draft, Values } from './store'
+import { collectionSections, sectionFor } from './catalog-sections'
 import './classroom.css'
 
 export function draftLink(item: Draft) {
@@ -201,10 +202,10 @@ function PreviewThumb({ item }: { item: ClassroomItem }) {
       />
     )
   const values = initialValues(item)
-  if (item.id === 'boas-vindas')
+  if (item.id === 'boas-vindas' || Boolean(item.mosaicLabels))
     return (
       <Paper
-        marks={panelArtwork(values)}
+        marks={panelArtwork(values, item)}
         width={assembled.width}
         height={assembled.height}
       />
@@ -398,6 +399,9 @@ export function ClassroomLibrary() {
   const creating = Boolean(tool)
   const activityLibrary = tool === 'atividade' || category === 'Atividades'
   const purpose = params.get('uso') ?? ''
+  const selectedSection = params.get('secao') ?? ''
+  const choices = collectionSections.filter((section) => section.tool === tool)
+  const [pagination, setPagination] = useState({ filter: '', page: 1 })
   const [age, setAge] = useState('')
   const [mode, setMode] = useState('')
   const [query, setQuery] = useState('')
@@ -405,6 +409,9 @@ export function ClassroomLibrary() {
   const results = classroom.filter(
     (item) =>
       (!creating || item.tool === tool) &&
+      (!tool ||
+        !choices.some((section) => section.id === selectedSection) ||
+        sectionFor(item) === selectedSection) &&
       (!activityLibrary || !purpose || activityUse(item) === purpose) &&
       (!category || item.category === category) &&
       (!age || item.age === age || (!item.age && item.tool !== 'atividade')) &&
@@ -415,6 +422,19 @@ export function ClassroomLibrary() {
           .join(' '),
       ).includes(search),
   )
+  const filterKey = [
+    tool,
+    category,
+    purpose,
+    selectedSection,
+    age,
+    mode,
+    search,
+  ].join('|')
+  const totalPages = Math.max(1, Math.ceil(results.length / 24))
+  const activePage =
+    pagination.filter === filterKey ? Math.min(pagination.page, totalPages) : 1
+  const visible = results.slice((activePage - 1) * 24, activePage * 24)
   function setCategory(next: string) {
     const filters = new URLSearchParams(params)
     filters.delete('uso')
@@ -449,6 +469,27 @@ export function ClassroomLibrary() {
         </div>
         <Link to="/app/modelos">Modelos anteriores</Link>
       </div>
+      {tool && !activityLibrary && choices.length > 1 && (
+        <label className="school-section-filter">
+          Seção da ferramenta
+          <select
+            value={selectedSection}
+            onChange={(event) => {
+              const next = new URLSearchParams(params)
+              if (event.target.value) next.set('secao', event.target.value)
+              else next.delete('secao')
+              setParams(next)
+            }}
+          >
+            <option value="">Todas as seções</option>
+            {choices.map((choice) => (
+              <option key={choice.id} value={choice.id}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {activityLibrary && (
         <div
           className="activity-purpose"
@@ -497,9 +538,22 @@ export function ClassroomLibrary() {
         </div>
       )}
       {tool === 'documento' && (
-        <Link className="button" to="/app/responder">
-          Responder no documento visualizado
-        </Link>
+        <nav className="actions" aria-label="Opções de documentos">
+          <button
+            type="button"
+            onClick={() =>
+              document.getElementById('modelos-da-ferramenta')?.focus()
+            }
+          >
+            Criar um documento
+          </button>
+          <Link className="button secondary" to="/app/editar-word">
+            Editar um Word existente
+          </Link>
+          <Link className="button secondary" to="/app/responder?tipo=pdf">
+            Responder no PDF
+          </Link>
+        </nav>
       )}
       {tool &&
         ['documento', 'postagem', 'painel', 'fotos-em-pdf'].includes(tool) && (
@@ -514,7 +568,7 @@ export function ClassroomLibrary() {
           </Link>
         )}
       {!creating && <ClassroomTabs selected={category} choose={setCategory} />}
-      <div className="school-filters">
+      <div className="school-filters" id="modelos-da-ferramenta" tabIndex={-1}>
         <label>
           Buscar na coleção
           <span>
@@ -557,8 +611,8 @@ export function ClassroomLibrary() {
         : [['', '']]
       ).map(([kind, label]) => {
         const items = kind
-          ? results.filter((item) => activityUse(item) === kind)
-          : results
+          ? visible.filter((item) => activityUse(item) === kind)
+          : visible
         if (!items.length) return null
         return (
           <section className="school-results-group" key={kind}>
@@ -571,6 +625,33 @@ export function ClassroomLibrary() {
           </section>
         )
       })}
+      {totalPages > 1 && (
+        <nav className="actions" aria-label="Páginas do catálogo">
+          <button
+            type="button"
+            className="secondary"
+            disabled={activePage === 1}
+            onClick={() =>
+              setPagination({ filter: filterKey, page: activePage - 1 })
+            }
+          >
+            Anterior
+          </button>
+          <span>
+            Página {activePage} de {totalPages}
+          </span>
+          <button
+            type="button"
+            className="secondary"
+            disabled={activePage === totalPages}
+            onClick={() =>
+              setPagination({ filter: filterKey, page: activePage + 1 })
+            }
+          >
+            Próxima
+          </button>
+        </nav>
+      )}
       {!results.length && (
         <button
           className="secondary"
@@ -597,7 +678,9 @@ function PagePreview({
   values: Values
   sheets: ReturnType<typeof buildSheets>
 }) {
-  const [selected, setSelected] = useState(item.id === 'boas-vindas' ? -1 : 0)
+  const [selected, setSelected] = useState(
+    item.id === 'boas-vindas' || Boolean(item.mosaicLabels) ? -1 : 0,
+  )
   const [wide, setWide] = useState(false)
   const active = Math.min(sheets.length - 1, selected)
   const assembledPreview = active < 0
@@ -623,7 +706,7 @@ function PagePreview({
         </button>
       </div>
       <div className="school-page-picker" aria-label="Páginas da prévia">
-        {item.id === 'boas-vindas' && (
+        {(item.id === 'boas-vindas' || Boolean(item.mosaicLabels)) && (
           <button
             type="button"
             className="secondary"
@@ -655,7 +738,7 @@ function PagePreview({
       >
         {assembledPreview ? (
           <Paper
-            marks={panelArtwork(values)}
+            marks={panelArtwork(values, item)}
             width={assembled.width}
             height={assembled.height}
           />

@@ -49,6 +49,7 @@ import { assetUrl } from './classroom-layout'
 const Editor = lazy(() => import('./editor'))
 const Visual = lazy(() => import('./visual'))
 const DocumentResponse = lazy(() => import('./document-response-view'))
+const WordEditor = lazy(() => import('./word-edit-view'))
 const Preference = createContext({ easy: true, toggle: () => {} })
 export const useEasy = () => useContext(Preference).easy
 const toolCards: Record<Tool, { image: string; output: string }> = {
@@ -1262,6 +1263,14 @@ export function App() {
             element={
               <Suspense fallback={<p role="status">Abrindo editor…</p>}>
                 <DocumentResponse />
+              </Suspense>
+            }
+          />
+          <Route
+            path="editar-word"
+            element={
+              <Suspense fallback={<p role="status">Abrindo editor…</p>}>
+                <WordEditor />
               </Suspense>
             }
           />

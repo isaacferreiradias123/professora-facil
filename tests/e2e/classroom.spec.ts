@@ -173,8 +173,8 @@ test('coleção é navegável por teclado e turma, com PDF pronto e rascunho rea
   await page
     .getByRole('combobox', { name: 'Formato', exact: true })
     .selectOption('pronto')
-  await expect(page.getByRole('status')).toContainText('1 material')
-  await page.getByRole('link', { name: /Pronto para imprimir/ }).click()
+  await expect(page.getByRole('status')).toContainText('2 materiais')
+  await page.locator('a[href$="/frutas-prontas"]').click()
   expect(
     (
       await PDFDocument.load(
@@ -562,10 +562,7 @@ test('responde no Word escolhido e na posição da página do PDF', async ({
       ],
     }),
   )
-  await page.goto('/app/colecao?ferramenta=documento')
-  await page
-    .getByRole('link', { name: 'Responder no documento visualizado' })
-    .click()
+  await page.goto('/app/responder')
   const upload = page.getByLabel('Selecionar arquivo para responder')
   await upload.setInputFiles({
     name: 'questoes.docx',
