@@ -66,6 +66,7 @@ test('ficha de Pré II tem contagem ilustrada, Econômico P&B e roteiro', async 
   await expect(
     page.getByRole('heading', { name: 'A feira da turma' }),
   ).toBeVisible()
+  await page.getByText('Estilo de impressão', { exact: true }).click()
   await page.getByRole('button', { name: 'Econômico P&B' }).click()
   await expect(
     page.getByRole('button', { name: 'Econômico P&B' }),

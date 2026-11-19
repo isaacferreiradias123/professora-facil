@@ -918,3 +918,24 @@
   text-decoration: underline;
   text-underline-offset: .24em;
 }
+
+.print-style summary {
+  min-height: 44px;
+  cursor: pointer;
+  padding-block: .55rem;
+}
+
+@media (max-width: 30rem) {
+  .editor-steps-guide {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .25rem;
+  }
+
+  .editor-steps-guide button,
+  .editor-steps-guide a {
+    justify-content: center;
+    padding-inline: .2rem;
+    font-size: .8rem;
+  }
+}

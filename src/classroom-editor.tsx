@@ -338,28 +338,6 @@ function SchoolEditor({
     <div className="school-form">
       <h2>Personalizar material</h2>
 
-      <fieldset className="theme-picker">
-        <legend>Estilo de impressão</legend>
-        <div className="theme-swatches">
-          {Object.entries(printThemes).map(([id, theme]) => (
-            <button
-              key={id}
-              type="button"
-              className="secondary theme-chip"
-              aria-pressed={activeTheme === id}
-              onClick={() => set('printTheme', id)}
-            >
-              <span
-                className="theme-dot"
-                style={{ backgroundColor: theme.swatch }}
-                aria-hidden="true"
-              />
-              {theme.label}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-
       {isNotice && (
         <>
           <div className="school-form-grid">
@@ -851,6 +829,27 @@ function SchoolEditor({
           </p>
         </div>
       )}
+      <details className="print-style">
+        <summary>Estilo de impressão</summary>
+        <div className="theme-swatches">
+          {Object.entries(printThemes).map(([id, theme]) => (
+            <button
+              key={id}
+              type="button"
+              className="secondary theme-chip"
+              aria-pressed={activeTheme === id}
+              onClick={() => set('printTheme', id)}
+            >
+              <span
+                className="theme-dot"
+                style={{ backgroundColor: theme.swatch }}
+                aria-hidden="true"
+              />
+              {theme.label}
+            </button>
+          ))}
+        </div>
+      </details>
     </div>
   )
 
