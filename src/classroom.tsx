@@ -6,6 +6,9 @@ import {
   useSearchParams,
 } from 'react-router-dom'
 import { Search } from 'lucide-react'
+import { archiveAdditions } from './archive-additions'
+import { archiveItems } from './archive-items'
+
 import {
   ageBands,
   classroom,
@@ -29,6 +32,12 @@ import { tools, type Tool } from './catalog'
 import type { Draft, Values } from './store'
 import { collectionSections, sectionFor } from './catalog-sections'
 import './classroom.css'
+
+const archivePageSize = 24
+const addedArchiveIds = new Set<string>(archiveAdditions.map(({ id }) => id))
+const sortedArchive = [...archiveItems].sort((a, b) => a.id.localeCompare(b.id))
+const archiveTypes = [...new Set(archiveItems.map((item) => item.archiveType ?? item.category))]
+  .sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
 export function draftLink(item: Draft) {
   const id = item.values.collectionId
@@ -391,7 +400,7 @@ function ClassroomCard({
   }, [showThumb])
 
   const count = item.ready
-    ? 1
+    ? (item.ready.pages ?? 1)
     : item.visual
       ? undefined
       : item.tool === 'painel'
@@ -452,7 +461,7 @@ function ClassroomCard({
             {item.panel
               ? ' · ' + (item.panel.landscape ? 'Horizontal' : 'Vertical')
               : ''}
-            {item.tool === 'postagem' ? ' · PNG' : ' · PDF'}
+            {item.ready?.presentation ? ' · PPTX e PDF' : item.tool === 'postagem' ? ' · PNG' : ' · PDF'}
             {count ? ' · ' + count + (count === 1 ? ' folha' : ' folhas') : ''}
           </p>
           <h3>{item.title}</h3>
@@ -490,7 +499,9 @@ const normalized = (value: string) =>
 
 export function ClassroomLibrary() {
   const [params, setParams] = useSearchParams()
-  const requestedTool = params.get('ferramenta')
+  const archive = params.get('acervo') === 'pt-br'
+  const kind = params.get('tipo') ?? ''
+  const requestedTool = archive ? null : params.get('ferramenta')
   const tool =
     requestedTool && Object.hasOwn(tools, requestedTool)
       ? (requestedTool as Tool)
@@ -527,6 +538,7 @@ export function ClassroomLibrary() {
 
   function filter(name: string, value: string, replace = false) {
     const next = new URLSearchParams(pendingFilters.current)
+    if (name !== 'pagina') next.delete('pagina')
     if (value) next.set(name, value)
     else next.delete(name)
     setFilters(next, replace)
@@ -554,8 +566,9 @@ export function ClassroomLibrary() {
   }, [catalogUrl])
 
   const search = normalized(query.trim())
-  const results = classroom.filter(
+  const results = (archive ? sortedArchive : classroom).filter(
     (item) =>
+      (archive ? !kind || (item.archiveType ?? item.category) === kind : !addedArchiveIds.has(item.id)) &&
       (!tool || item.tool === tool) &&
       (!tool ||
         !choices.some((section) => section.id === selectedSection) ||
@@ -572,6 +585,7 @@ export function ClassroomLibrary() {
         [
           item.title,
           item.category,
+          item.archiveType,
           tools[item.tool].name,
           item.age,
           item.description,
@@ -581,20 +595,39 @@ export function ClassroomLibrary() {
       ).includes(search),
   )
 
+  const totalPages = Math.max(1, Math.ceil(results.length / archivePageSize))
+  const requestedPage = Number(params.get('pagina'))
+  const currentPage =
+    Number.isInteger(requestedPage) && requestedPage > 0
+      ? Math.min(requestedPage, totalPages)
+      : 1
+  const listedItems = archive
+    ? results.slice((currentPage - 1) * archivePageSize, currentPage * archivePageSize)
+    : results
+
   return (
     <div className="school-library">
       <div className="school-section-head">
         <div>
-          <h1>{tool ? tools[tool].name : 'Modelos da coleção'}</h1>
+          <h1>{archive ? 'Acervo em português' : tool ? tools[tool].name : 'Modelos da coleção'}</h1>
           <p>
-            {tool
+            {archive
+              ? 'Fichas, cartazes e certificados para baixar, do Berçário ao Pré II.'
+              : tool
               ? tools[tool].description
               : 'Escolha uma ferramenta abaixo ou filtre pela turma para personalizar e baixar.'}
           </p>
         </div>
       </div>
 
-      <ClassroomTabs selected={tool ?? ''} choose={selectTool} />
+      {archive ? (
+        <Link className="button secondary" to="/app/colecao">Voltar à coleção</Link>
+      ) : (
+        <>
+          <Link className="button secondary" to="/app/colecao?acervo=pt-br">Acervo em português</Link>
+          <ClassroomTabs selected={tool ?? ''} choose={selectTool} />
+        </>
+      )}
 
       {tool && !activityLibrary && choices.length > 1 && (
         <label className="school-section-filter">
@@ -712,7 +745,16 @@ export function ClassroomLibrary() {
             ))}
           </select>
         </label>
-        <label>
+        {archive && (
+          <label>
+            Tipo de material
+            <select value={kind} onChange={(event) => filter('tipo', event.target.value)}>
+              <option value="">Todos</option>
+              {archiveTypes.map((type) => <option key={type}>{type}</option>)}
+            </select>
+          </label>
+        )}
+        {!archive && <label>
           Formato
           <select
             value={mode}
@@ -722,7 +764,7 @@ export function ClassroomLibrary() {
             <option value="editavel">Personalizável</option>
             <option value="pronto">Pronto para imprimir</option>
           </select>
-        </label>
+        </label>}
         {tool === 'painel' && selectedSection !== 'kits' && (
           <label>
             Painel montado
@@ -743,16 +785,20 @@ export function ClassroomLibrary() {
         {results.length === 1 ? 'material encontrado' : 'materiais encontrados'}
       </p>
 
-      {(activityLibrary
+      {(archive
+        ? ageBands.map((band) => [band, band])
+        : activityLibrary
         ? [
             ['student', 'Folhas para os alunos'],
             ['guided', 'Para fazer com os alunos'],
           ]
         : [['', '']]
       ).map(([kind, label]) => {
-        const items = kind
-          ? results.filter((item) => activityUse(item) === kind)
-          : results
+        const items = archive
+          ? listedItems.filter((item) => item.age === kind)
+          : kind
+          ? listedItems.filter((item) => activityUse(item) === kind)
+          : listedItems
         if (!items.length) return null
         return (
           <section className="school-results-group" key={kind}>
@@ -770,12 +816,25 @@ export function ClassroomLibrary() {
         )
       })}
 
+      {archive && totalPages > 1 && (
+        <nav className="actions" aria-label="Páginas do acervo">
+          <button type="button" className="secondary" disabled={currentPage === 1}
+            onClick={() => filter('pagina', String(currentPage - 1))}>
+            Anterior
+          </button>
+          <span role="status">Página {currentPage} de {totalPages}</span>
+          <button type="button" className="secondary" disabled={currentPage === totalPages}
+            onClick={() => filter('pagina', String(currentPage + 1))}>
+            Próxima
+          </button>
+        </nav>
+      )}
       {!results.length && (
         <button
           type="button"
           className="secondary"
           onClick={() => {
-            setFilters(new URLSearchParams(tool ? { ferramenta: tool } : {}))
+            setFilters(new URLSearchParams(archive ? { acervo: 'pt-br' } : tool ? { ferramenta: tool } : {}))
           }}
         >
           Limpar filtros

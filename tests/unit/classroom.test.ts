@@ -20,10 +20,11 @@ function assetExists(name: string) {
 }
 
 describe('curated classroom collection', () => {
-  it('has 77 distinct models with unique IDs and titles across all sections', () => {
-    expect(classroom).toHaveLength(77)
+  it('preserves the curated collection alongside the imported archive', () => {
+    const curated = classroom.filter((item) => !item.id.startsWith('acervo-'))
+    expect(curated).toHaveLength(69)
     expect(new Set(classroom.map((item) => item.id)).size).toBe(classroom.length)
-    expect(new Set(classroom.map((item) => item.title)).size).toBe(classroom.length)
+    expect(new Set(curated.map((item) => item.title)).size).toBe(curated.length)
 
     const populated = new Set(classroom.map((item) => sectionFor(item)))
     for (const section of collectionSections) {
