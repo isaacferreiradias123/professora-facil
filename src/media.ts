@@ -47,6 +47,9 @@ export interface PhotoOptions {
   margin: number
   crop: boolean
   quality: 'standard' | 'high'
+  header?: string
+  subtitle?: string
+  numbering?: boolean
 }
 export function photoPages(items: Photo[], perPage: number) {
   const pages: Photo[][] = []
@@ -75,15 +78,20 @@ export function photoLayout(options: PhotoOptions) {
   const rows = options.perPage / cols
   const margin = (options.margin * 72) / 25.4
   const gap = 12
+  const top = margin + (options.header?.trim() ? 46 : 0)
+  const bottom = margin + (options.numbering ? 18 : 0)
   const width = (pageWidth - 2 * margin - (cols - 1) * gap) / cols
-  const height = (pageHeight - 2 * margin - (rows - 1) * gap) / rows
+  const height = (pageHeight - top - bottom - (rows - 1) * gap) / rows
   return {
     pageWidth,
     pageHeight,
+    margin,
+    top,
+    bottom,
     width,
     height,
     x: (index: number) => margin + (index % cols) * (width + gap),
-    y: (index: number) => margin + Math.floor(index / cols) * (height + gap),
+    y: (index: number) => top + Math.floor(index / cols) * (height + gap),
   }
 }
 
@@ -232,6 +240,8 @@ export async function photoCell(
 }
 export interface ArtOptions {
   crop?: boolean
+  composition?: string
+  callout?: string
   title: string
   body: string
   date: string
@@ -283,6 +293,23 @@ export function drawArt(
   const pad = unit * 0.095
   ctx.fillStyle = options.background
   ctx.fillRect(0, 0, w, h)
+  const imageOnly = panel && options.composition === 'imagem'
+  if (imageOnly) {
+    if (image) {
+      const rect = fitted(
+        image.naturalWidth,
+        image.naturalHeight,
+        w,
+        h,
+        Boolean(options.crop),
+      )
+      ctx.drawImage(image, rect.x, rect.y, rect.width, rect.height)
+    }
+    return false
+  }
+  const memory = !panel && options.composition === 'memoria' && Boolean(image)
+  const invite = !panel && options.composition === 'convite'
+  const notice = !panel && options.composition === 'aviso'
   ctx.save()
   ctx.globalAlpha = 0.21
   ctx.fillStyle = options.foreground
@@ -329,7 +356,7 @@ export function drawArt(
     )
   }
   ctx.fillStyle = options.foreground
-  const headLimit = image ? h * 0.28 : h * 0.39
+  const headLimit = image ? h * 0.22 : h * 0.36
   function fit(text: string, size: number, maxHeight: number, bold = false) {
     let lines: string[] = []
     for (; size >= 4; size = Math.floor(size * 0.91)) {
@@ -349,16 +376,19 @@ export function drawArt(
   const body = fit(
     options.body,
     Math.floor(unit * 0.045),
-    image ? h * 0.22 : h * 0.33,
+    image ? h * 0.18 : h * 0.3,
   )
   const gap = unit * 0.025
-  const imageH = image ? h * 0.31 : 0
+  const callout = !panel ? (options.callout?.trim() ?? '') : ''
+  const footer = fit(callout, Math.floor(unit * 0.03), h * 0.08, true)
+  const imageH = image ? h * (memory ? 0.33 : 0.27) : 0
   const total =
     title.lines.length * title.size * 1.24 +
     (options.body ? body.lines.length * body.size * 1.24 + gap : 0) +
     (options.date ? date.lines.length * date.size * 1.24 + gap : 0) +
-    (image ? imageH + gap : 0)
-  let y = Math.max(pad * 0.5, (h - total) / 2)
+    (image ? imageH + gap : 0) +
+    (callout ? footer.lines.length * footer.size * 1.24 + gap * 2 : 0)
+  let y = Math.max(invite || notice ? pad * 1.12 : pad * 0.75, (h - total) / 2)
   ctx.textBaseline = 'top'
   function draw(block: typeof title) {
     ctx.font = block.font
@@ -367,13 +397,8 @@ export function drawArt(
       y += block.size * 1.24
     }
   }
-  draw(title)
-  if (options.date) {
-    y += gap
-    draw(date)
-  }
-  if (image) {
-    y += gap
+  function drawPhoto() {
+    if (!image) return
     const rect = fitted(
       image.naturalWidth,
       image.naturalHeight,
@@ -387,13 +412,43 @@ export function drawArt(
     ctx.clip()
     ctx.drawImage(image, pad + rect.x, y + rect.y, rect.width, rect.height)
     ctx.restore()
-    y += imageH
+    y += imageH + gap
+  }
+  if (memory) drawPhoto()
+  if (invite || notice) {
+    ctx.save()
+    ctx.globalAlpha = 0.15
+    ctx.fillRect(pad, y - gap * 0.7, w - 2 * pad, gap * 0.24)
+    ctx.restore()
+  }
+  draw(title)
+  if (options.date) {
+    y += gap
+    draw(date)
+  }
+  if (!memory && image) {
+    y += gap
+    drawPhoto()
   }
   if (options.body) {
     y += gap
     draw(body)
   }
+  if (callout) {
+    y += gap * 1.8
+    ctx.save()
+    ctx.globalAlpha = 0.18
+    ctx.fillRect(
+      pad,
+      y - gap * 0.45,
+      w - 2 * pad,
+      footer.lines.length * footer.size * 1.24 + gap * 0.65,
+    )
+    ctx.restore()
+    draw(footer)
+  }
   return (
+    y > h - pad * 0.3 ||
     title.size < unit * 0.033 ||
     Boolean(options.body && body.size < unit * 0.022)
   )

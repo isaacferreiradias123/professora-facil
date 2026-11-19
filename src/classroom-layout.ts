@@ -232,6 +232,10 @@ const picture: Record<string, string> = {
   Peras: 'fruit-pear.png',
 }
 export function worksheetGroups(item: ClassroomItem, values: Values) {
+  if (item.id === 'criar-pares') {
+    if (values.group === 'animals') return ['Gato', 'Pato', 'Cão', 'Pássaro']
+    if (values.group === 'school') return ['Lápis', 'Livro', 'Pincel', 'Blocos']
+  }
   if (item.id === 'criar-contagem') {
     if (values.group === 'animals') return ['Gatos', 'Patos', 'Cães']
     if (values.group === 'school') return ['Lápis', 'Livros', 'Pincéis']
@@ -495,36 +499,34 @@ export function noticeFits(item: ClassroomItem, values: Values) {
   )
 }
 
+const noticeArt: Record<string, { asset: string; color: string }> = {
+  reuniao: { asset: 'bilhete-reuniao.webp', color: sage },
+  passeio: { asset: 'bilhete-passeio.webp', color: peach },
+  materiais: { asset: 'bilhete-materiais.webp', color: lavender },
+  evento: { asset: 'bilhete-evento.webp', color: cream },
+}
+export function noticeVisual(item: ClassroomItem) {
+  return noticeArt[item.id] ?? { asset: 'bilhete-reuniao.webp', color: sage }
+}
+
 function noticeSheet(item: ClassroomItem, values: Values) {
   const result = sheet('Comunicado às famílias')
   const page = draw(result)
   const copies = values.copies === '2' ? 2 : 1
   const height = copies === 2 ? 130 : 264
   const fields = noticeFields(item, values)
+  const visual = noticeVisual(item)
   for (let i = 0; i < copies; i++) {
     const y = 12 + i * 142
     page.box(12, y, 186, height, '#ffffff', rule)
-    page.box(
-      12,
-      y,
-      186,
-      33,
-      i % 2 ? sage : item.id === 'passeio' ? peach : sage,
-    )
-    page.image(
-      'recados.webp',
-      164,
-      y + 3,
-      31,
-      26,
-      'Ilustração de agenda escolar',
-    )
+    page.box(12, y, 186, 33, visual.color)
+    page.image(visual.asset, 158, y + 4, 35, 23.33, 'Ilustração do recado')
     page.text(values.school || 'COMUNICADO ESCOLAR', 20, y + 6, 3.6, {
       bold: true,
-      width: 142,
+      width: 133,
     })
-    page.text(values.title, 20, y + 15, 6, { bold: true, width: 142 })
-    page.text(values.classroom, 20, y + 26, 3.25, { color: muted, width: 142 })
+    page.text(values.title, 20, y + 15, 6, { bold: true, width: 133 })
+    page.text(values.classroom, 20, y + 26, 3.25, { color: muted, width: 133 })
     page.text(values.recipient, 20, y + 40, 4.1, { bold: true, width: 168 })
     let nextY = y + 50
     if (fields.length) {
@@ -604,6 +606,14 @@ export function panelMap() {
       Math.floor(i / 2) * (panelMetrics.tileHeight - panelMetrics.overlap),
   }))
 }
+export function panelPieces(item: ClassroomItem, values: Values) {
+  const custom = values.panelPieces
+    ?.split(/\r?\n/)
+    .map((value) => value.trim().slice(0, 40))
+    .filter(Boolean)
+    .slice(0, 28)
+  return custom?.length ? custom : (item.poster ?? [])
+}
 function panelGuide(item: ClassroomItem, values: Values, pages: number) {
   const guide = sheet('Guia de montagem')
   const page = draw(guide)
@@ -662,9 +672,10 @@ function panelGuide(item: ClassroomItem, values: Values, pages: number) {
   } else {
     page.box(16, 113, 178, 29, sage, rule)
     page.text(values.title, 21, 123, 6, { bold: true, width: 166 })
-    const columns = item.poster.length > 16 ? 5 : item.poster.length > 8 ? 4 : 3
+    const pieces = panelPieces(item, values)
+    const columns = pieces.length > 16 ? 5 : pieces.length > 8 ? 4 : 3
     const span = 180 / columns
-    item.poster.forEach((label, i) => {
+    pieces.forEach((label, i) => {
       const x = 16 + (i % columns) * span,
         y = 148 + Math.floor(i / columns) * 17
       page.box(x, y, span - 3, 14, [sage, peach, cream, lavender][i % 4], rule)
@@ -726,7 +737,7 @@ function mosaic(item: ClassroomItem, values: Values) {
   return [panelGuide(item, values, 4), ...sheets]
 }
 function cutoutPanel(item: ClassroomItem, values: Values) {
-  const pieces = item.poster!
+  const pieces = panelPieces(item, values)
   const result: Sheet[] = []
   const count = 1 + Math.ceil(pieces.length / 8)
   const cover = sheet('Cabeçalho para recortar')
@@ -747,7 +758,7 @@ function cutoutPanel(item: ClassroomItem, values: Values) {
       const x = 14 + (i % 2) * 94,
         y = 25 + Math.floor(i / 2) * 59
       page.box(x, y, 88, 49, [sage, peach, cream, lavender][i % 4], muted, true)
-      page.image(iconFor(label), x + 6, y + 10, 24, 23, label)
+      page.image(iconFor(label), x + 6, y + 10, 23, 23, label)
       page.text(label, x + 34, y + 9, 4.2, { bold: true, width: 48 })
       if (item.id !== 'painel-rotina') page.line(x + 34, y + 32, 43)
     })
@@ -756,26 +767,56 @@ function cutoutPanel(item: ClassroomItem, values: Values) {
   return [panelGuide(item, values, count), ...result]
 }
 
-const planLabels = ['Acolhida', 'Proposta principal', 'Fechamento']
+const planLabels = [
+  'Acolhida',
+  'Proposta principal',
+  'Fechamento',
+  'Extensão ou adaptação',
+]
 export function planMoments(values: Values) {
   const saved = (values.conduct ?? '').split(/\r?\n/)
-  return planLabels.map((label, index) => {
-    const original = saved[index]?.match(/^(\d+)\s*min\s*·\s*(.*)$/)
-    const minutes = Number(values['minute' + index] ?? original?.[1] ?? 0)
-    return {
-      label,
-      minutes: Number.isFinite(minutes)
-        ? Math.max(0, Math.min(180, Math.trunc(minutes)))
-        : 0,
-      action: values['moment' + index] ?? original?.[2] ?? saved[index] ?? '',
-    }
-  })
+  return planLabels
+    .slice(0, values.extended === 'yes' ? 4 : 3)
+    .map((label, index) => {
+      const original = saved[index]?.match(/^(\d+)\s*min\s*·\s*(.*)$/)
+      const minutes = Number(values['minute' + index] ?? original?.[1] ?? 0)
+      return {
+        label,
+        minutes: Number.isFinite(minutes)
+          ? Math.max(0, Math.min(180, Math.trunc(minutes)))
+          : 0,
+        action: values['moment' + index] ?? original?.[2] ?? saved[index] ?? '',
+      }
+    })
 }
 export function planMinutes(values: Values) {
   return planMoments(values).reduce(
     (total, moment) => total + moment.minutes,
     0,
   )
+}
+
+export function documentDetails(item: ClassroomItem, values: Values) {
+  if (!item.form && item.tool !== 'relatorio') return []
+  return (item.fields ?? [])
+    .filter((field) => field.type !== 'long')
+    .map((field) => ({
+      label: field.label,
+      text: values[field.key]?.trim() || '________________',
+    }))
+}
+export function documentSignatures(item: ClassroomItem) {
+  if (item.form === 'entrega') return ['Quem entregou', 'Quem recebeu']
+  if (item.form === 'ata') return ['Responsável pela ata', 'Coordenação']
+  if (item.form === 'declaracao')
+    return ['Responsável e identificação da escola']
+  return item.tool === 'relatorio' ? ['Responsável pelo registro'] : []
+}
+export function documentKind(item: ClassroomItem) {
+  if (item.form === 'ata') return 'Ata escolar'
+  if (item.form === 'declaracao') return 'Declaração escolar'
+  if (item.form === 'entrega') return 'Registro de entrega'
+  return item.tool === 'plano-de-aula' ? 'Plano de aula' : 'Registro pedagógico'
 }
 
 export function buildSheets(item: ClassroomItem, values: Values): Sheet[] {
@@ -791,8 +832,8 @@ export function buildSheets(item: ClassroomItem, values: Values): Sheet[] {
   if (item.category === 'Painéis')
     return item.poster ? cutoutPanel(item, values) : mosaic(item, values)
   const pages: Sheet[] = []
-  const kind =
-    item.tool === 'plano-de-aula' ? 'Plano de aula' : 'Registro pedagógico'
+  const kind = documentKind(item)
+  const structured = item.form || item.tool === 'relatorio'
   let page: Draw
   let y = 0
   function nextPage() {
@@ -811,7 +852,24 @@ export function buildSheets(item: ClassroomItem, values: Values): Sheet[] {
     })
     y = 86
   }
+  const details = documentDetails(item, values)
+  for (let start = 0; start < details.length; start += 2) {
+    const row = details.slice(start, start + 2)
+    const width = 178 / row.length
+    row.forEach((field, index) => {
+      const x = 16 + width * index
+      page!.box(x, y, width, 20, cream, rule)
+      page!.text(field.label, x + 5, y + 4, 3.1, {
+        bold: true,
+        width: width - 10,
+      })
+      page!.text(field.text, x + 5, y + 11, 4, { width: width - 10 })
+    })
+    y += 22
+  }
+  if (details.length) y += 5
   for (const field of item.fields ?? []) {
+    if (structured && field.type !== 'long') continue
     if (isPlan && field.key === 'conduct') {
       for (const moment of planMoments(values)) {
         const rows = lineWrap(
@@ -836,14 +894,28 @@ export function buildSheets(item: ClassroomItem, values: Values): Sheet[] {
       values[field.key] ||
       '______________________________________________________'
     if (y > 243) nextPage()
-    page!.text(field.label, 16, y, 4.8, { bold: true, color: darkGreen })
-    y += 9
+    if (structured) page!.box(16, y - 2, 178, 10, sage)
+    page!.text(field.label, structured ? 20 : 16, y, 4.5, {
+      bold: true,
+      color: darkGreen,
+    })
+    y += 11
     for (const row of lineWrap(content, 175, 4.1)) {
       if (y > 275) nextPage()
       if (row) page!.text(row, 16, y, 4.1, { width: 176 })
       y += 6.36
     }
     y += 9
+  }
+  const signatures = documentSignatures(item)
+  if (signatures.length) {
+    if (y > 248) nextPage()
+    const span = 178 / signatures.length
+    signatures.forEach((label, index) => {
+      const x = 16 + span * index
+      page!.line(x, y + 11, span - 12)
+      page!.text(label, x, y + 14, 3.3, { width: span - 12 })
+    })
   }
   return pages
 }

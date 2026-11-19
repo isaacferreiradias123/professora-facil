@@ -469,8 +469,15 @@
     transform: scale(0.985);
   }
 }
-.school-create-shortcuts {
-  margin-block: 1rem;
+.school-tool-card > img {
+  border-radius: 0.65rem;
+  width: 74px;
+  height: 64px;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+.school-tool-card > div {
+  min-width: 0;
 }
 .school-moments {
   margin: 0;

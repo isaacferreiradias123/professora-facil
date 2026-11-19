@@ -17,19 +17,7 @@ import {
   useParams,
   useSearchParams,
 } from 'react-router-dom'
-import {
-  BookOpen,
-  CalendarDays,
-  ClipboardList,
-  Images,
-  Image,
-  LayoutGrid,
-  Files,
-  Plus,
-  Folder,
-  LifeBuoy,
-  Settings2,
-} from 'lucide-react'
+import { Plus, Folder, LifeBuoy, Settings2 } from 'lucide-react'
 import {
   activity,
   catalog,
@@ -62,14 +50,35 @@ const Editor = lazy(() => import('./editor'))
 const Visual = lazy(() => import('./visual'))
 const Preference = createContext({ easy: true, toggle: () => {} })
 export const useEasy = () => useContext(Preference).easy
-const icons = {
-  atividade: BookOpen,
-  'plano-de-aula': CalendarDays,
-  relatorio: ClipboardList,
-  'fotos-em-pdf': Images,
-  postagem: Image,
-  painel: LayoutGrid,
-  documento: Files,
+const toolCards: Record<Tool, { image: string; output: string }> = {
+  atividade: {
+    image: 'atividades.webp',
+    output: 'Monte uma ficha da criança ou organize uma vivência.',
+  },
+  'plano-de-aula': {
+    image: 'organizacao.webp',
+    output: 'Planeje o objetivo, os momentos e o tempo da aula.',
+  },
+  relatorio: {
+    image: 'bilhete-materiais.webp',
+    output: 'Registre observações individuais ou da turma.',
+  },
+  documento: {
+    image: 'bilhete-reuniao.webp',
+    output: 'Crie um recado, ata ou declaração em Word e PDF.',
+  },
+  'fotos-em-pdf': {
+    image: 'bilhete-passeio.webp',
+    output: 'Organize fotos e legendas em folhas A4.',
+  },
+  postagem: {
+    image: 'bilhete-evento.webp',
+    output: 'Prepare um convite, aviso ou registro em PNG.',
+  },
+  painel: {
+    image: 'paineis.webp',
+    output: 'Imprima um kit recortável ou divida uma imagem em A4.',
+  },
 }
 const mainLinks = [
   ['/como-funciona', 'Como funciona'],
@@ -418,7 +427,7 @@ function Help() {
                   <li key={step}>{step}</li>
                 ))}
               </ol>
-              <Link to={'/app/criar/' + k}>Abrir ferramenta</Link>
+              <Link to={toolEntry(k)}>Abrir ferramenta</Link>
             </article>
           ))}
         </div>
@@ -497,42 +506,32 @@ function StaticPage({ kind }: { kind: string }) {
     </>
   )
 }
-function ToolGrid({
-  limit,
-  selection,
-}: {
-  limit?: number
-  selection?: Tool[]
-}) {
+function toolEntry(tool: Tool) {
+  return '/app/colecao?ferramenta=' + tool
+}
+function ToolGrid({ selection }: { selection: Tool[] }) {
   return (
     <div className="grid tools">
-      {(selection ?? (Object.keys(tools) as Tool[]))
-        .slice(0, limit)
-        .map((k) => {
-          const i = Object.keys(tools).indexOf(k)
-          const Icon = icons[k]
-          return (
-            <Link
-              className="tool card"
-              to={
-                k === 'atividade'
-                  ? '/app/colecao?ferramenta=atividade'
-                  : k === 'plano-de-aula'
-                    ? '/app/colecao?ferramenta=plano-de-aula'
-                    : '/app/criar/' + k
-              }
-              key={k}
-            >
-              <span className={'tool-icon tone-' + i}>
-                <Icon size={25} aria-hidden="true" />
-              </span>
-              <div>
-                <h3>{tools[k].name}</h3>
-                <p>{tools[k].description}</p>
-              </div>
-            </Link>
-          )
-        })}
+      {selection.map((tool) => (
+        <Link
+          className="tool card school-tool-card"
+          to={toolEntry(tool)}
+          key={tool}
+          aria-label={tools[tool].name}
+        >
+          <img
+            src={assetUrl(toolCards[tool].image)}
+            height="62"
+            width="74"
+            alt=""
+            loading="lazy"
+          />
+          <div>
+            <h3>{tools[tool].name}</h3>
+            <p>{toolCards[tool].output}</p>
+          </div>
+        </Link>
+      ))}
     </div>
   )
 }
@@ -583,20 +582,15 @@ function Dashboard({ create = false }: { create?: boolean }) {
           </ul>
         </section>
       )}
-      <nav
-        className="actions school-create-shortcuts"
-        aria-label="Criar para a sala"
-      >
-        <Link className="button" to="/app/colecao?ferramenta=atividade">
-          Criar atividade
-        </Link>
-        <Link
-          className="button secondary"
-          to="/app/colecao?ferramenta=plano-de-aula"
+      {toolGroups.map(([heading, keys]) => (
+        <section
+          className={'catalog-group catalog-group-' + keys.length}
+          key={heading}
         >
-          Criar plano de aula
-        </Link>
-      </nav>
+          <h2>{heading}</h2>
+          <ToolGrid selection={keys} />
+        </section>
+      ))}
       <section className="school-dashboard">
         <div className="school-section-head">
           <div>
@@ -607,7 +601,6 @@ function Dashboard({ create = false }: { create?: boolean }) {
         </div>
         <ClassroomTabs />
       </section>
-      <Library embedded />
       <Link className="button secondary" to="/app/modelos">
         Modelos anteriores
       </Link>
@@ -618,7 +611,7 @@ function Dashboard({ create = false }: { create?: boolean }) {
   )
 }
 
-function Library({ embedded = false }: { embedded?: boolean }) {
+function Library() {
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
   const [age, setAge] = useState('')
@@ -672,15 +665,6 @@ function Library({ embedded = false }: { embedded?: boolean }) {
           ).includes(term)
         })
     : []
-  const selection = (Object.keys(tools) as Tool[])
-    .filter((key) => !category || category === key)
-    .filter(
-      (key) =>
-        !term ||
-        normalize(tools[key].name + ' ' + tools[key].description).includes(
-          term,
-        ),
-    )
   const found = (Object.keys(catalog) as Tool[])
     .filter((key) => !category || category === key)
     .flatMap((key) => catalog[key].map((name, i) => ({ key, name, i })))
@@ -698,7 +682,7 @@ function Library({ embedded = false }: { embedded?: boolean }) {
   const filtered = Boolean(term || category || age || theme || field)
   return (
     <section aria-label="Catálogo">
-      {embedded ? <h2>Ferramentas e modelos</h2> : <h1>Modelos anteriores</h1>}
+      <h1>Modelos anteriores</h1>
       <div className="catalog-search">
         <label>
           Pesquisar modelos
@@ -765,161 +749,133 @@ function Library({ embedded = false }: { embedded?: boolean }) {
           </div>
         </details>
       </div>
-      {embedded &&
-        !age &&
-        !theme &&
-        !field &&
-        toolGroups.map(([heading, keys]) => {
-          const visible = keys.filter((key) => selection.includes(key))
-          return (
-            visible.length > 0 && (
-              <section
-                className={'catalog-group catalog-group-' + keys.length}
-                key={heading}
-              >
-                <h3>{heading}</h3>
-                <ToolGrid selection={visible} />
-              </section>
-            )
-          )
-        })}
-      {(!embedded || filtered) && (
-        <>
-          {embedded && <h3>Modelos encontrados</h3>}
-          {!requested && (
-            <div
-              className="filter-rail"
-              aria-label="Escolher categoria da coleção"
-            >
-              {(Object.keys(tools) as Tool[]).map((key) => (
-                <button
-                  className="secondary"
-                  type="button"
-                  key={key}
-                  onClick={() => setCategory(key)}
-                >
-                  {tools[key].name}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="filter-rail" aria-label="Filtros aplicados">
-            {[category && tools[category as Tool].name, age, theme, field]
-              .filter(Boolean)
-              .map((item) => (
-                <span className="filter-chip" key={item}>
-                  {item}
-                </span>
-              ))}
-            {filtered && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => {
-                  setQ('')
-                  setCategory('')
-                  setAge('')
-                  setTheme('')
-                  setField('')
-                }}
-              >
-                Limpar filtros
-              </button>
-            )}
-          </div>
-          <p>{found.length + extra.length} modelos encontrados</p>
-          {loadError && (
-            <p role="alert">
-              {loadError}{' '}
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => {
-                  setLoadError('')
-                  setRetry(retry + 1)
-                }}
-              >
-                Tentar novamente
-              </button>
-            </p>
-          )}
-          <div className="grid model-grid">
-            {[
-              ...found.map(({ key, i, name }) => ({
-                key,
-                name,
-                id: String(i),
-                values: undefined,
-              })),
-              ...extra.map((item) => ({
-                key: item.tool,
-                name: item.title,
-                id: item.id,
-                values: item.values,
-              })),
-            ]
-              .slice(0, limit)
-              .map(({ key, name, id, values }) => (
-                <Link
-                  className="card library-link model-card"
-                  key={key + id}
-                  to={
-                    '/app/criar/' +
-                    key +
-                    '?modelo=' +
-                    id +
-                    (age ? '&faixa=' + groups.indexOf(age) : '')
-                  }
-                >
-                  <span
-                    aria-hidden="true"
-                    className={'model-thumb model-thumb-' + key}
-                    style={
-                      values && /^#[a-f0-9]{6}$/i.test(values.background)
-                        ? { backgroundColor: values.background }
-                        : undefined
-                    }
-                  >
-                    {worksheetUrl(values?.asset) ? (
-                      <img
-                        src={worksheetUrl(values?.asset)}
-                        alt=""
-                        loading="lazy"
-                      />
-                    ) : (
-                      <>
-                        <b>{values?.title ?? name}</b>
-                        <i />
-                        <i />
-                        <em>
-                          <i />
-                          <i />
-                        </em>
-                      </>
-                    )}
-                  </span>
-                  <span>
-                    <strong>{name}</strong>
-                    <small>{tools[key].name}</small>
-                  </span>
-                </Link>
-              ))}
-          </div>
-          {found.length + extra.length > limit && (
+      {!requested && (
+        <div className="filter-rail" aria-label="Escolher categoria da coleção">
+          {(Object.keys(tools) as Tool[]).map((key) => (
             <button
-              type="button"
               className="secondary"
-              onClick={() => setLimit(limit + 24)}
+              type="button"
+              key={key}
+              onClick={() => setCategory(key)}
             >
-              Mostrar mais 24
+              {tools[key].name}
             </button>
-          )}
-          {!found.length && !extra.length && (
-            <p>
-              Nenhum modelo encontrado. Experimente outro nome ou categoria.
-            </p>
-          )}
-        </>
+          ))}
+        </div>
+      )}
+      <div className="filter-rail" aria-label="Filtros aplicados">
+        {[category && tools[category as Tool].name, age, theme, field]
+          .filter(Boolean)
+          .map((item) => (
+            <span className="filter-chip" key={item}>
+              {item}
+            </span>
+          ))}
+        {filtered && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              setQ('')
+              setCategory('')
+              setAge('')
+              setTheme('')
+              setField('')
+            }}
+          >
+            Limpar filtros
+          </button>
+        )}
+      </div>
+      <p>{found.length + extra.length} modelos encontrados</p>
+      {loadError && (
+        <p role="alert">
+          {loadError}{' '}
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              setLoadError('')
+              setRetry(retry + 1)
+            }}
+          >
+            Tentar novamente
+          </button>
+        </p>
+      )}
+      <div className="grid model-grid">
+        {[
+          ...found.map(({ key, i, name }) => ({
+            key,
+            name,
+            id: String(i),
+            values: undefined,
+          })),
+          ...extra.map((item) => ({
+            key: item.tool,
+            name: item.title,
+            id: item.id,
+            values: item.values,
+          })),
+        ]
+          .slice(0, limit)
+          .map(({ key, name, id, values }) => (
+            <Link
+              className="card library-link model-card"
+              key={key + id}
+              to={
+                '/app/criar/' +
+                key +
+                '?modelo=' +
+                id +
+                (age ? '&faixa=' + groups.indexOf(age) : '')
+              }
+            >
+              <span
+                aria-hidden="true"
+                className={'model-thumb model-thumb-' + key}
+                style={
+                  values && /^#[a-f0-9]{6}$/i.test(values.background)
+                    ? { backgroundColor: values.background }
+                    : undefined
+                }
+              >
+                {worksheetUrl(values?.asset) ? (
+                  <img
+                    src={worksheetUrl(values?.asset)}
+                    alt=""
+                    loading="lazy"
+                  />
+                ) : (
+                  <>
+                    <b>{values?.title ?? name}</b>
+                    <i />
+                    <i />
+                    <em>
+                      <i />
+                      <i />
+                    </em>
+                  </>
+                )}
+              </span>
+              <span>
+                <strong>{name}</strong>
+                <small>{tools[key].name}</small>
+              </span>
+            </Link>
+          ))}
+      </div>
+      {found.length + extra.length > limit && (
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setLimit(limit + 24)}
+        >
+          Mostrar mais 24
+        </button>
+      )}
+      {!found.length && !extra.length && (
+        <p>Nenhum modelo encontrado. Experimente outro nome ou categoria.</p>
       )}
     </section>
   )

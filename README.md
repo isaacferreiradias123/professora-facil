@@ -73,7 +73,7 @@ O Playwright serve o build de produção e gera um relatório HTML em `playwrigh
 - Para integrar serviços no futuro, preserve o catálogo e os tipos de materiais. Introduza uma implementação de serviço atrás de uma interface por capacidade, com uma ação de envio explícita, permissões reais, consentimento adequado e chaves no servidor. Mantenha os geradores locais disponíveis. A disponibilidade atual de ferramentas é definida pelas rotas locais em `src/pages.tsx` e pela lista de recursos futuros em `src/catalog.ts`.
 ## Coleção de sala de aula
 
-A [vitrine nova](https://isaacferreiradias123.github.io/professora-facil/#/app/colecao) tem 43 materiais. Inclui 16 atividades próprias, seis recados, quatro painéis, oito planos, dois registros, três artes, três álbuns e uma folha pronta de origem externa. Filtros por nome de turma usam os grupos etários da BNCC como referência, conforme as práticas de cada rede.
+A [vitrine nova](https://isaacferreiradias123.github.io/professora-facil/#/app/colecao) tem 46 materiais. Inclui 16 atividades próprias, seis recados, quatro painéis, oito planos, dois registros, três documentos escolares, três artes, três álbuns e uma folha pronta de origem externa. Filtros por nome de turma usam os grupos etários da BNCC como referência, conforme as práticas de cada rede.
 
 - Em **Criar atividade**, escolha a turma ou monte uma ficha de contagem com frutas, animais ou materiais escolares. O PDF da pré-escola inclui só a folha da criança por padrão. O roteiro pode ser incluído separadamente no mesmo arquivo. Os planos têm objetivo, preparação, três momentos editáveis, duração total e observação.
 - Os recados podem sair em uma folha inteira ou em duas vias recortáveis. O passeio inclui canhoto. A prévia e o PDF A4 compartilham a composição de página. O Word mantém títulos, tabelas e campos editáveis e pode variar conforme a fonte e a versão do editor.
@@ -81,6 +81,20 @@ A [vitrine nova](https://isaacferreiradias123.github.io/professora-facil/#/app/c
 - Os dados estão em `src/classroom-catalog.ts`. A geometria de prévia e PDF está em `src/classroom-layout.ts`. As ilustrações locais estão em `public/colecao/`. As artes editoriais e do mural foram produzidas para este projeto com geração de imagem durante o desenvolvimento. As figuras PNG foram desenhadas para o projeto ou recortadas dessas artes. O aplicativo funciona localmente.
 
 A folha [Fruits Lineart](https://openclipart.org/detail/244989/fruits-lineart), de **frankes**, é distribuída sob [CC0 segundo a política do Openclipart](https://openclipart.org/share). O PDF original e a imagem de prévia são redistribuídos sem mudanças no arquivo. As orientações de uso em português são do projeto. O [caderno de uma turma Pré II do eduCAPES](https://educapes.capes.gov.br/handle/capes/722502), os [Percursos Curriculares de Belo Horizonte](https://wiki.pbh.gov.br/educacao/percursos-curriculares/doku.php/5_acoes_mediacoes_e_estimulacoes_para_o_desenvolvimento_e_a_aquisicao_de_aprendizagens_das_criancas_de_0_a_3_anos) e a [proposta curricular de Marília](https://educacao.marilia.sp.gov.br/arquivos/proposta_curricular_para_a_educacao_infantil_-_marilia_15110632_17125235.pdf) orientaram conteúdos e formatos próprios.
+
+## Ferramentas e formatos escolares
+
+- **Atividades e planos.** A área Criar oferece fichas de contagem e pareamento com grupos de figuras. O plano aceita um momento opcional de extensão ou adaptação.
+- **Relatórios e documentos.** Registros individuais e coletivos separam identificação, contexto, observações, evidências e próximos passos. Ata, declaração de comparecimento e registro de entrega têm campos e assinaturas próprios. O Word mantém títulos e tabelas editáveis. Os recados têm ilustrações originais de reunião, passeio, materiais e evento.
+- **Fotos, postagens e painéis.** O álbum aceita título, subtítulo e numeração. A postagem tem composições de mensagem, convite, aviso e registro com foto. O painel divide uma imagem inteira em folhas A4 e pode incluir um mapa no PDF. Os kits recortáveis aceitam os textos dos cartões.
+
+Os materiais e as ilustrações da atualização foram produzidos para o projeto. As referências orientaram a estrutura dos arquivos.
+
+- [Orientações para o registro da avaliação na Educação Infantil da Prefeitura do Rio](https://www.rio.rj.gov.br/dlstatic/10112/15272703/4381706/OrientacoesparaoregistrodaavaliacaonaEducacaoInfantil.pdf)
+- [Proposta curricular para a Educação Infantil de Marília](https://educacao.marilia.sp.gov.br/arquivos/proposta_curricular_para_a_educacao_infantil_-_marilia_15110632_17125235.pdf)
+- [Títulos e tabelas acessíveis no Microsoft Word](https://support.microsoft.com/en-us/accessibility/word/make-your-word-documents-accessible-to-people-with-disabilities)
+- [Legendas e numeração de folhas no Lightroom Classic](https://helpx.adobe.com/lightroom-classic/desktop/print-photos/print-module-layouts-templates.html)
+- [Sobreposição, identificação e marcas de corte no Adobe Acrobat](https://helpx.adobe.com/au/acrobat/desktop/print-documents/booklets-posters-banners/posters-banners.html)
 
 ## Modelos anteriores
 

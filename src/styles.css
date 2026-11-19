@@ -495,8 +495,14 @@ input[type='checkbox'] {
   flex: 1;
 }
 .photo-sheet figcaption {
-  font-size: 0.7rem;
+  font-size: 1.51cqw;
+  line-height: 1.33;
+  padding-top: 0.55cqw;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .art-preview {
   width: min(100%, 32rem);
@@ -1123,4 +1129,31 @@ input[type='checkbox'] {
 .figure-picker button[aria-pressed='true'] {
   background: #dcebdc;
   border-color: #71947c;
+}
+.photo-print-header,
+.photo-print-number {
+  position: absolute;
+  color: #254c40;
+}
+.photo-print-header {
+  display: grid;
+  border-bottom: 1px solid #a8bbb0;
+  line-height: 1.2;
+  overflow: hidden;
+}
+.photo-print-header strong,
+.photo-print-header span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.photo-print-header strong {
+  font-size: clamp(0.54rem, 3cqw, 0.95rem);
+}
+.photo-print-header span,
+.photo-print-number {
+  font-size: clamp(0.4rem, 1.8cqw, 0.62rem);
+}
+.photo-sheet {
+  container-type: inline-size;
 }

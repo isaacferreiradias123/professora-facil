@@ -10,7 +10,7 @@ import {
 
 describe('coleção de sala de aula', () => {
   it('tem IDs únicos, quatro atividades por turma e duas opções de plano por turma', () => {
-    expect(classroom).toHaveLength(43)
+    expect(classroom).toHaveLength(46)
     expect(new Set(classroom.map((item) => item.id)).size).toBe(
       classroom.length,
     )

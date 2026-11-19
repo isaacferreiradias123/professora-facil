@@ -27,6 +27,7 @@ import {
   noticeFits,
   planMinutes,
   planMoments,
+  panelPieces,
   worksheetQuantity,
   worksheetGroups,
   panelArtwork,
@@ -37,6 +38,7 @@ import { figureUrl } from './art-figures'
 import { drawArt, formats, openImage, photoLayout } from './media'
 import { AdjustLayout } from './editor-ui'
 import { download, filename, printBlob, useWorkflow } from './workflow'
+import { tools, type Tool } from './catalog'
 import type { Draft, Values } from './store'
 import './classroom.css'
 
@@ -239,6 +241,8 @@ function ArtworkThumb({ title, options }: { title: string; options: Values }) {
           foreground: options.foreground,
           font: options.font,
           model: Number(options.model),
+          composition: options.composition,
+          callout: options.callout,
         },
         null,
         false,
@@ -367,8 +371,12 @@ const normalized = (value: string) =>
 export function ClassroomLibrary() {
   const [params, setParams] = useSearchParams()
   const category = params.get('categoria') ?? ''
-  const tool = params.get('ferramenta')
-  const creating = tool === 'atividade' || tool === 'plano-de-aula'
+  const requestedTool = params.get('ferramenta')
+  const tool =
+    requestedTool && Object.hasOwn(tools, requestedTool)
+      ? (requestedTool as Tool)
+      : null
+  const creating = Boolean(tool)
   const [age, setAge] = useState('')
   const [mode, setMode] = useState('')
   const [query, setQuery] = useState('')
@@ -397,23 +405,46 @@ export function ClassroomLibrary() {
               ? 'Criar atividade'
               : tool === 'plano-de-aula'
                 ? 'Criar plano de aula'
-                : 'Coleção de sala de aula'}
+                : tool
+                  ? tools[tool].name
+                  : 'Coleção de sala de aula'}
           </h1>
           <p>
             {tool === 'atividade'
               ? 'Escolha a turma e abra uma folha ilustrada ou uma proposta para conduzir com as crianças.'
               : tool === 'plano-de-aula'
                 ? 'Escolha a turma e abra um plano para ajustar os momentos e a duração.'
-                : 'Veja o material antes de personalizar ou imprimir.'}
+                : tool === 'documento'
+                  ? 'Escolha um recado, uma ata, uma declaração ou um registro de entrega.'
+                  : tool === 'relatorio'
+                    ? 'Escolha entre o registro individual e o coletivo.'
+                    : 'Veja o material antes de personalizar ou imprimir.'}
           </p>
         </div>
         <Link to="/app/modelos">Modelos anteriores</Link>
       </div>
       {tool === 'atividade' && (
-        <Link className="button" to="/app/colecao/criar-contagem">
-          Montar ficha de contagem
-        </Link>
+        <div className="actions">
+          <Link className="button" to="/app/colecao/criar-contagem">
+            Montar ficha de contagem
+          </Link>
+          <Link className="button secondary" to="/app/colecao/criar-pares">
+            Montar ficha de pareamento
+          </Link>
+        </div>
       )}
+      {tool &&
+        ['documento', 'postagem', 'painel', 'fotos-em-pdf'].includes(tool) && (
+          <Link className="button secondary" to={'/app/criar/' + tool}>
+            {tool === 'documento'
+              ? 'Abrir ou responder a um Word ou PDF'
+              : tool === 'painel'
+                ? 'Dividir minha imagem em folhas A4'
+                : tool === 'postagem'
+                  ? 'Montar uma arte com meu texto'
+                  : 'Organizar minhas fotos'}
+          </Link>
+        )}
       {!creating && <ClassroomTabs selected={category} choose={setCategory} />}
       <div className="school-filters">
         <label>
@@ -572,6 +603,7 @@ function SchoolEditor({
     item.task && item.task.mode !== 'experience' && item.task.mode !== 'cards',
   )
   const isPlan = item.tool === 'plano-de-aula'
+  const isReport = item.tool === 'relatorio'
   const isNotice = item.category === 'Recados'
   const isPanel = item.category === 'Painéis'
   const fits = !isNotice || noticeFits(item, values)
@@ -643,6 +675,18 @@ function SchoolEditor({
       </div>
       {!isNotice && !isPanel && input('date', 'Data', 'date')}
       {isNotice && input('signature', 'Assinatura')}
+      {isReport && (
+        <p className="school-materials">
+          Descreva uma brincadeira, fala ou ação que você observou. Use exemplos
+          da turma e indique como pretende retomar a proposta.
+        </p>
+      )}
+      {item.form === 'declaracao' && (
+        <p className="school-materials">
+          Preencha os dados do comparecimento. A declaração inclui um campo de
+          assinatura da escola.
+        </p>
+      )}
       {!item.task &&
         !isNotice &&
         !isPanel &&
@@ -660,7 +704,7 @@ function SchoolEditor({
                 />
               </label>
             ) : (
-              input(field.key, field.label)
+              input(field.key, field.label, field.type)
             ),
           )}
       {isNotice && (
@@ -683,6 +727,16 @@ function SchoolEditor({
       {isPlan && (
         <fieldset className="school-moments">
           <legend>Momentos da aula</legend>
+          <label>
+            <input
+              type="checkbox"
+              checked={values.extended === 'yes'}
+              onChange={(event) =>
+                set('extended', event.target.checked ? 'yes' : 'no')
+              }
+            />{' '}
+            Incluir extensão ou adaptação
+          </label>
           <p>
             Duração total: <strong>{planMinutes(values)} min</strong>
           </p>
@@ -727,7 +781,7 @@ function SchoolEditor({
               onChange={(event) => set('command', event.target.value)}
             />
           </label>
-          {item.id === 'criar-contagem' && (
+          {['criar-contagem', 'criar-pares'].includes(item.id) && (
             <label>
               Figuras
               <select
@@ -780,6 +834,21 @@ function SchoolEditor({
           <p>{item.task.supplies}</p>
           <p>{item.task.adaptation}</p>
         </div>
+      )}
+      {item.poster && (
+        <label>
+          Texto dos cartões, um por linha
+          <textarea
+            rows={6}
+            maxLength={1200}
+            value={values.panelPieces ?? item.poster.join('\n')}
+            onChange={(event) => set('panelPieces', event.target.value)}
+          />
+          <small>
+            {panelPieces(item, values).length} cartões · até 28 peças e 40
+            caracteres por peça
+          </small>
+        </label>
       )}
       {isPanel && (
         <div className="school-materials">
