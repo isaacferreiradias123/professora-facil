@@ -42,10 +42,11 @@ export async function classroomPdf(title: string, sheets: Sheet[]) {
   const face = await fonts(document, true)
   const images = new Map<string, PDFImage>()
   for (const sheet of sheets) {
-    const page = document.addPage([point(paper.width), point(paper.height)])
+    const size = sheet.size ?? paper
+    const page = document.addPage([point(size.width), point(size.height)])
     for (const mark of sheet.marks) {
       const x = point(mark.x)
-      const y = point(paper.height - mark.y)
+      const y = point(size.height - mark.y)
       const width = point(mark.width)
       if (mark.kind === 'text') {
         if (!mark.text || width <= 0) continue

@@ -17,7 +17,7 @@ import {
   useParams,
   useSearchParams,
 } from 'react-router-dom'
-import { Plus, Folder, LifeBuoy, Settings2 } from 'lucide-react'
+import { Plus, Folder, LifeBuoy, Settings2, BookOpen } from 'lucide-react'
 import {
   activity,
   catalog,
@@ -38,7 +38,6 @@ import { loadPack, worksheetUrl, type PackTemplate } from './template-pack'
 import { FileDrop } from './editor-ui'
 import {
   ClassroomLibrary,
-  ClassroomRoute,
   ClassroomTabs,
   CollectionShowcase,
   draftLink,
@@ -46,6 +45,7 @@ import {
 import { classroom } from './classroom-catalog'
 import { assetUrl } from './classroom-layout'
 
+const ClassroomRoute = lazy(() => import('./classroom-editor'))
 const Editor = lazy(() => import('./editor'))
 const Visual = lazy(() => import('./visual'))
 const DocumentResponse = lazy(() => import('./document-response-view'))
@@ -135,6 +135,7 @@ function PublicLayout() {
 }
 const destinations = [
   ['/app/criar', 'Criar', Plus],
+  ['/app/colecao', 'Modelos', BookOpen],
   ['/app/materiais', 'Meus materiais', Folder],
   ['/app/ajuda', 'Ajuda', LifeBuoy],
 ] as const
@@ -153,9 +154,11 @@ function InternalLayout() {
                 src={assetUrl(
                   p === '/app/criar'
                     ? 'atividades.webp'
-                    : p === '/app/materiais'
-                      ? 'organizacao.webp'
-                      : 'recados.webp',
+                    : p === '/app/colecao'
+                      ? 'mesa-planejamento.webp'
+                      : p === '/app/materiais'
+                        ? 'organizacao.webp'
+                        : 'recados.webp',
                 )}
                 width="28"
                 height="22"
@@ -175,12 +178,15 @@ function InternalLayout() {
             className="mode"
             type="button"
             aria-pressed={easy}
-            title="O Modo Fácil recolhe as opções avançadas"
+            aria-describedby="modo-facil-descricao"
             onClick={toggle}
           >
             <Settings2 size={18} aria-hidden="true" /> Modo Fácil{' '}
             <span>{easy ? 'ligado' : 'desligado'}</span>
           </button>
+          <span id="modo-facil-descricao" className="mode-caption">
+            Recolhe as opções avançadas
+          </span>
         </header>
         <main id="conteudo">
           <Outlet />
@@ -367,7 +373,7 @@ function Landing() {
     <div className="school-home">
       <section className="school-hero">
         <div className="school-hero-copy">
-          <h1>Sua rotina escolar, muito mais simples.</h1>
+          <h1>Materiais para usar com a sua turma.</h1>
           <p>
             Atividades por turma, recados para imprimir e painéis ilustrados em
             folhas A4.
@@ -380,10 +386,10 @@ function Landing() {
           </div>
         </div>
         <img
-          src={assetUrl('editorial-vitrine.webp')}
-          width="435"
-          height="435"
-          alt="Materiais ilustrados para a sala de aula"
+          src={assetUrl('mesa-professora.webp')}
+          width="1080"
+          height="750"
+          alt="Folha de atividade, lápis, envelope e um sol de papel sobre a mesa"
           fetchPriority="high"
         />
       </section>
@@ -544,10 +550,7 @@ const normalize = (value: string) =>
     .toLowerCase()
 const toolGroups: [string, Tool[]][] = [
   ['Planejar e registrar', ['atividade', 'plano-de-aula', 'relatorio']],
-  [
-    'Preparar arquivos e imprimir',
-    ['documento', 'fotos-em-pdf', 'postagem', 'painel'],
-  ],
+  ['Preparar e imprimir', ['documento', 'fotos-em-pdf', 'postagem', 'painel']],
 ]
 
 function Dashboard({ create = false }: { create?: boolean }) {
@@ -570,7 +573,10 @@ function Dashboard({ create = false }: { create?: boolean }) {
         <h1>
           {create ? 'Criar um material' : 'Olá! O que vamos preparar hoje?'}
         </h1>
-        <p>Escolha uma tarefa ou comece por um modelo pronto.</p>
+        <p>Escolha uma ferramenta para preparar seu material.</p>
+        <Link className="button secondary" to="/app/colecao">
+          Explorar modelos
+        </Link>
       </section>
       {recent.length > 0 && (
         <section className="recent-materials">
@@ -1276,7 +1282,14 @@ export function App() {
           />
           <Route path="modelos" element={<Library />} />
           <Route path="colecao" element={<ClassroomLibrary />} />
-          <Route path="colecao/:id" element={<ClassroomRoute />} />
+          <Route
+            path="colecao/:id"
+            element={
+              <Suspense fallback={<p role="status">Abrindo material…</p>}>
+                <ClassroomRoute />
+              </Suspense>
+            }
+          />
           <Route path="materiais" element={<Materials />} />
           <Route path="ajuda" element={<Help />} />
           <Route path="em-breve/:feature?" element={<Future />} />

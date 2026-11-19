@@ -19,6 +19,7 @@ import { imageBytes } from './classroom-export'
 import { ageGuides, type ClassroomItem } from './classroom-catalog'
 import {
   noticeFields,
+  hasAuthorization,
   noticeVisual,
   buildSheets,
   planMoments,
@@ -207,7 +208,7 @@ async function notices(item: ClassroomItem, values: Values): Promise<Child[]> {
             margins: { top: 220, bottom: 110, left: 160, right: 160 },
             children: [
               ...noticeContents(item, values, artwork),
-              ...(item.id === 'passeio' ? authorization() : []),
+              ...(hasAuthorization(item) ? authorization() : []),
             ],
           }),
         ],
@@ -363,7 +364,7 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
               new TableRow({
                 tableHeader: true,
                 children: [
-                  item.id === 'criar-contagem' ? 'Grupo' : 'Frutas',
+                  item.task?.mode === 'count' ? 'Grupo' : 'Frutas',
                   'Figuras',
                   'Quantidade',
                 ].map(
@@ -381,9 +382,11 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
         contents.push(
           text(''),
           text(
-            item.id === 'criar-contagem'
-              ? 'Qual grupo tem mais figuras? Escreva ou desenhe.'
-              : 'Onde há mais frutas? Explique com palavras ou desenho.',
+            item.id === 'ficha-oficina-17'
+              ? 'Desenhe o que falta para chegar a dez em um grupo.'
+              : item.task?.mode === 'count'
+                ? 'Qual grupo tem mais figuras? Escreva ou desenhe.'
+                : 'Onde há mais frutas? Explique com palavras ou desenho.',
             {
               bold: true,
               size: 25,
@@ -469,7 +472,13 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
               'Invente seu padrão: __________________________________________',
             ),
           )
-        if (task.mode === 'story' || task.mode === 'sort')
+        if (task.mode === 'sort' && task.sortLabels)
+          for (const label of task.sortLabels)
+            contents.push(
+              text(label, { bold: true }),
+              text('__________________________________________________'),
+            )
+        else if (task.mode === 'story' || task.mode === 'sort')
           contents.push(
             text(
               'Meu registro: ________________________________________________',

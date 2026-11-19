@@ -49,7 +49,7 @@ test('páginas, larguras, navegação e acessibilidade', async ({
       external.push(req.url())
   })
   for (const [path, title] of [
-    ['/', 'Sua rotina escolar'],
+    ['/', 'Materiais para usar com a sua turma'],
     ['/como-funciona', 'Como funciona'],
     ['/planos', 'Planos'],
     ['/ajuda', 'Como podemos ajudar?'],
@@ -621,7 +621,7 @@ test('catálogo carrega a coleção por categoria e limita a primeira página', 
   })
   await page.goto('/')
   await expect(
-    page.getByRole('img', { name: /Materiais ilustrados/ }),
+    page.getByRole('img', { name: /Folha de atividade, lápis, envelope/ }),
   ).toBeVisible()
   expect(chunks).toHaveLength(0)
   await page.goto('/app/modelos')

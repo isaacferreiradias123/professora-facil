@@ -12,6 +12,7 @@ import {
   a4Points,
   panelMargin,
   photoLayout,
+  photoCount,
   photoPages,
   rotatePhoto,
   tiles,
@@ -228,7 +229,7 @@ function Photos(props: EditorProps) {
   const options: PhotoOptions = {
     orientation:
       values.orientation === 'horizontal' ? 'horizontal' : 'vertical',
-    perPage: values.perPage === '1' ? 1 : values.perPage === '2' ? 2 : 4,
+    perPage: photoCount(values.perPage),
     margin: [5, 10, 15, 20].includes(Number(values.margin))
       ? Number(values.margin)
       : 10,
@@ -632,7 +633,7 @@ function Photos(props: EditorProps) {
                 flow={flow}
                 label="Fotos por folha"
                 id="perPage"
-                options={pairs(['1', '2', '4'])}
+                options={pairs(['1', '2', '3', '4'])}
               />
               {easy ? (
                 <details className="wide">
@@ -758,6 +759,7 @@ function Art(props: EditorProps) {
   const { values, replace, setDirty, setError, setMessage } = flow
   const [previous, setPrevious] = useState<Values | null>(null)
   const [smallText, setSmallText] = useState(false)
+  const [showSafeArea, setShowSafeArea] = useState(false)
   const [ornament, setOrnament] = useState<{
     url: string
     image: HTMLImageElement
@@ -784,6 +786,41 @@ function Art(props: EditorProps) {
   const dimensions = Object.hasOwn(formats, values.format)
     ? formats[values.format as keyof typeof formats]
     : formats['Quadrado 1:1']
+  const previewArt = (
+    <>
+      <div className="art-canvas-frame">
+        <canvas
+          ref={ref}
+          className="art-preview"
+          aria-label={'Prévia de ' + values.title}
+          role="img"
+        />
+        {!panel && showSafeArea && (
+          <span
+            className="art-safe-area"
+            aria-hidden="true"
+            style={{
+              inset:
+                (9.5 * Math.min(...dimensions)) / dimensions[1] +
+                '% ' +
+                (9.5 * Math.min(...dimensions)) / dimensions[0] +
+                '%',
+            }}
+          />
+        )}
+      </div>
+      {!panel && (
+        <button
+          type="button"
+          className="secondary"
+          aria-pressed={showSafeArea}
+          onClick={() => setShowSafeArea(!showSafeArea)}
+        >
+          Área segura
+        </button>
+      )}
+    </>
+  )
   const settings: ArtOptions = {
     title: values.title,
     body: values.body,
@@ -1246,16 +1283,11 @@ function Art(props: EditorProps) {
             preview={
               <>
                 <PreviewFeedback revision={JSON.stringify(values)} />
-                <canvas
-                  ref={ref}
-                  className="art-preview"
-                  aria-label={'Prévia de ' + values.title}
-                  role="img"
-                />
+                {previewArt}
                 {smallText && (
                   <p className="notice">
-                    O texto ficou pequeno. Encurte a mensagem para melhorar a
-                    leitura.
+                    O texto passou da área segura ou ficou pequeno. Encurte a
+                    mensagem para melhorar a leitura.
                   </p>
                 )}
               </>
@@ -1265,16 +1297,11 @@ function Art(props: EditorProps) {
       )}
       {step === 2 && (
         <>
-          <canvas
-            ref={ref}
-            className="art-preview"
-            aria-label={'Prévia de ' + values.title}
-            role="img"
-          />
+          {previewArt}
           {smallText && (
             <p role="status" className="notice">
-              O texto ficou pequeno. Volte e encurte a mensagem para melhorar a
-              leitura.
+              O texto passou da área segura ou ficou pequeno. Encurte a mensagem
+              para melhorar a leitura.
             </p>
           )}
           {panel ? (

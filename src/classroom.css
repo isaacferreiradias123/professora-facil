@@ -769,3 +769,98 @@
   max-width: 26rem;
   margin-block: 0.75rem;
 }
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  src: url('/colecao/bricolage-grotesque.woff2') format('woff2');
+  font-weight: 500 800;
+  font-display: swap;
+}
+
+:is(.public-main, .workspace) :is(h1, h2, h3) {
+  font-family: 'Bricolage Grotesque', 'Noto Sans', sans-serif;
+  letter-spacing: -0.025em;
+}
+.mode-caption {
+  color: #315c48;
+  font-size: 0.8rem;
+}
+.welcome .button {
+  margin-top: 0.75rem;
+}
+.school-home .school-hero {
+  background: #e3edf4;
+  border: 1px solid #d1e0ea;
+  padding: clamp(1rem, 2.6vw, 2rem);
+  gap: clamp(1rem, 4vw, 3rem);
+}
+.school-home .school-hero-copy {
+  max-width: 34rem;
+  padding: clamp(0.25rem, 1.5vw, 1.25rem);
+}
+.school-home .school-hero :is(h1, p, a:not(.button)) {
+  color: #183e33;
+}
+.school-home .school-hero h1 {
+  max-width: 13ch;
+  font-size: clamp(2.5rem, 5.6vw, 5rem);
+}
+.school-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.9rem 0;
+  align-items: center;
+}
+.school-flow > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 0.7rem;
+}
+.school-flow [aria-current] {
+  border-color: #315c48;
+  background: #e3ece3;
+}
+.school-home .school-hero > img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  align-self: center;
+}
+.school-home .school-hero-actions {
+  align-items: center;
+}
+.school-card-link:focus-visible {
+  outline-offset: 4px;
+}
+.catalog-restore {
+  scroll-margin-block-start: 1.5rem;
+}
+@media (min-width: 52rem) {
+  .school-home .school-showcase {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .school-home .school-thumb {
+    height: 14rem;
+    place-items: center;
+    padding-block: 0.8rem;
+  }
+  .school-home .school-thumb > .print-paper {
+    width: auto;
+    height: 100%;
+    max-width: 92%;
+  }
+}
+@media (max-width: 48.99rem) {
+  .workspace-header .mode-caption {
+    flex-basis: 100%;
+  }
+  .school-home .school-hero > img {
+    max-height: 235px;
+  }
+  .shell .sidebar nav {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

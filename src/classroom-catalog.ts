@@ -1,6 +1,10 @@
 import { practiceModels } from './catalog-practice'
 import { communicationModels } from './catalog-communication'
+import { expansionPractice } from './catalog-expansion-practice'
+import { expansionCommunication } from './catalog-expansion-communication'
+import { expansionPanels } from './catalog-expansion-panels'
 import { panelModels } from './catalog-panels'
+import type { PanelSpec } from './panel-geometry'
 import type { Tool } from './catalog'
 import type { Values } from './store'
 
@@ -20,10 +24,10 @@ export const categories = [
 ] as const
 export type Category = (typeof categories)[number]
 export const categoryArt: Record<Category, string> = {
-  Atividades: 'atividades.webp',
-  Recados: 'recados.webp',
-  Painéis: 'paineis.webp',
-  'Organização da turma': 'organizacao.webp',
+  Atividades: 'mesa-atividades.webp',
+  Recados: 'mesa-recados.webp',
+  Painéis: 'mesa-visual.webp',
+  'Organização da turma': 'mesa-planejamento.webp',
 }
 export type Field = {
   key: string
@@ -48,6 +52,7 @@ export type Task = {
   adaptation: string
   prompts?: string[]
   illustrations?: string[]
+  sortLabels?: [string, string]
   guide?: string
 }
 export type ClassroomItem = {
@@ -60,8 +65,11 @@ export type ClassroomItem = {
   task?: Task
   fields?: Field[]
   body?: string
+  detachable?: boolean
   poster?: string[]
+  kit?: 'tiras' | 'placas'
   mosaicLabels?: string[]
+  panel?: PanelSpec
   scope?: 'individual' | 'collective'
   form?: 'ata' | 'declaracao' | 'entrega' | 'ficha'
   style?: 'meadow' | 'night' | 'peach'
@@ -1173,6 +1181,12 @@ const customPairs: ClassroomItem = {
       'Confira se cada figura foi ligada à sua correspondente. Considere também o pareamento com cartões.',
   },
 }
+classroom.push(
+  ...expansionPractice,
+  ...expansionCommunication,
+  ...expansionPanels,
+)
+
 export function findClassroomItem(id: string | undefined) {
   if (id === customPairs.id) return customPairs
   return id === customWorksheet.id
