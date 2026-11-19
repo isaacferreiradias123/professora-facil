@@ -35,9 +35,9 @@ describe('catalog & pedagogy taxonomy', () => {
     expect(observationHints['Pré II'].length).toBeGreaterThanOrEqual(4)
   })
 
-  it('provides 24 curated studio illustrations with unique IDs and resolved URLs', () => {
-    expect(figures).toHaveLength(24)
-    expect(new Set(figures.map((f) => f.id)).size).toBe(24)
+  it('provides studio illustrations with unique IDs and resolved URLs', () => {
+    expect(figures).toHaveLength(26)
+    expect(new Set(figures.map((f) => f.id)).size).toBe(figures.length)
     for (const fig of figures) {
       expect(figureUrl(fig.id)).toContain('colecao/' + fig.asset)
     }

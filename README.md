@@ -1,5 +1,9 @@
 # Professora Fácil
 
+## Acervo de Educação Infantil
+
+Os PDFs do primeiro lote ficam no catálogo como **Pronto para imprimir**. As adaptações dos cartazes, formas e fichas de contagem usam materiais da [Abby the Pup](https://www.abbythepup.com/about-us), sob [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/deed.pt-br), e preservam os créditos nos arquivos. As fichas de pareamento foram reconstruídas em português com ilustrações do ateliê. A galeria inclui duas figuras adaptadas de *Feelings*, com crédito à Abby the Pup.
+
 Ateliê digital local para professoras da Educação Infantil criarem atividades, planos de aula, relatórios, recados, documentos, álbuns de fotos, postagens e painéis em folhas A4 — sem cadastro e 100% no navegador.
 
 [Abrir a versão publicada](https://isaacferreiradias123.github.io/professora-facil/)

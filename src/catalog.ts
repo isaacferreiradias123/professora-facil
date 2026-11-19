@@ -113,7 +113,7 @@ export const tutorials: Record<Tool, readonly string[]> = {
   ],
   postagem: [
     'Escolha um modelo ou comece direto no editor com 6 composições e 6 paletas.',
-    'Adicione título, texto, foto opcional ou uma das 24 ilustrações reais do ateliê.',
+    'Adicione título, texto, foto opcional ou uma ilustração da galeria.',
     'Baixe a imagem PNG em alta resolução e copie a legenda pronta.',
   ],
   painel: [

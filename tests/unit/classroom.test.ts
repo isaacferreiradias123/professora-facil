@@ -20,10 +20,10 @@ function assetExists(name: string) {
 }
 
 describe('curated classroom collection', () => {
-  it('has 69 distinct models with unique IDs and titles across all sections', () => {
-    expect(classroom).toHaveLength(69)
-    expect(new Set(classroom.map((item) => item.id)).size).toBe(69)
-    expect(new Set(classroom.map((item) => item.title)).size).toBe(69)
+  it('has 77 distinct models with unique IDs and titles across all sections', () => {
+    expect(classroom).toHaveLength(77)
+    expect(new Set(classroom.map((item) => item.id)).size).toBe(classroom.length)
+    expect(new Set(classroom.map((item) => item.title)).size).toBe(classroom.length)
 
     const populated = new Set(classroom.map((item) => sectionFor(item)))
     for (const section of collectionSections) {

@@ -209,7 +209,7 @@ test('coleção é navegável por teclado, filtros, pronto e rascunho reaberto',
   await page
     .getByRole('combobox', { name: 'Formato', exact: true })
     .selectOption('pronto')
-  await expect(page.getByRole('status')).toContainText('2 materiais')
+  await expect(page.getByRole('status')).toContainText('8 materiais')
   await page.locator('a[href$="/frutas-prontas"]').click()
   expect(
     (
