@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 794 1123" role="img" aria-label="Desenhe emoções">
+<rect width="794" height="1123" fill="white"/>
+<rect x="44" y="43" width="706" height="1037" rx="16" fill="none" stroke="#39453d" stroke-width="3"/>
+<text x="67" y="102" font-family="Arial,sans-serif" font-weight="bold" font-size="31" fill="#26352e">Desenhe emoções</text>
+<text x="67" y="153" font-family="Arial,sans-serif" font-size="19" fill="#26352e">Nome: __________________________________________</text>
+<text x="67" y="195" font-family="Arial,sans-serif" font-size="19" fill="#26352e">Data: ____ / ____ / ______</text>
+<path d="M67 232 H726" stroke="#26352e" stroke-width="2"/>
+<circle cx="175" cy="490" r="60" fill="white" stroke="#26352e" stroke-width="4"/>
+<circle cx="147" cy="475" r="6" fill="#26352e"/><circle cx="203" cy="475" r="6" fill="#26352e"/>
+<path d="M147 516 Q 175 550 203 516" fill="none" stroke="#26352e" stroke-width="4"/>
+<circle cx="397" cy="490" r="60" fill="white" stroke="#26352e" stroke-width="4"/>
+<circle cx="369" cy="475" r="6" fill="#26352e"/><circle cx="425" cy="475" r="6" fill="#26352e"/>
+<line x1="369" y1="530" x2="425" y2="530" stroke="#26352e" stroke-width="3" />
+<circle cx="619" cy="490" r="60" fill="white" stroke="#26352e" stroke-width="4"/>
+<circle cx="591" cy="475" r="6" fill="#26352e"/><circle cx="647" cy="475" r="6" fill="#26352e"/>
+<path d="M591 530 Q 619 490 647 530" fill="none" stroke="#26352e" stroke-width="4"/>
+<text x="185" y="730" font-family="Arial,sans-serif" font-size="23" fill="#26352e">Como cada rosto pode estar se sentindo?</text>
+<text x="67" y="1033" font-family="Arial,sans-serif" font-size="14" fill="#26352e">Professora Fácil · Atividade original e editável · Ajuste para sua turma</text>
+</svg>

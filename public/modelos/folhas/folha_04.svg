@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 794 1123" role="img" aria-label="Conte as estrelas">
+<rect width="794" height="1123" fill="white"/>
+<rect x="44" y="43" width="706" height="1037" rx="16" fill="none" stroke="#39453d" stroke-width="3"/>
+<text x="67" y="102" font-family="Arial,sans-serif" font-weight="bold" font-size="31" fill="#26352e">Conte as estrelas</text>
+<text x="67" y="153" font-family="Arial,sans-serif" font-size="19" fill="#26352e">Nome: __________________________________________</text>
+<text x="67" y="195" font-family="Arial,sans-serif" font-size="19" fill="#26352e">Data: ____ / ____ / ______</text>
+<path d="M67 232 H726" stroke="#26352e" stroke-width="2"/>
+<text x="129" y="280" font-family="Arial,sans-serif" font-size="20" fill="#26352e">Grupo 1</text>
+<polygon points="145,333 150,343 161,345 153,353 155,364 145,358 135,364 137,353 129,345 140,343" fill="white" stroke="#26352e" stroke-width="4"/>
+<rect x="100" y="445" width="100" height="50" fill="white" stroke="#26352e" stroke-width="2"/>
+<text x="369" y="280" font-family="Arial,sans-serif" font-size="20" fill="#26352e">Grupo 2</text>
+<polygon points="385,333 390,343 401,345 393,353 395,364 385,358 375,364 377,353 369,345 380,343" fill="white" stroke="#26352e" stroke-width="4"/>
+<polygon points="440,333 445,343 456,345 448,353 450,364 440,358 430,364 432,353 424,345 435,343" fill="white" stroke="#26352e" stroke-width="4"/>
+<rect x="340" y="445" width="100" height="50" fill="white" stroke="#26352e" stroke-width="2"/>
+<text x="609" y="280" font-family="Arial,sans-serif" font-size="20" fill="#26352e">Grupo 3</text>
+<polygon points="625,333 630,343 641,345 633,353 635,364 625,358 615,364 617,353 609,345 620,343" fill="white" stroke="#26352e" stroke-width="4"/>
+<polygon points="680,333 685,343 696,345 688,353 690,364 680,358 670,364 672,353 664,345 675,343" fill="white" stroke="#26352e" stroke-width="4"/>
+<polygon points="735,333 740,343 751,345 743,353 745,364 735,358 725,364 727,353 719,345 730,343" fill="white" stroke="#26352e" stroke-width="4"/>
+<rect x="580" y="445" width="100" height="50" fill="white" stroke="#26352e" stroke-width="2"/>
+<text x="129" y="540" font-family="Arial,sans-serif" font-size="20" fill="#26352e">Grupo 4</text>
+<polygon points="145,593 150,603 161,605 153,613 155,624 145,618 135,624 137,613 129,605 140,603" fill="white" stroke="#26352e" stroke-width="4"/>
+<polygon points="200,593 205,603 216,605 208,613 210,624 200,618 190,624 192,613 184,605 195,603" fill="white" stroke="#26352e" stroke-width="4"/>
+<polygon points="255,593 260,603 271,605 263,613 265,624 255,618 245,624 247,613 239,605 250,603" fill="white" stroke="#26352e" stroke-width="4"/>
+<polygon points="145,651 150,661 161,663 153,671 155,682 145,676 135,682 137,671 129,663 140,661" fill="white" stroke="#26352e" stroke-width="4"/>
+<rect x="100" y="705" width="100" height="50" fill="white" stroke="#26352e" stroke-width="2"/>
+<text x="369" y="540" font-family="Arial,sans-serif" font-size="20" fill="#26352e">Grupo 5</text>
+<polygon points="385,593 390,603 401,605 393,613 395,624 385,618 375,624 377,613 369,605 380,603" fill="white" stroke="#26352e" stroke-width="4"/>
+<polygon points="440,593 445,603 456,605 448,613 450,624 440,618 430,624 432,613 424,605 435,603" fill="white" stroke="#26352e" stroke-width="4"/>
+<polygon points="495,593 500,603 511,605 503,613 505,624 495,618 485,624 487,613 479,605 490,603" fill="white" stroke="#26352e" stroke-width="4"/>
+<polygon points="385,651 390,661 401,663 393,671 395,682 385,676 375,682 377,671 369,663 380,661" fill="white" stroke="#26352e" stroke-width="4"/>
+<polygon points="440,651 445,661 456,663 448,671 450,682 440,676 430,682 432,671 424,663 435,661" fill="white" stroke="#26352e" stroke-width="4"/>
+<rect x="340" y="705" width="100" height="50" fill="white" stroke="#26352e" stroke-width="2"/>
+<text x="67" y="1033" font-family="Arial,sans-serif" font-size="14" fill="#26352e">Professora Fácil · Atividade original e editável · Ajuste para sua turma</text>
+</svg>

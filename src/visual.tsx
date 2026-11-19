@@ -7,6 +7,8 @@ import {
   formats,
   imageFromFile,
   photoLimit,
+  openImage,
+  photoThumbnail,
   a4Points,
   panelMargin,
   photoLayout,
@@ -27,6 +29,11 @@ import {
   useWorkflow,
   type EditorProps,
 } from './workflow'
+
+import { AdjustLayout, FileDrop, PreviewFeedback, Stages } from './editor-ui'
+import { PackPicker } from './template-controls'
+import { presetValues } from './template-pack'
+import { figures, figureUrl } from './art-figures'
 
 type Flow = ReturnType<typeof useWorkflow>
 const palettes = [
@@ -179,11 +186,14 @@ function Choice({
 const pairs = (options: readonly string[]): [string, string][] =>
   options.map((v) => [v, v])
 function Photos(props: EditorProps) {
-  const flow = useWorkflow(props, () => photoDefaults)
+  const flow = useWorkflow(props, () =>
+    props.preset ? presetValues(photoDefaults, props.preset) : photoDefaults,
+  )
   const easy = useEasy()
   const [photos, setPhotos] = useState<Photo[]>([])
   const [busy, setBusy] = useState('')
   const [step, setStep] = useState(0)
+  const [reached, setReached] = useState(0)
   const urls = useRef(new Set<string>())
   const alive = useRef(true)
   useEffect(() => {
@@ -227,7 +237,16 @@ function Photos(props: EditorProps) {
         if (!alive.current) return
         const url = URL.createObjectURL(blob)
         urls.current.add(url)
-        next.push({ id: newId(), url, blob, caption: '' })
+        let thumb: string | undefined
+        try {
+          const small = await photoThumbnail(url)
+          if (!alive.current) return
+          thumb = URL.createObjectURL(small)
+          urls.current.add(thumb)
+        } catch {
+          /* use the resized export image until a thumbnail is available */
+        }
+        next.push({ id: newId(), url, thumb, blob, caption: '' })
       } catch (e) {
         failures.push(
           e instanceof Error
@@ -268,7 +287,11 @@ function Photos(props: EditorProps) {
       urls.current.add(url)
       urls.current.delete(photo.url)
       URL.revokeObjectURL(photo.url)
-      updatePhoto(photo, { blob, url, cropX: 50, cropY: 50 })
+      if (photo.thumb) {
+        urls.current.delete(photo.thumb)
+        URL.revokeObjectURL(photo.thumb)
+      }
+      updatePhoto(photo, { blob, url, thumb: undefined, cropX: 50, cropY: 50 })
     } catch {
       setError('Não foi possível girar esta foto.')
     } finally {
@@ -276,12 +299,18 @@ function Photos(props: EditorProps) {
     }
   }
   function remove(photo: Photo) {
+    if (photo.thumb) {
+      urls.current.delete(photo.thumb)
+      URL.revokeObjectURL(photo.thumb)
+    }
     URL.revokeObjectURL(photo.url)
     urls.current.delete(photo.url)
     setPhotos((items) => items.filter((p) => p.id !== photo.id))
     setDirty(true)
   }
   function go(next: number) {
+    if (next > 0 && !photos.length) return
+    setReached((current) => Math.max(current, next))
     setStep(next)
     requestAnimationFrame(() => document.getElementById('visual-step')?.focus())
   }
@@ -309,29 +338,122 @@ function Photos(props: EditorProps) {
       setBusy('')
     }
   }
+  const review = (
+    <>
+      <p>
+        {sheets.length} folhas A4 ·{' '}
+        {options.crop
+          ? 'Preenchimento com recorte ajustável'
+          : 'Encaixe sem recorte'}
+      </p>
+      <div className="sheets">
+        {sheets.map((sheet, i) => (
+          <div key={i}>
+            <p>Folha {i + 1}</p>
+            <div
+              className="photo-sheet"
+              style={{
+                aspectRatio: layout.pageWidth + '/' + layout.pageHeight,
+              }}
+            >
+              {sheet.map((p, index) => (
+                <figure
+                  key={p.id}
+                  style={{
+                    left: (100 * layout.x(index)) / layout.pageWidth + '%',
+                    top: (100 * layout.y(index)) / layout.pageHeight + '%',
+                    width: (100 * layout.width) / layout.pageWidth + '%',
+                    height: (100 * layout.height) / layout.pageHeight + '%',
+                  }}
+                >
+                  <img
+                    src={p.url}
+                    alt={'Foto ' + (photos.indexOf(p) + 1)}
+                    style={{
+                      objectFit: options.crop ? 'cover' : 'contain',
+                      objectPosition:
+                        (p.cropX ?? 50) + '% ' + (p.cropY ?? 50) + '%',
+                    }}
+                  />
+                  {p.caption && <figcaption>{p.caption}</figcaption>}
+                </figure>
+              ))}
+            </div>
+            {options.crop && (
+              <details className="photo-position">
+                <summary>Ajustar recorte da folha {i + 1}</summary>
+                {sheet.map((photo) => {
+                  const number = photos.indexOf(photo) + 1
+                  return (
+                    <fieldset key={photo.id}>
+                      <legend>Foto {number}</legend>
+                      <label>
+                        Posição horizontal
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={photo.cropX ?? 50}
+                          onChange={(event) =>
+                            updatePhoto(photo, {
+                              cropX: Number(event.target.value),
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Posição vertical
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={photo.cropY ?? 50}
+                          onChange={(event) =>
+                            updatePhoto(photo, {
+                              cropY: Number(event.target.value),
+                            })
+                          }
+                        />
+                      </label>
+                    </fieldset>
+                  )
+                })}
+              </details>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  )
   if (flow.loading) return <p role="status">Abrindo rascunho…</p>
   if (flow.unavailable) return <p role="alert">{flow.error}</p>
   return (
     <Frame tool={props.tool} flow={flow} busy={busy}>
-      <p className="progress">Etapa {step + 1} de 3</p>
+      <Stages
+        step={step}
+        reached={reached}
+        disabled={Boolean(busy)}
+        change={go}
+      />
       <h2 id="visual-step" tabIndex={-1}>
         {['Escolher fotos', 'Organizar as folhas', 'Conferir PDF'][step]}
       </h2>
       {step === 0 && (
         <>
-          <label>
-            Selecionar fotos
-            <input
-              multiple
-              type="file"
-              accept=".jpg,.jpeg,.png,.webp"
-              disabled={Boolean(busy)}
-              onChange={(e) => {
-                void add(Array.from(e.target.files ?? []))
-                e.target.value = ''
-              }}
-            />
-          </label>
+          <FileDrop
+            label="Selecionar fotos"
+            instructions="Arraste fotos JPG, PNG ou WebP ou toque para escolher. Até 24 arquivos."
+            accept=".jpg,.jpeg,.png,.webp"
+            multiple
+            disabled={Boolean(busy)}
+            onFiles={(files) => void add(files)}
+          />
+          <PackPicker
+            tool="fotos-em-pdf"
+            selected={values.templateId}
+            onSelect={(item) => flow.replace(presetValues(values, item))}
+          />
+
           <p>
             {photos.length} de {photoLimit} fotos selecionadas. Use JPG, PNG ou
             WebP.
@@ -340,7 +462,11 @@ function Photos(props: EditorProps) {
             {photos.map((p, i) => (
               <article className="card" key={p.id}>
                 <strong>Foto {i + 1}</strong>
-                <img src={p.url} alt={'Foto ' + (i + 1)} loading="lazy" />
+                <img
+                  src={p.thumb ?? p.url}
+                  alt={'Foto ' + (i + 1)}
+                  loading="lazy"
+                />
                 <div className="actions">
                   <button
                     type="button"
@@ -413,123 +539,47 @@ function Photos(props: EditorProps) {
         </>
       )}
       {step === 1 && (
-        <div className="form-grid">
-          <TextField flow={flow} label="Nome do arquivo" id="title" />
-          <Choice
-            flow={flow}
-            label="Orientação do A4"
-            id="orientation"
-            options={[
-              ['vertical', 'Vertical'],
-              ['horizontal', 'Horizontal'],
-            ]}
-          />
-          <Choice
-            flow={flow}
-            label="Fotos por folha"
-            id="perPage"
-            options={pairs(['1', '2', '4'])}
-          />
-          {easy ? (
-            <details className="wide">
-              <summary>Margens, encaixe e qualidade</summary>
-              <div className="form-grid">
+        <AdjustLayout
+          form={
+            <div className="form-grid">
+              <TextField flow={flow} label="Nome do arquivo" id="title" />
+              <Choice
+                flow={flow}
+                label="Orientação do A4"
+                id="orientation"
+                options={[
+                  ['vertical', 'Vertical'],
+                  ['horizontal', 'Horizontal'],
+                ]}
+              />
+              <Choice
+                flow={flow}
+                label="Fotos por folha"
+                id="perPage"
+                options={pairs(['1', '2', '4'])}
+              />
+              {easy ? (
+                <details className="wide">
+                  <summary>Margens, encaixe e qualidade</summary>
+                  <div className="form-grid">
+                    <PhotoAdvanced flow={flow} />
+                  </div>
+                </details>
+              ) : (
                 <PhotoAdvanced flow={flow} />
-              </div>
-            </details>
-          ) : (
-            <PhotoAdvanced flow={flow} />
-          )}
-        </div>
+              )}
+            </div>
+          }
+          preview={
+            <>
+              <PreviewFeedback revision={JSON.stringify(values)} />
+              {review}
+            </>
+          }
+        />
       )}
-      {step === 2 && (
-        <>
-          <p>
-            {sheets.length} folhas A4 ·{' '}
-            {options.crop
-              ? 'Preenchimento com recorte ajustável'
-              : 'Encaixe sem recorte'}
-          </p>
-          <div className="sheets">
-            {sheets.map((sheet, i) => (
-              <div key={i}>
-                <p>Folha {i + 1}</p>
-                <div
-                  className="photo-sheet"
-                  style={{
-                    aspectRatio: layout.pageWidth + '/' + layout.pageHeight,
-                  }}
-                >
-                  {sheet.map((p, index) => (
-                    <figure
-                      key={p.id}
-                      style={{
-                        left: (100 * layout.x(index)) / layout.pageWidth + '%',
-                        top: (100 * layout.y(index)) / layout.pageHeight + '%',
-                        width: (100 * layout.width) / layout.pageWidth + '%',
-                        height: (100 * layout.height) / layout.pageHeight + '%',
-                      }}
-                    >
-                      <img
-                        src={p.url}
-                        alt={'Foto ' + (photos.indexOf(p) + 1)}
-                        style={{
-                          objectFit: options.crop ? 'cover' : 'contain',
-                          objectPosition:
-                            (p.cropX ?? 50) + '% ' + (p.cropY ?? 50) + '%',
-                        }}
-                      />
-                      {p.caption && <figcaption>{p.caption}</figcaption>}
-                    </figure>
-                  ))}
-                </div>
-                {options.crop && (
-                  <details className="photo-position">
-                    <summary>Ajustar recorte da folha {i + 1}</summary>
-                    {sheet.map((photo) => {
-                      const number = photos.indexOf(photo) + 1
-                      return (
-                        <fieldset key={photo.id}>
-                          <legend>Foto {number}</legend>
-                          <label>
-                            Posição horizontal
-                            <input
-                              type="range"
-                              min="0"
-                              max="100"
-                              value={photo.cropX ?? 50}
-                              onChange={(event) =>
-                                updatePhoto(photo, {
-                                  cropX: Number(event.target.value),
-                                })
-                              }
-                            />
-                          </label>
-                          <label>
-                            Posição vertical
-                            <input
-                              type="range"
-                              min="0"
-                              max="100"
-                              value={photo.cropY ?? 50}
-                              onChange={(event) =>
-                                updatePhoto(photo, {
-                                  cropY: Number(event.target.value),
-                                })
-                              }
-                            />
-                          </label>
-                        </fieldset>
-                      )
-                    })}
-                  </details>
-                )}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-      <div className="actions">
+      {step === 2 && review}
+      <div className="actions pinned-action">
         {step > 0 && (
           <button
             className="secondary"
@@ -615,8 +665,13 @@ function Art(props: EditorProps) {
     props.model < models.length
       ? props.model
       : 0
-  const flow = useWorkflow(props, () => artDefaults(props, model))
+  const flow = useWorkflow(props, () =>
+    props.preset
+      ? presetValues(artDefaults(props, model), props.preset)
+      : artDefaults(props, model),
+  )
   const [step, setStep] = useState(0)
+  const [reached, setReached] = useState(0)
   const [busy, setBusy] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
   const [photo, setPhoto] = useState<HTMLImageElement | null>(null)
@@ -627,7 +682,11 @@ function Art(props: EditorProps) {
   const { values, replace, setDirty, setError, setMessage } = flow
   const [previous, setPrevious] = useState<Values | null>(null)
   const [smallText, setSmallText] = useState(false)
-  const [showArt, setShowArt] = useState(false)
+  const [ornament, setOrnament] = useState<{
+    url: string
+    image: HTMLImageElement
+  }>()
+  const ornamentUrl = figureUrl(values.figure ?? '')
   const safeGrid = (value: string) =>
     ['1', '2', '3', '4'].includes(value) ? Number(value) : 2
   const grid = safeGrid(values.grid)
@@ -659,6 +718,20 @@ function Art(props: EditorProps) {
     model: Number(values.model) || 0,
   }
   useEffect(() => {
+    if (!ornamentUrl) return
+    let active = true
+    void openImage(ornamentUrl)
+      .then((image) => {
+        if (active) setOrnament({ url: ornamentUrl, image })
+      })
+      .catch(() => {
+        if (active) setError('Não foi possível carregar a figura.')
+      })
+    return () => {
+      active = false
+    }
+  }, [ornamentUrl, setError])
+  useEffect(() => {
     if (!ref.current) return
     const target = ref.current
     const scale =
@@ -684,6 +757,7 @@ function Art(props: EditorProps) {
         },
         photo,
         panel,
+        ornament && ornamentUrl === ornament.url ? ornament.image : undefined,
       ),
     )
     if (panel && step === 2)
@@ -715,7 +789,8 @@ function Art(props: EditorProps) {
     dimensions,
     columns,
     rows,
-    showArt,
+    ornament,
+    ornamentUrl,
   ])
   useEffect(
     () => () => {
@@ -724,6 +799,7 @@ function Art(props: EditorProps) {
     [photoUrl],
   )
   function go(next: number) {
+    setReached((current) => Math.max(current, next))
     setStep(next)
     setError('')
     requestAnimationFrame(() => document.getElementById('visual-step')?.focus())
@@ -777,9 +853,9 @@ function Art(props: EditorProps) {
     }
   }
   async function copy() {
-    const text = [values.title, settings.date, values.body]
-      .filter(Boolean)
-      .join('\n')
+    const text =
+      values.caption ||
+      [values.title, settings.date, values.body].filter(Boolean).join('\n')
     try {
       await navigator.clipboard.writeText(text)
       setMessage('Legenda copiada.')
@@ -821,7 +897,12 @@ function Art(props: EditorProps) {
   )
   return (
     <Frame tool={props.tool} flow={flow} busy={busy}>
-      <p className="progress">Etapa {step + 1} de 3</p>
+      <Stages
+        step={step}
+        reached={reached}
+        disabled={Boolean(busy)}
+        change={go}
+      />
       <h2 id="visual-step" tabIndex={-1}>
         {['Escolher', 'Personalizar', 'Conferir'][step]}
       </h2>
@@ -837,6 +918,8 @@ function Art(props: EditorProps) {
                   ...artDefaults(props, Number(e.target.value)),
                   grid: values.grid,
                   format: values.format,
+                  templateId: '',
+                  caption: '',
                 })
               }
             >
@@ -847,6 +930,13 @@ function Art(props: EditorProps) {
               ))}
             </select>
           </label>
+          <PackPicker
+            tool={props.tool}
+            selected={values.templateId}
+            onSelect={(item) =>
+              chooseArt(presetValues(artDefaults(props, 0), item))
+            }
+          />
           {panel ? (
             <Choice
               flow={artFlow}
@@ -886,97 +976,126 @@ function Art(props: EditorProps) {
       )}
       {step === 1 && (
         <>
-          <div className="visual-columns" data-editor-step>
-            <div className="form-grid">
-              <TextField flow={artFlow} label="Título" id="title" />
-              <TextField
-                flow={artFlow}
-                label="Data (opcional)"
-                id="date"
-                type="date"
-              />
-              <TextField
-                flow={artFlow}
-                label={panel ? 'Texto do painel' : 'Legenda'}
-                id="body"
-                type="textarea"
-              />
-              {!panel && (
-                <label>
-                  Adicionar imagem (opcional)
-                  <input
-                    type="file"
+          <AdjustLayout
+            form={
+              <div className="form-grid">
+                <TextField flow={artFlow} label="Título" id="title" />
+                <TextField
+                  flow={artFlow}
+                  label="Data (opcional)"
+                  id="date"
+                  type="date"
+                />
+                <TextField
+                  flow={artFlow}
+                  label={panel ? 'Texto do painel' : 'Legenda'}
+                  id="body"
+                  type="textarea"
+                />
+                {!panel && values.templateId && (
+                  <TextField
+                    flow={artFlow}
+                    label="Legenda para compartilhar"
+                    id="caption"
+                    type="textarea"
+                  />
+                )}
+                {!panel && (
+                  <FileDrop
+                    label="Adicionar imagem (opcional)"
+                    instructions="Escolha ou arraste uma imagem JPG, PNG ou WebP de até 14 MB."
                     accept=".jpg,.jpeg,.png,.webp"
                     disabled={Boolean(busy)}
-                    onChange={(e) => {
-                      void readFile(e.target.files?.[0])
-                      e.target.value = ''
-                    }}
+                    onFiles={([file]) => void readFile(file)}
                   />
-                </label>
-              )}
-              {photo && (
-                <Choice
-                  flow={artFlow}
-                  label="Enquadramento da imagem"
-                  id="artCrop"
-                  options={[
-                    ['no', 'Mostrar imagem inteira'],
-                    ['yes', 'Preencher com recorte central'],
-                  ]}
-                />
-              )}
-              {photo && (
-                <button
-                  className="secondary"
-                  onClick={() => {
-                    setPhoto(null)
-                    setPhotoUrl('')
-                    setDirty(true)
-                  }}
-                >
-                  Remover imagem
-                </button>
-              )}
-              {easy ? (
+                )}
                 <details className="wide">
-                  <summary>Cores e fonte</summary>
-                  <div className="form-grid">{style}</div>
+                  <summary>
+                    Figuras decorativas{values.figure ? ' · 1 escolhida' : ''}
+                  </summary>
+                  <div
+                    className="figure-picker"
+                    role="group"
+                    aria-label="Figuras decorativas"
+                  >
+                    <button
+                      type="button"
+                      className="secondary"
+                      aria-pressed={!values.figure}
+                      onClick={() => updateArt('figure', '')}
+                    >
+                      Sem figura
+                    </button>
+                    {figures.map((item) => (
+                      <button
+                        type="button"
+                        className="secondary"
+                        key={item.id}
+                        aria-pressed={values.figure === item.id}
+                        onClick={() => updateArt('figure', item.id)}
+                      >
+                        <img
+                          src={figureUrl(item.id)}
+                          alt=""
+                          width="34"
+                          height="34"
+                          loading="lazy"
+                        />
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </details>
-              ) : (
-                style
-              )}
-              {previous && (
-                <div>
+                {photo && (
+                  <Choice
+                    flow={artFlow}
+                    label="Enquadramento da imagem"
+                    id="artCrop"
+                    options={[
+                      ['no', 'Mostrar imagem inteira'],
+                      ['yes', 'Preencher com recorte central'],
+                    ]}
+                  />
+                )}
+                {photo && (
                   <button
-                    type="button"
                     className="secondary"
                     onClick={() => {
-                      replace(previous)
-                      setPrevious(null)
+                      setPhoto(null)
+                      setPhotoUrl('')
+                      setDirty(true)
                     }}
                   >
-                    Desfazer última alteração
+                    Remover imagem
                   </button>
-                </div>
-              )}
-            </div>
-            <div className="art-live">
-              <button
-                type="button"
-                className="secondary live-preview-mobile"
-                aria-expanded={showArt}
-                aria-controls="art-preview-live"
-                onClick={() => setShowArt(!showArt)}
-              >
-                {showArt ? 'Ocultar prévia' : 'Ver prévia'}
-              </button>
-              <div
-                id="art-preview-live"
-                className={
-                  showArt ? 'art-preview-visible' : 'live-preview-desktop'
-                }
-              >
+                )}
+                {easy ? (
+                  <details className="wide">
+                    <summary>Cores e fonte</summary>
+                    <div className="form-grid">{style}</div>
+                  </details>
+                ) : (
+                  style
+                )}
+                {previous && (
+                  <div>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => {
+                        replace(previous)
+                        setPrevious(null)
+                      }}
+                    >
+                      Desfazer última alteração
+                    </button>
+                  </div>
+                )}
+              </div>
+            }
+            preview={
+              <>
+                <PreviewFeedback revision={JSON.stringify(values)} />
                 <canvas
                   ref={ref}
                   className="art-preview"
@@ -984,14 +1103,14 @@ function Art(props: EditorProps) {
                   role="img"
                 />
                 {smallText && (
-                  <p role="status" className="notice">
-                    O texto ficou pequeno. Encurte o título ou a mensagem para
-                    melhorar a leitura.
+                  <p className="notice">
+                    O texto ficou pequeno. Encurte a mensagem para melhorar a
+                    leitura.
                   </p>
                 )}
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
         </>
       )}
       {step === 2 && (
@@ -1073,16 +1192,19 @@ function Art(props: EditorProps) {
                 <textarea
                   id="caption-copy"
                   readOnly
-                  value={[values.title, settings.date, values.body]
-                    .filter(Boolean)
-                    .join('\n')}
+                  value={
+                    values.caption ||
+                    [values.title, settings.date, values.body]
+                      .filter(Boolean)
+                      .join('\n')
+                  }
                 />
               </label>
             </details>
           )}
         </>
       )}
-      <div className="actions">
+      <div className="actions pinned-action">
         {step > 0 && (
           <button
             className="secondary"
@@ -1101,7 +1223,13 @@ function Art(props: EditorProps) {
           </button>
         ) : (
           <>
-            <button disabled={Boolean(busy)} onClick={() => void output()}>
+            <button
+              disabled={
+                Boolean(busy) ||
+                Boolean(ornamentUrl && ornament?.url !== ornamentUrl)
+              }
+              onClick={() => void output()}
+            >
               Baixar {panel ? 'PDF' : 'PNG'}
             </button>
             {panel ? (

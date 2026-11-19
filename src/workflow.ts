@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useBeforeUnload, useBlocker, useNavigate } from 'react-router-dom'
 import { drafts, newId, type Values } from './store'
 import type { Tool } from './catalog'
+import type { PackTemplate } from './template-pack'
 import { clearRecovery, recover, recoveryPrefix } from './draft-transfer'
 
 export interface EditorProps {
@@ -9,13 +10,17 @@ export interface EditorProps {
   model: number
   draftId: string | null
   age?: number
+  preset?: PackTemplate
 }
 export function useWorkflow(
-  { tool, draftId, model, age }: EditorProps,
+  { tool, draftId, model, age, preset }: EditorProps,
   initial: () => Values,
 ) {
   const recoveryKey =
-    recoveryPrefix + tool + ':' + (draftId ?? model + ':' + (age ?? ''))
+    recoveryPrefix +
+    tool +
+    ':' +
+    (draftId ?? preset?.id ?? model + ':' + (age ?? ''))
   const [recovered] = useState(() => recover(recoveryKey))
   const [values, setValues] = useState(() => ({ ...initial(), ...recovered }))
   const [id, setId] = useState(draftId)

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 794 1123" role="img" aria-label="Traçado de ondas">
+<rect width="794" height="1123" fill="white"/>
+<rect x="44" y="43" width="706" height="1037" rx="16" fill="none" stroke="#39453d" stroke-width="3"/>
+<text x="67" y="102" font-family="Arial,sans-serif" font-weight="bold" font-size="31" fill="#26352e">Traçado de ondas</text>
+<text x="67" y="153" font-family="Arial,sans-serif" font-size="19" fill="#26352e">Nome: __________________________________________</text>
+<text x="67" y="195" font-family="Arial,sans-serif" font-size="19" fill="#26352e">Data: ____ / ____ / ______</text>
+<path d="M67 232 H726" stroke="#26352e" stroke-width="2"/>
+<path d="M105 350 Q 180 280 260 350 T 410 350 T 565 350 T 700 350" stroke="#26352e" stroke-width="4" fill="none" stroke-dasharray="5 15" stroke-linecap="round"/>
+<path d="M105 470 Q 180 400 260 470 T 410 470 T 565 470 T 700 470" stroke="#26352e" stroke-width="4" fill="none" stroke-dasharray="5 15" stroke-linecap="round"/>
+<path d="M105 590 Q 180 520 260 590 T 410 590 T 565 590 T 700 590" stroke="#26352e" stroke-width="4" fill="none" stroke-dasharray="5 15" stroke-linecap="round"/>
+<path d="M105 710 Q 180 640 260 710 T 410 710 T 565 710 T 700 710" stroke="#26352e" stroke-width="4" fill="none" stroke-dasharray="5 15" stroke-linecap="round"/>
+<text x="67" y="1033" font-family="Arial,sans-serif" font-size="14" fill="#26352e">Professora Fácil · Atividade original e editável · Ajuste para sua turma</text>
+</svg>

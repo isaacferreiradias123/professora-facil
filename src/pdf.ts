@@ -166,7 +166,11 @@ export async function pdf(data: Material): Promise<Blob> {
         const img = await (block.mime === 'image/png'
           ? doc.embedPng(block.bytes)
           : doc.embedJpg(block.bytes))
-        const scale = Math.min(1, usable / img.width, 350 / img.height)
+        const scale = Math.min(
+          1,
+          usable / img.width,
+          (block.worksheet ? y - margin - 10 : 350) / img.height,
+        )
         const width = img.width * scale,
           height = img.height * scale
         space(height + 10)

@@ -28,7 +28,6 @@ import {
   Plus,
   Folder,
   LifeBuoy,
-  ArrowUpRight,
   Settings2,
 } from 'lucide-react'
 import {
@@ -47,6 +46,8 @@ import { drafts, newId, type Draft } from './store'
 import { clearRecovery, editableFile, importEditable } from './draft-transfer'
 import { download, filename } from './workflow'
 
+import { loadPack, worksheetUrl, type PackTemplate } from './template-pack'
+import { FileDrop } from './editor-ui'
 const Editor = lazy(() => import('./editor'))
 const Visual = lazy(() => import('./visual'))
 const Preference = createContext({ easy: true, toggle: () => {} })
@@ -124,9 +125,9 @@ function InternalLayout() {
         <Brand />
         <nav aria-label="Área de trabalho">
           {destinations.map(([p, n, Icon]) => (
-            <NavLink key={p} end={p === '/app/criar'} to={p}>
+            <NavLink key={p} end={p === '/app/criar'} to={p} aria-label={n}>
               <Icon size={21} aria-hidden="true" />
-              <span>{n}</span>
+              <span>{p === '/app/materiais' ? 'Materiais' : n}</span>
             </NavLink>
           ))}
         </nav>
@@ -140,6 +141,7 @@ function InternalLayout() {
             className="mode"
             type="button"
             aria-pressed={easy}
+            title="O Modo Fácil recolhe as opções avançadas"
             onClick={toggle}
           >
             <Settings2 size={18} aria-hidden="true" /> Modo Fácil{' '}
@@ -340,11 +342,26 @@ function Landing() {
             Criar um material
           </Link>
         </div>
-        <Examples />
+        <div className="hero-media">
+          <img
+            className="hero-art"
+            src={import.meta.env.BASE_URL + 'professora-home.webp'}
+            width="900"
+            height="600"
+            alt="Materiais ilustrados de Educação Infantil sobre uma mesa"
+            fetchPriority="high"
+          />
+          <Examples />
+        </div>
       </section>
       <section className="band">
         <h2>Do planejamento à impressão</h2>
-        <ToolGrid limit={6} />
+        <div className="home-tools">
+          <ToolGrid limit={6} />
+        </div>
+        <div className="document-feature">
+          <ToolGrid selection={['documento']} />
+        </div>
       </section>
       <section className="band">
         <h2>Como funciona</h2>
@@ -483,11 +500,6 @@ function ToolGrid({
                 <h3>{tools[k].name}</h3>
                 <p>{tools[k].description}</p>
               </div>
-              <ArrowUpRight
-                className="tool-arrow"
-                size={19}
-                aria-hidden="true"
-              />
             </Link>
           )
         })}
@@ -561,6 +573,53 @@ function Library({ embedded = false }: { embedded?: boolean }) {
   const [theme, setTheme] = useState('')
   const [field, setField] = useState('')
   const term = normalize(q.trim())
+  const [loaded, setLoaded] = useState<Partial<Record<Tool, PackTemplate[]>>>(
+    {},
+  )
+  const [loadError, setLoadError] = useState('')
+  const [retry, setRetry] = useState(0)
+  const [limit, setLimit] = useState(24)
+  const requested = category || (term || age || theme || field ? 'all' : '')
+  useEffect(() => {
+    if (!requested) return
+    let current = true
+    const keys =
+      requested === 'all' ? (Object.keys(tools) as Tool[]) : [requested as Tool]
+    for (const key of keys)
+      void loadPack(key)
+        .then((models) => {
+          if (current) setLoaded((old) => ({ ...old, [key]: models }))
+        })
+        .catch(() => {
+          if (current)
+            setLoadError('Alguns modelos não puderam ser carregados.')
+        })
+    return () => {
+      current = false
+    }
+  }, [requested, retry])
+  useEffect(() => {
+    setLimit(24)
+  }, [q, category, age, theme, field])
+  const extra = requested
+    ? Object.values(loaded)
+        .flat()
+        .filter((item) => {
+          const value = item.values
+          if (category && item.tool !== category) return false
+          if (age && ![age, 'Todas as faixas'].includes(item.age)) return false
+          if (theme && value.theme !== theme) return false
+          if (
+            field &&
+            value.field !== field &&
+            !value.fields?.split('|').includes(field)
+          )
+            return false
+          return normalize(
+            [item.title, item.topic, ...item.keywords].join(' '),
+          ).includes(term)
+        })
+    : []
   const selection = (Object.keys(tools) as Tool[])
     .filter((key) => !category || category === key)
     .filter(
@@ -662,7 +721,10 @@ function Library({ embedded = false }: { embedded?: boolean }) {
           const visible = keys.filter((key) => selection.includes(key))
           return (
             visible.length > 0 && (
-              <section className="catalog-group" key={heading}>
+              <section
+                className={'catalog-group catalog-group-' + keys.length}
+                key={heading}
+              >
                 <h3>{heading}</h3>
                 <ToolGrid selection={visible} />
               </section>
@@ -672,25 +734,135 @@ function Library({ embedded = false }: { embedded?: boolean }) {
       {(!embedded || filtered) && (
         <>
           {embedded && <h3>Modelos encontrados</h3>}
-          <div className="grid">
-            {found.map(({ key, i, name }) => (
-              <Link
-                className="card library-link"
-                key={key + i}
-                to={
-                  '/app/criar/' +
-                  key +
-                  '?modelo=' +
-                  i +
-                  (age ? '&faixa=' + groups.indexOf(age) : '')
-                }
+          {!requested && (
+            <div
+              className="filter-rail"
+              aria-label="Escolher categoria da coleção"
+            >
+              {(Object.keys(tools) as Tool[]).map((key) => (
+                <button
+                  className="secondary"
+                  type="button"
+                  key={key}
+                  onClick={() => setCategory(key)}
+                >
+                  {tools[key].name}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="filter-rail" aria-label="Filtros aplicados">
+            {[category && tools[category as Tool].name, age, theme, field]
+              .filter(Boolean)
+              .map((item) => (
+                <span className="filter-chip" key={item}>
+                  {item}
+                </span>
+              ))}
+            {filtered && (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setQ('')
+                  setCategory('')
+                  setAge('')
+                  setTheme('')
+                  setField('')
+                }}
               >
-                <strong>{name}</strong>
-                <span>{tools[key].name}</span>
-              </Link>
-            ))}
+                Limpar filtros
+              </button>
+            )}
           </div>
-          {!found.length && (
+          <p>{found.length + extra.length} modelos encontrados</p>
+          {loadError && (
+            <p role="alert">
+              {loadError}{' '}
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setLoadError('')
+                  setRetry(retry + 1)
+                }}
+              >
+                Tentar novamente
+              </button>
+            </p>
+          )}
+          <div className="grid model-grid">
+            {[
+              ...found.map(({ key, i, name }) => ({
+                key,
+                name,
+                id: String(i),
+                values: undefined,
+              })),
+              ...extra.map((item) => ({
+                key: item.tool,
+                name: item.title,
+                id: item.id,
+                values: item.values,
+              })),
+            ]
+              .slice(0, limit)
+              .map(({ key, name, id, values }) => (
+                <Link
+                  className="card library-link model-card"
+                  key={key + id}
+                  to={
+                    '/app/criar/' +
+                    key +
+                    '?modelo=' +
+                    id +
+                    (age ? '&faixa=' + groups.indexOf(age) : '')
+                  }
+                >
+                  <span
+                    aria-hidden="true"
+                    className={'model-thumb model-thumb-' + key}
+                    style={
+                      values && /^#[a-f0-9]{6}$/i.test(values.background)
+                        ? { backgroundColor: values.background }
+                        : undefined
+                    }
+                  >
+                    {worksheetUrl(values?.asset) ? (
+                      <img
+                        src={worksheetUrl(values?.asset)}
+                        alt=""
+                        loading="lazy"
+                      />
+                    ) : (
+                      <>
+                        <b>{values?.title ?? name}</b>
+                        <i />
+                        <i />
+                        <em>
+                          <i />
+                          <i />
+                        </em>
+                      </>
+                    )}
+                  </span>
+                  <span>
+                    <strong>{name}</strong>
+                    <small>{tools[key].name}</small>
+                  </span>
+                </Link>
+              ))}
+          </div>
+          {found.length + extra.length > limit && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setLimit(limit + 24)}
+            >
+              Mostrar mais 24
+            </button>
+          )}
+          {!found.length && !extra.length && (
             <p>
               Nenhum modelo encontrado. Experimente outro nome ou categoria.
             </p>
@@ -738,21 +910,18 @@ function Materials() {
     <>
       <h1>Meus materiais</h1>
       <p>Os rascunhos ficam neste navegador, neste dispositivo.</p>
-      <label className="import-draft">
-        Importar cópia editável
-        <input
-          type="file"
-          accept=".json,application/json"
-          onChange={(event) => {
-            const file = event.target.files?.[0]
-            event.target.value = ''
-            if (file)
-              void mutate(async () => {
-                await drafts.put(await importEditable(file))
-              }, 'Cópia importada.')
-          }}
-        />
-      </label>
+      <FileDrop
+        label="Importar cópia editável"
+        instructions="Escolha ou arraste um arquivo JSON de até 250 KB."
+        accept=".json,application/json"
+        onFiles={([file]) => {
+          if (file)
+            void mutate(async () => {
+              await drafts.put(await importEditable(file))
+            }, 'Cópia importada.')
+        }}
+      />
+
       <p role="status">{message}</p>
       {list?.length === 0 ? (
         <div className="card">
@@ -861,7 +1030,10 @@ function Materials() {
           </article>
         ))
       )}
-      <button className="secondary" onClick={() => setConfirmation('all')}>
+      <button
+        className="secondary clear-data"
+        onClick={() => setConfirmation('all')}
+      >
         Limpar dados locais
       </button>
       {confirmation && (
@@ -935,21 +1107,60 @@ function Future() {
 function CreateRoute() {
   const { tool } = useParams()
   const [params] = useSearchParams()
-  const group = params.get('faixa')
   if (!tool || !Object.hasOwn(tools, tool)) return <Missing />
-  const key = tool as Tool
+  return (
+    <OpenEditor
+      key={tool + params.toString()}
+      tool={tool as Tool}
+      params={params}
+    />
+  )
+}
+
+function OpenEditor({ tool, params }: { tool: Tool; params: URLSearchParams }) {
+  const group = params.get('faixa')
+  const model = params.get('modelo') ?? '0'
+  const packId = model.startsWith('pf327-') ? model : undefined
+  const [preset, setPreset] = useState<PackTemplate | null>()
+  useEffect(() => {
+    if (!packId) return
+    let active = true
+    void loadPack(tool)
+      .then((models) => {
+        if (active) setPreset(models.find((item) => item.id === packId) ?? null)
+      })
+      .catch(() => {
+        if (active) setPreset(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [tool, packId])
+  if (packId && preset === undefined)
+    return <p role="status">Carregando modelo…</p>
+  if (packId && !preset)
+    return (
+      <>
+        <p role="alert">Modelo indisponível.</p>
+        <Link to="/app/modelos">Voltar ao catálogo</Link>
+      </>
+    )
   const props = {
-    tool: key,
-    model: Number(params.get('modelo') ?? 0),
+    tool,
+    model: packId ? 0 : Number(model),
+    preset: preset ?? undefined,
     draftId: params.get('rascunho'),
-    age: group !== null && groups[Number(group)] ? Number(group) : undefined,
+    age:
+      !packId && group !== null && groups[Number(group)]
+        ? Number(group)
+        : undefined,
   }
   return (
     <Suspense fallback={<p role="status">Abrindo ferramenta…</p>}>
-      {['postagem', 'painel', 'fotos-em-pdf'].includes(key) ? (
-        <Visual key={key + params.toString()} {...props} />
+      {['postagem', 'painel', 'fotos-em-pdf'].includes(tool) ? (
+        <Visual {...props} />
       ) : (
-        <Editor key={key + params.toString()} {...props} />
+        <Editor {...props} />
       )}
     </Suspense>
   )

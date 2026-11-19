@@ -1,0 +1,68 @@
+const names = [
+  'livro',
+  'estrela',
+  'sol',
+  'lua',
+  'flor',
+  'arco-iris',
+  'coracao',
+  'nuvem',
+  'folha',
+  'lupa',
+  'lapis',
+  'globo',
+  'pipa',
+  'bola',
+  'casa',
+  'sino',
+  'nota',
+  'presente',
+  'maos',
+  'abecedario',
+  'numero',
+  'quadro',
+  'tesoura',
+  'mala',
+]
+const labels = [
+  'Livro',
+  'Estrela',
+  'Sol',
+  'Lua',
+  'Flor',
+  'Arco-íris',
+  'Coração',
+  'Nuvem',
+  'Folha',
+  'Lupa',
+  'Lápis',
+  'Globo',
+  'Pipa',
+  'Bola',
+  'Casa',
+  'Sino',
+  'Nota musical',
+  'Presente',
+  'Mãos',
+  'Abecedário',
+  'Número',
+  'Quadro',
+  'Tesoura',
+  'Mala',
+]
+export const figures = [
+  ...names.map((name, index) => ({
+    id: String(index + 1).padStart(2, '0') + '_' + name,
+    label: labels[index],
+  })),
+  { id: 'formas', label: 'Formas geométricas' },
+  { id: 'gato', label: 'Gato' },
+  { id: 'maca', label: 'Maçã' },
+  { id: 'chuva', label: 'Chuva' },
+  { id: 'caderno', label: 'Caderno' },
+]
+export function figureUrl(id?: string) {
+  return figures.some((figure) => figure.id === id)
+    ? import.meta.env.BASE_URL + 'modelos/figuras/' + id + '.svg'
+    : undefined
+}

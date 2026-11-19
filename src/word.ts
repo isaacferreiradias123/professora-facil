@@ -46,7 +46,11 @@ function renderBlock(block: Block): Child[] {
         }),
       ]
     case 'image': {
-      const scale = Math.min(1, 600 / block.width, 420 / block.height)
+      const scale = Math.min(
+        1,
+        (block.worksheet ? 620 : 600) / block.width,
+        (block.worksheet ? 900 : 420) / block.height,
+      )
       return [
         new Paragraph({
           children: [
