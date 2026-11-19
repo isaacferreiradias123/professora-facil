@@ -9,18 +9,19 @@ export interface EditorProps {
   tool: Tool
   model: number
   draftId: string | null
+  recoveryId?: string
   age?: number
   preset?: PackTemplate
 }
 export function useWorkflow(
-  { tool, draftId, model, age, preset }: EditorProps,
+  { tool, draftId, model, age, preset, recoveryId }: EditorProps,
   initial: () => Values,
 ) {
   const recoveryKey =
     recoveryPrefix +
     tool +
     ':' +
-    (draftId ?? preset?.id ?? model + ':' + (age ?? ''))
+    (draftId ?? recoveryId ?? preset?.id ?? model + ':' + (age ?? ''))
   const [recovered] = useState(() => recover(recoveryKey))
   const [values, setValues] = useState(() => ({ ...initial(), ...recovered }))
   const [id, setId] = useState(draftId)

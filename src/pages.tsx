@@ -48,6 +48,16 @@ import { download, filename } from './workflow'
 
 import { loadPack, worksheetUrl, type PackTemplate } from './template-pack'
 import { FileDrop } from './editor-ui'
+import {
+  ClassroomLibrary,
+  ClassroomRoute,
+  ClassroomTabs,
+  CollectionShowcase,
+  draftLink,
+} from './classroom'
+import { classroom } from './classroom-catalog'
+import { assetUrl } from './classroom-layout'
+
 const Editor = lazy(() => import('./editor'))
 const Visual = lazy(() => import('./visual'))
 const Preference = createContext({ easy: true, toggle: () => {} })
@@ -126,7 +136,20 @@ function InternalLayout() {
         <nav aria-label="Área de trabalho">
           {destinations.map(([p, n, Icon]) => (
             <NavLink key={p} end={p === '/app/criar'} to={p} aria-label={n}>
-              <Icon size={21} aria-hidden="true" />
+              <Icon className="sr-only" size={21} aria-hidden="true" />
+              <img
+                className="school-nav-image"
+                src={assetUrl(
+                  p === '/app/criar'
+                    ? 'atividades.webp'
+                    : p === '/app/materiais'
+                      ? 'organizacao.webp'
+                      : 'recados.webp',
+                )}
+                width="28"
+                height="22"
+                alt=""
+              />
               <span>{p === '/app/materiais' ? 'Materiais' : n}</span>
             </NavLink>
           ))}
@@ -330,56 +353,53 @@ function Examples() {
 }
 function Landing() {
   return (
-    <>
-      <section className="hero">
-        <div>
+    <div className="school-home">
+      <section className="school-hero">
+        <div className="school-hero-copy">
           <h1>Sua rotina escolar, muito mais simples.</h1>
           <p>
-            Prepare atividades, planos e materiais para a Educação Infantil.
-            Escolha um modelo, personalize e use na sua turma.
+            Atividades por turma, recados para imprimir e painéis ilustrados em
+            folhas A4.
           </p>
-          <Link className="button" to="/app">
-            Criar um material
-          </Link>
+          <div className="school-hero-actions">
+            <Link className="button" to="/app">
+              Criar um material
+            </Link>
+            <Link to="/app/colecao">Explorar coleção</Link>
+          </div>
         </div>
-        <div className="hero-media">
-          <img
-            className="hero-art"
-            src={import.meta.env.BASE_URL + 'professora-home.webp'}
-            width="900"
-            height="600"
-            alt="Materiais ilustrados de Educação Infantil sobre uma mesa"
-            fetchPriority="high"
-          />
-          <Examples />
+        <img
+          src={assetUrl('paineis.webp')}
+          width="768"
+          height="512"
+          alt="Materiais ilustrados para a sala de aula"
+          fetchPriority="high"
+        />
+      </section>
+      <section className="school-home-section" aria-label="Escolher categoria">
+        <ClassroomTabs />
+      </section>
+      <section className="school-home-section">
+        <div className="school-section-head">
+          <div>
+            <h2>Abra, personalize e imprima</h2>
+            <p>Confira as folhas que você pode preparar para sua turma.</p>
+          </div>
+          <Link to="/app/colecao">Ver toda a coleção</Link>
         </div>
+        <CollectionShowcase />
       </section>
-      <section className="band">
-        <h2>Do planejamento à impressão</h2>
-        <div className="home-tools">
-          <ToolGrid limit={6} />
-        </div>
-        <div className="document-feature">
-          <ToolGrid selection={['documento']} />
-        </div>
+      <section className="school-home-section school-help">
+        <article>
+          <h2>Como funciona</h2>
+          <Steps />
+        </article>
+        <article>
+          <h2>Perguntas frequentes</h2>
+          <Faq />
+        </article>
       </section>
-      <section className="band">
-        <h2>Como funciona</h2>
-        <Steps />
-      </section>
-      <section className="privacy-band">
-        <h2>Seu trabalho fica no seu dispositivo</h2>
-        <p>
-          Fotos e documentos são processados no navegador. Você decide o que
-          baixar e quais rascunhos guardar.
-        </p>
-        <Link to="/privacidade">Entenda a privacidade</Link>
-      </section>
-      <section className="band">
-        <h2>Perguntas frequentes</h2>
-        <Faq />
-      </section>
-    </>
+    </div>
   )
 }
 function Help() {
@@ -547,17 +567,25 @@ function Dashboard({ create = false }: { create?: boolean }) {
           <ul>
             {recent.map((item) => (
               <li key={item.id}>
-                <Link to={'/app/criar/' + item.tool + '?rascunho=' + item.id}>
-                  {item.name}
-                </Link>
+                <Link to={draftLink(item)}>{item.name}</Link>
               </li>
             ))}
           </ul>
         </section>
       )}
+      <section className="school-dashboard">
+        <div className="school-section-head">
+          <div>
+            <h2>Coleção de sala de aula</h2>
+            <p>Escolha pela tarefa e veja o material antes de imprimir.</p>
+          </div>
+          <Link to="/app/colecao">Abrir coleção</Link>
+        </div>
+        <ClassroomTabs />
+      </section>
       <Library embedded />
       <Link className="button secondary" to="/app/modelos">
-        Explorar todos os modelos
+        Modelos anteriores
       </Link>
       <nav className="extra-links" aria-label="Mais recursos">
         <Link to="/app/em-breve">Recursos em breve</Link>
@@ -646,7 +674,7 @@ function Library({ embedded = false }: { embedded?: boolean }) {
   const filtered = Boolean(term || category || age || theme || field)
   return (
     <section aria-label="Catálogo">
-      {embedded ? <h2>Ferramentas e modelos</h2> : <h1>Modelos prontos</h1>}
+      {embedded ? <h2>Ferramentas e modelos</h2> : <h1>Modelos anteriores</h1>}
       <div className="catalog-search">
         <label>
           Pesquisar modelos
@@ -976,10 +1004,7 @@ function Materials() {
               </form>
             ) : (
               <div className="actions">
-                <Link
-                  className="button"
-                  to={'/app/criar/' + d.tool + '?rascunho=' + d.id}
-                >
+                <Link className="button" to={draftLink(d)}>
                   Editar
                 </Link>
                 <button
@@ -1145,10 +1170,27 @@ function OpenEditor({ tool, params }: { tool: Tool; params: URLSearchParams }) {
         <Link to="/app/modelos">Voltar ao catálogo</Link>
       </>
     )
+  const selected = classroom.find(
+    (item) =>
+      item.id === params.get('colecao') && item.tool === tool && item.visual,
+  )
+  const visualPreset: PackTemplate | undefined = selected?.visual
+    ? {
+        id: 'sala-' + selected.id,
+        tool,
+        title: selected.title,
+        topic: selected.category,
+        age: 'Todas as faixas',
+        subtype: 'Coleção de sala de aula',
+        description: selected.description,
+        keywords: [],
+        values: { ...selected.visual, collectionId: selected.id },
+      }
+    : undefined
   const props = {
     tool,
     model: packId ? 0 : Number(model),
-    preset: preset ?? undefined,
+    preset: preset ?? visualPreset,
     draftId: params.get('rascunho'),
     age:
       !packId && group !== null && groups[Number(group)]
@@ -1235,6 +1277,8 @@ export function App() {
           <Route path="criar" element={<Dashboard create />} />
           <Route path="criar/:tool" element={<CreateRoute />} />
           <Route path="modelos" element={<Library />} />
+          <Route path="colecao" element={<ClassroomLibrary />} />
+          <Route path="colecao/:id" element={<ClassroomRoute />} />
           <Route path="materiais" element={<Materials />} />
           <Route path="ajuda" element={<Help />} />
           <Route path="em-breve/:feature?" element={<Future />} />
