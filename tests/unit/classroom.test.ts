@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { collectionSections, sectionFor } from '../../src/catalog-sections'
+import { panelGeometry } from '../../src/panel-geometry'
 import { ageBands, classroom } from '../../src/classroom-catalog'
 import {
   assembled,
@@ -35,6 +36,36 @@ describe('coleção de sala de aula', () => {
             item.age === age && item.task && sectionFor(item) === 'student',
         ).length,
       ).toBeGreaterThanOrEqual(10)
+  })
+  it('adiciona 20 modelos em cada seção e preserva as orientações de painel', () => {
+    const additions = classroom.filter((item) =>
+      /-oficina-\d+(?:-\d+)?$/.test(item.id),
+    )
+    expect(classroom.length).toBeGreaterThanOrEqual(447)
+    for (const section of collectionSections) {
+      const items = additions.filter((item) => sectionFor(item) === section.id)
+      expect(items, section.id).toHaveLength(20)
+      expect(new Set(items.map((item) => item.title)).size, section.id).toBe(20)
+    }
+    for (const landscape of [true, false]) {
+      const mosaics = additions.filter(
+        (item) => item.panel?.landscape === landscape,
+      )
+      expect(mosaics).toHaveLength(10)
+      for (const item of mosaics) {
+        const geometry = panelGeometry(item.panel)
+        expect(geometry.assembled.width > geometry.assembled.height).toBe(
+          landscape,
+        )
+        expect(geometry.tileWidth - geometry.stepX).toBe(5)
+        expect(geometry.tileHeight - geometry.stepY).toBe(5)
+        const sheets = buildSheets(item, initialValues(item))
+        expect(sheets).toHaveLength(geometry.tiles.length + 1)
+        expect(sheets.slice(1).map((sheet) => sheet.size)).toEqual(
+          geometry.tiles.map(() => geometry.paper),
+        )
+      }
+    }
   })
   it('mantém créditos dos arquivos externos e campos editáveis sem chaves duplicadas', () => {
     for (const item of classroom) {

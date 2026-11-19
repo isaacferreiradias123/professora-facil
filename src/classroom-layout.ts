@@ -1,5 +1,6 @@
 import type { ClassroomItem } from './classroom-catalog'
 import { ageGuides } from './classroom-catalog'
+import { panelGeometry, panelLabelLimit } from './panel-geometry'
 import type { Values } from './store'
 
 export const paper = { width: 210, height: 297 }
@@ -51,7 +52,7 @@ export type Mark =
       alt: string
       crop?: { x: number; y: number; width: number; height: number }
     }
-export type Sheet = { name: string; marks: Mark[] }
+export type Sheet = { name: string; marks: Mark[]; size?: typeof paper }
 export const assetUrl = (name: string) =>
   import.meta.env.BASE_URL + 'colecao/' + name
 
@@ -79,7 +80,7 @@ export function localDate(value: string) {
 
 export function lineWrap(text: string, width: number, size: number) {
   const rows: string[] = []
-  const capacity = Math.floor(width / (size * 0.55))
+  const capacity = Math.max(1, Math.floor(width / (size * 0.55)))
   for (const paragraph of text.trim().split(/\r?\n/)) {
     if (!paragraph.trim()) {
       rows.push('')
@@ -216,6 +217,13 @@ const picture: Record<string, string> = {
   Lápis: 'il-pencil.png',
   Blocos: 'il-blocks.png',
   Pincel: 'il-brush.png',
+  Sol: 'oficina-sol.png',
+  Ovo: 'oficina-ovo.png',
+  Lagarta: 'oficina-lagarta.png',
+  Crisálida: 'oficina-crisalida.png',
+  Borboleta: 'oficina-borboleta.png',
+  Círculo: 'figura-circulo.svg',
+  Triângulo: 'figura-triangulo.svg',
   'Broto apareceu': 'il-sprout.png',
   'Semente na terra': 'il-seed.png',
   'Regamos a terra': 'il-watering.png',
@@ -314,8 +322,9 @@ function card(
 
 export function activityCommand(item: ClassroomItem, values: Values) {
   const task = item.task!
-  const command =
-    item.id === 'criar-contagem'
+  const command = item.id.startsWith('ficha-oficina-')
+    ? item.description
+    : item.id === 'criar-contagem'
       ? 'Conte as figuras de cada grupo e anote a quantidade.'
       : task.mode === 'story'
         ? 'Escreva os números das cenas na ordem em que aconteceram.'
@@ -416,8 +425,12 @@ function worksheet(item: ClassroomItem, values: Values) {
       page.text('Desenhe ou cole um exemplo em cada espaço.', 16, 219, 3.8)
       page.box(16, 229, 85, 45, undefined, rule)
       page.box(106, 229, 85, 45, undefined, rule)
-      page.text('Brinquedos', 20, 233, 3.8, { bold: true })
-      page.text('Materiais de desenho', 110, 233, 3.8, { bold: true })
+      page.text(task.sortLabels?.[0] ?? 'Brinquedos', 20, 233, 3.8, {
+        bold: true,
+      })
+      page.text(task.sortLabels?.[1] ?? 'Materiais de desenho', 110, 233, 3.8, {
+        bold: true,
+      })
     }
   } else if (task.mode === 'match') {
     prompts.forEach((label, i) => {
@@ -436,7 +449,7 @@ function worksheet(item: ClassroomItem, values: Values) {
     })
   } else if (task.mode === 'table' || task.mode === 'count') {
     page.box(16, 94, 178, 16, darkGreen)
-    page.text(item.id === 'criar-contagem' ? 'GRUPO' : 'FRUTA', 21, 99, 3.5, {
+    page.text(task.mode === 'count' ? 'GRUPO' : 'FRUTA', 21, 99, 3.5, {
       color: '#ffffff',
       bold: true,
     })
@@ -455,9 +468,11 @@ function worksheet(item: ClassroomItem, values: Values) {
       page.box(164, y + 7, 22, 23, undefined, rule)
     })
     page.text(
-      item.id === 'criar-contagem'
-        ? 'Qual grupo tem mais figuras? Escreva ou desenhe.'
-        : 'Onde há mais frutas? Explique com palavras ou desenho.',
+      item.id === 'ficha-oficina-17'
+        ? 'Desenhe o que falta para chegar a dez em um grupo.'
+        : task.mode === 'count'
+          ? 'Qual grupo tem mais figuras? Escreva ou desenhe.'
+          : 'Onde há mais frutas? Explique com palavras ou desenho.',
       16,
       239,
       4,
@@ -506,13 +521,16 @@ export function noticeFields(item: ClassroomItem, values: Values) {
     text: localDate(values[field.key]),
   }))
 }
+export function hasAuthorization(item: ClassroomItem) {
+  return item.detachable || item.id === 'passeio'
+}
 export function noticeFits(item: ClassroomItem, values: Values) {
   const rows = lineWrap(values.body, 168, 4.15).length
   const top = noticeFields(item, values).length ? 72 : 50
   const room =
     (values.copies === '2' ? 130 : 264) -
     top -
-    (item.id === 'passeio' ? 34 : 13)
+    (hasAuthorization(item) ? 34 : 13)
   const limit = Math.floor(room / (4.15 * 1.55))
   return (
     rows <= limit &&
@@ -588,7 +606,7 @@ function noticeSheet(item: ClassroomItem, values: Values) {
           Math.max(
             0,
             Math.floor(
-              (y + height - nextY - (item.id === 'passeio' ? 36 : 12)) / 6.44,
+              (y + height - nextY - (hasAuthorization(item) ? 36 : 12)) / 6.44,
             ),
           ),
         )
@@ -596,11 +614,11 @@ function noticeSheet(item: ClassroomItem, values: Values) {
     page.text(
       values.signature,
       20,
-      Math.min(nextY + 3, y + height - (item.id === 'passeio' ? 31 : 9)),
+      Math.min(nextY + 3, y + height - (hasAuthorization(item) ? 31 : 9)),
       3.5,
       { bold: true, width: 168 },
     )
-    if (item.id === 'passeio') {
+    if (hasAuthorization(item)) {
       const cut = y + height - 23
       page.line(18, cut, 174, muted, true)
       page.text('AUTORIZAÇÃO PARA A SAÍDA', 21, cut + 3, 3.1, { bold: true })
@@ -624,25 +642,12 @@ function noticeSheet(item: ClassroomItem, values: Values) {
   return result
 }
 
-export const panelMetrics = {
-  columns: 2,
-  rows: 2,
-  tileWidth: 190,
-  tileHeight: 277,
-  overlap: 5,
-}
-export const assembled = {
-  width: panelMetrics.tileWidth * panelMetrics.columns - panelMetrics.overlap,
-  height: panelMetrics.tileHeight * panelMetrics.rows - panelMetrics.overlap,
-}
+export const assembled = panelGeometry().assembled
 export function panelMap() {
-  return Array.from({ length: 4 }, (_, i) => ({
-    row: Math.floor(i / 2),
-    column: i % 2,
-    originX: (i % 2) * (panelMetrics.tileWidth - panelMetrics.overlap),
-    originY:
-      Math.floor(i / 2) * (panelMetrics.tileHeight - panelMetrics.overlap),
-  }))
+  return panelGeometry().tiles
+}
+export function mosaicGeometry(item: ClassroomItem) {
+  return panelGeometry(item.panel)
 }
 export function panelPieces(item: ClassroomItem, values: Values) {
   const custom = values.panelPieces
@@ -652,10 +657,24 @@ export function panelPieces(item: ClassroomItem, values: Values) {
     .slice(0, 28)
   return custom?.length ? custom : (item.poster ?? [])
 }
+function kitGrid(item: ClassroomItem) {
+  if (item.kit === 'tiras')
+    return { columns: 1, rows: 5, width: 182, height: 41, gapY: 48 }
+  if (item.kit === 'placas')
+    return { columns: 2, rows: 3, width: 88, height: 69, gapY: 77 }
+  return { columns: 2, rows: 4, width: 88, height: 49, gapY: 59 }
+}
+export function kitSheetCount(item: ClassroomItem, values: Values) {
+  const { columns, rows } = kitGrid(item)
+  return Math.ceil(panelPieces(item, values).length / (columns * rows)) + 2
+}
 function panelGuide(item: ClassroomItem, values: Values, pages: number) {
   const guide = sheet('Guia de montagem')
   const page = draw(guide)
   heading(page, item, values, 'Guia de montagem')
+  const geometry = mosaicGeometry(item)
+  const orientation =
+    geometry.paper.width > geometry.paper.height ? 'paisagem' : 'retrato'
   const notes = item.poster
     ? [
         'Imprima as folhas de peças em papel A4 e em escala de 100%.',
@@ -663,16 +682,19 @@ function panelGuide(item: ClassroomItem, values: Values, pages: number) {
         'Monte o cabeçalho no topo. Distribua os cartões abaixo conforme o mapa.',
       ]
     : [
-        'Imprima as quatro folhas de arte em papel A4, orientação retrato e escala de 100%.',
+        'Imprima as folhas de arte em papel A4, orientação ' +
+          orientation +
+          ' e escala de 100%.',
         'As folhas têm sobreposição de 5 mm. Apare apenas uma borda em cada encontro.',
         'Alinhe as marcas, confira a imagem montada e fixe as folhas pelo verso.',
       ]
   textRows(page, notes, 16, 70, 180, 4)
   page.text(pages + ' folhas de arte + 1 guia', 16, 97, 4.6, { bold: true })
   if (!item.poster) {
-    const scale = 0.25
-    const x = 58,
-      y = 113
+    const { assembled, tiles, stepX, stepY, rows, columns } = geometry
+    const scale = Math.min(165 / assembled.width, 138 / assembled.height)
+    const x = (210 - assembled.width * scale) / 2
+    const y = 113
     for (const mark of panelArtwork(values, item)) {
       guide.marks.push({
         ...mark,
@@ -683,47 +705,72 @@ function panelGuide(item: ClassroomItem, values: Values, pages: number) {
         ...(mark.kind === 'text' ? { size: mark.size * scale } : {}),
       })
     }
-    page.line(
-      x,
-      y + (assembled.height * scale) / 2,
-      assembled.width * scale,
-      darkGreen,
-      true,
-    )
-    page.box(
-      x + (assembled.width * scale) / 2,
-      y,
-      0.25,
-      assembled.height * scale,
-      darkGreen,
-    )
-    for (const { row, column } of panelMap()) {
-      const labelX = x + 4 + column * 47,
-        labelY = y + 5 + row * 69
+    for (let row = 1; row < rows; row++)
+      page.line(
+        x,
+        y + row * stepY * scale,
+        assembled.width * scale,
+        darkGreen,
+        true,
+      )
+    for (let column = 1; column < columns; column++)
+      page.box(
+        x + column * stepX * scale,
+        y,
+        0.25,
+        assembled.height * scale,
+        darkGreen,
+      )
+    for (const { row, column, originX, originY } of tiles) {
+      const labelX = x + 4 + originX * scale
+      const labelY = y + 5 + originY * scale
       page.box(labelX - 1, labelY - 1, 13, 6, cream)
       page.text(row + 1 + ' / ' + (column + 1), labelX, labelY, 3.3, {
         bold: true,
         width: 12,
       })
     }
-    page.text('Medida montada: 37,5 × 54,9 cm', 46, 265, 4, { bold: true })
+    const cm = (length: number) => (length / 10).toLocaleString('pt-BR')
+    page.text(
+      'Medida montada: ' +
+        cm(assembled.width) +
+        ' × ' +
+        cm(assembled.height) +
+        ' cm',
+      25,
+      263,
+      4,
+      { bold: true },
+    )
   } else {
     page.box(16, 113, 178, 29, sage, rule)
     page.text(values.title, 21, 123, 6, { bold: true, width: 166 })
     const pieces = panelPieces(item, values)
-    const columns = pieces.length > 16 ? 5 : pieces.length > 8 ? 4 : 3
+    const columns =
+      item.kit === 'tiras' && pieces.length <= 6
+        ? 1
+        : pieces.length > 16
+          ? 5
+          : pieces.length > 8
+            ? 4
+            : 3
     const span = 180 / columns
     pieces.forEach((label, i) => {
       const x = 16 + (i % columns) * span,
         y = 148 + Math.floor(i / columns) * 17
       page.box(x, y, span - 3, 14, [sage, peach, cream, lavender][i % 4], rule)
-      if (columns <= 4) page.image(iconFor(label), x + 2, y + 3, 8, 8, label)
-      page.text(label, x + (columns <= 4 ? 12 : 2), y + 4, 2.6, {
-        width: span - (columns <= 4 ? 17 : 7),
+      const art = columns <= 4 ? picture[label] : undefined
+      if (art) page.image(art, x + 2, y + 3, 8, 8, label)
+      page.text(label, x + (art ? 12 : 3), y + 4, 2.6, {
+        width: span - (art ? 17 : 8),
       })
     })
     page.text(
-      'Cabeçalho: 18,2 × 4,2 cm · cartões: 8,8 × 4,9 cm',
+      'Cabeçalho: 18,2 × 4,2 cm · peças: ' +
+        (kitGrid(item).width / 10).toLocaleString('pt-BR') +
+        ' × ' +
+        (kitGrid(item).height / 10).toLocaleString('pt-BR') +
+        ' cm',
       16,
       267,
       3.8,
@@ -736,6 +783,92 @@ function panelGuide(item: ClassroomItem, values: Values, pages: number) {
 export function panelArtwork(values: Values, item?: ClassroomItem): Mark[] {
   const source = sheet('Composição montada')
   const page = draw(source)
+  if (item?.panel) {
+    const { width, height } = mosaicGeometry(item).assembled
+    const { layout, art } = item.panel
+    const labels = (
+      values.panelPieces?.trim()
+        ? panelPieces(item, values)
+        : (item.mosaicLabels ?? [])
+    ).slice(0, panelLabelLimit(item.panel))
+    const top = layout === 'banner' ? 26 : 18
+    const band = layout === 'banner' ? 105 : 76
+    const palette = [sage, '#e1ecf5', '#fff1bf', peach]
+    page.box(0, 0, width, height, cream)
+    page.box(
+      16,
+      top,
+      width - 32,
+      band,
+      palette[layout === 'timeline' ? 1 : layout === 'banner' ? 2 : 0],
+    )
+    if (art === 'oficina-ilustrada.png')
+      page.image(art, width - 164, top + 23, 140, 44, 'Enfeites de papel e sol')
+    else
+      page.image(
+        art,
+        width - 93,
+        top + 5,
+        68,
+        band - 10,
+        'Ilustração do painel',
+      )
+    page.text(values.title, 31, top + 15, layout === 'banner' ? 29 : 24, {
+      bold: true,
+      width: width - (layout === 'banner' ? 193 : 137),
+    })
+    page.text(values.classroom || item.description, 33, top + band - 25, 11, {
+      width: width - (layout === 'banner' ? 193 : 142),
+    })
+    const columns =
+      layout === 'timeline' || layout === 'banner'
+        ? Math.min(4, labels.length || 1)
+        : 2
+    const rows = Math.max(1, Math.ceil(labels.length / columns))
+    const gap = 12
+    const inset = 20
+    const start = top + band + 17
+    const cellWidth = (width - 2 * inset - (columns - 1) * gap) / columns
+    const cellHeight = (height - start - 20 - (rows - 1) * gap) / rows
+    labels.forEach((label, index) => {
+      const x = inset + (index % columns) * (cellWidth + gap)
+      const y = start + Math.floor(index / columns) * (cellHeight + gap)
+      page.box(x, y, cellWidth, cellHeight, '#ffffff', rule)
+      page.box(x, y, cellWidth, 29, palette[index % palette.length])
+      page.text(
+        (layout === 'timeline' ? index + 1 + ' · ' : '') + label,
+        x + 8,
+        y + 8,
+        13,
+        { bold: true, width: cellWidth - 16 },
+      )
+      if (layout === 'chart') {
+        for (let line = y + 49; line < y + cellHeight - 13; line += 22)
+          page.line(x + 10, line, cellWidth - 20)
+      } else if (layout === 'gallery' || !picture[label]) {
+        page.box(
+          x + 10,
+          y + 41,
+          cellWidth - 20,
+          cellHeight - 61,
+          undefined,
+          rule,
+          true,
+        )
+      } else {
+        page.image(
+          picture[label],
+          x + (cellWidth - 45) / 2,
+          y + 37,
+          45,
+          45,
+          label,
+        )
+        page.line(x + 14, y + cellHeight - 22, cellWidth - 28)
+      }
+    })
+    return source.marks
+  }
   if (item?.mosaicLabels) {
     page.box(0, 0, assembled.width, assembled.height, cream)
     page.box(18, 20, 339, 98, sage)
@@ -769,30 +902,42 @@ export function panelArtwork(values: Values, item?: ClassroomItem): Mark[] {
 
 function mosaic(item: ClassroomItem, values: Values) {
   const source = panelArtwork(values, item)
-  const sheets = panelMap().map(({ row, column, originX, originY }) => {
+  const { paper, tiles, margin, tileWidth, tileHeight, overlap } =
+    mosaicGeometry(item)
+  const sheets = tiles.map(({ row, column, originX, originY }) => {
     const page = sheet('Linha ' + (row + 1) + ' · Coluna ' + (column + 1))
+    page.size = paper
     page.marks = source.map((mark) => ({
       ...mark,
-      x: mark.x - originX + 10,
-      y: mark.y - originY + 10,
+      x: mark.x - originX + margin,
+      y: mark.y - originY + margin,
     }))
     const overlay = draw(page)
-    overlay.box(-1, -1, 212, 11, '#ffffff')
-    overlay.box(-1, 287, 212, 11, '#ffffff')
-    overlay.box(-1, 10, 11, 277, '#ffffff')
-    overlay.box(200, 10, 11, 277, '#ffffff')
-    overlay.box(10, 10, 190, 277, undefined, muted, true)
-    if (column === 1) overlay.box(15, 10, 0.18, 277, muted)
-    if (row === 1) overlay.line(10, 15, 190, muted, true)
-    overlay.text(page.name + ' · 100% · A4', 11, 290, 3.1)
+    overlay.box(-1, -1, paper.width + 2, margin + 1, '#ffffff')
+    overlay.box(
+      -1,
+      paper.height - margin,
+      paper.width + 2,
+      margin + 1,
+      '#ffffff',
+    )
+    overlay.box(-1, margin, margin + 1, tileHeight, '#ffffff')
+    overlay.box(paper.width - margin, margin, margin + 1, tileHeight, '#ffffff')
+    overlay.box(margin, margin, tileWidth, tileHeight, undefined, muted, true)
+    if (column > 0)
+      overlay.box(margin + overlap, margin, 0.18, tileHeight, muted)
+    if (row > 0) overlay.line(margin, margin + overlap, tileWidth, muted, true)
+    overlay.text(page.name + ' · 100% · A4', 11, paper.height - 7, 3.1)
     return page
   })
-  return [panelGuide(item, values, 4), ...sheets]
+  return [panelGuide(item, values, sheets.length), ...sheets]
 }
 function cutoutPanel(item: ClassroomItem, values: Values) {
   const pieces = panelPieces(item, values)
   const result: Sheet[] = []
-  const count = 1 + Math.ceil(pieces.length / 8)
+  const grid = kitGrid(item)
+  const capacity = grid.columns * grid.rows
+  const count = kitSheetCount(item, values) - 1
   const cover = sheet('Cabeçalho para recortar')
   const title = draw(cover)
   title.box(14, 25, 182, 42, sage, muted, true)
@@ -801,19 +946,37 @@ function cutoutPanel(item: ClassroomItem, values: Values) {
   title.text(values.classroom, 64, 52, 3.8, { width: 124 })
   title.text('Recorte o cabeçalho na linha tracejada.', 14, 76, 3.6)
   result.push(cover)
-  for (let start = 0; start < pieces.length; start += 8) {
+  for (let start = 0; start < pieces.length; start += capacity) {
     const part = sheet(
       'Cartões · folha ' + (result.length + 1) + ' de ' + count,
     )
     const page = draw(part)
     page.text(part.name, 14, 12, 3.4, { bold: true })
-    pieces.slice(start, start + 8).forEach((label, i) => {
-      const x = 14 + (i % 2) * 94,
-        y = 25 + Math.floor(i / 2) * 59
-      page.box(x, y, 88, 49, [sage, peach, cream, lavender][i % 4], muted, true)
-      page.image(iconFor(label), x + 6, y + 10, 23, 23, label)
-      page.text(label, x + 34, y + 9, 4.2, { bold: true, width: 48 })
-      if (item.id !== 'painel-rotina') page.line(x + 34, y + 32, 43)
+    pieces.slice(start, start + capacity).forEach((label, i) => {
+      const x = 14 + (i % grid.columns) * 94,
+        y = 25 + Math.floor(i / grid.columns) * grid.gapY
+      page.box(
+        x,
+        y,
+        grid.width,
+        grid.height,
+        [sage, peach, cream, lavender][i % 4],
+        muted,
+        true,
+      )
+      const art = picture[label]
+      if (art) page.image(art, x + 6, y + 10, 23, 23, label)
+      const textInset = art ? 34 : 7
+      page.text(label, x + textInset, y + 9, 4.2, {
+        bold: true,
+        width: grid.width - textInset - 7,
+      })
+      if (item.id !== 'painel-rotina')
+        page.line(
+          x + textInset,
+          y + grid.height - 12,
+          grid.width - textInset - 11,
+        )
     })
     result.push(part)
   }
@@ -826,7 +989,29 @@ const planLabels = [
   'Fechamento',
   'Extensão ou adaptação',
 ]
-export function planMoments(values: Values) {
+export type PlanMoment = { label: string; action: string; minutes: number }
+export function planMoments(values: Values): PlanMoment[] {
+  if (values.planSteps) {
+    try {
+      const items: unknown = JSON.parse(values.planSteps)
+      if (Array.isArray(items))
+        return items
+          .slice(0, 10)
+          .filter(
+            (item): item is PlanMoment =>
+              item &&
+              typeof item.label === 'string' &&
+              item.label.length <= 90 &&
+              typeof item.action === 'string' &&
+              item.action.length <= 420 &&
+              Number.isInteger(item.minutes) &&
+              item.minutes >= 0 &&
+              item.minutes <= 180,
+          )
+    } catch {
+      /* Read earlier drafts using their original fields. */
+    }
+  }
   const saved = (values.conduct ?? '').split(/\r?\n/)
   return planLabels
     .slice(0, values.extended === 'yes' ? 4 : 3)
@@ -876,11 +1061,10 @@ export function documentKind(item: ClassroomItem) {
 
 export function buildSheets(item: ClassroomItem, values: Values): Sheet[] {
   if (item.task) {
-    const guide = guidePage(item, values)
-    if (item.task.mode === 'experience') return [guide]
+    if (item.task.mode === 'experience') return [guidePage(item, values)]
     const work = worksheet(item, values)
     return item.task.mode === 'cards' || values.guide === 'yes'
-      ? [work, guide]
+      ? [work, guidePage(item, values)]
       : [work]
   }
   if (item.category === 'Recados') return [noticeSheet(item, values)]

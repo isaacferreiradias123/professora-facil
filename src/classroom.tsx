@@ -1,17 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
-  ArrowLeft,
-  ArrowRight,
-  Download,
-  FileText,
-  Printer,
-  Search,
-  Scissors,
-} from 'lucide-react'
+  Link,
+  useLocation,
+  useNavigationType,
+  useSearchParams,
+} from 'react-router-dom'
+import { Search } from 'lucide-react'
 import {
   ageBands,
-  ageGuides,
   categories,
   categoryArt,
   classroom,
@@ -19,25 +15,17 @@ import {
   type ClassroomItem,
 } from './classroom-catalog'
 import {
-  activityCommand,
-  assembled,
   assetUrl,
   buildSheets,
   initialValues,
-  noticeFits,
-  planMinutes,
-  planMoments,
-  panelPieces,
-  worksheetQuantity,
-  worksheetGroups,
+  mosaicGeometry,
   panelArtwork,
+  kitSheetCount,
   paper,
   type Mark,
 } from './classroom-layout'
 import { figureUrl } from './art-figures'
-import { drawArt, formats, openImage, photoLayout } from './media'
-import { AdjustLayout } from './editor-ui'
-import { download, filename, printBlob, useWorkflow } from './workflow'
+import { drawArt, formats, openImage, photoLayout, photoCount } from './media'
 import { tools, type Tool } from './catalog'
 import type { Draft, Values } from './store'
 import { collectionSections, sectionFor } from './catalog-sections'
@@ -50,7 +38,7 @@ export function draftLink(item: Draft) {
   return '/app/criar/' + item.tool + '?rascunho=' + item.id
 }
 
-function Paper({
+export function Paper({
   marks,
   width = paper.width,
   height = paper.height,
@@ -191,7 +179,7 @@ export function ClassroomTabs({
 const picked = ['tabela-de-frutas', 'reuniao', 'boas-vindas']
 const featured = picked.map((id) => classroom.find((item) => item.id === id)!)
 
-function PreviewThumb({ item }: { item: ClassroomItem }) {
+export function PreviewThumb({ item }: { item: ClassroomItem }) {
   if (item.ready)
     return (
       <img
@@ -206,8 +194,8 @@ function PreviewThumb({ item }: { item: ClassroomItem }) {
     return (
       <Paper
         marks={panelArtwork(values, item)}
-        width={assembled.width}
-        height={assembled.height}
+        width={mosaicGeometry(item).assembled.width}
+        height={mosaicGeometry(item).assembled.height}
       />
     )
   if (item.visual) {
@@ -273,7 +261,7 @@ function ArtworkThumb({ title, options }: { title: string; options: Values }) {
 }
 
 function AlbumThumb({ options }: { options: Values }) {
-  const perPage = options.perPage === '1' ? 1 : options.perPage === '2' ? 2 : 4
+  const perPage = photoCount(options.perPage)
   const layout = photoLayout({
     orientation:
       options.orientation === 'horizontal' ? 'horizontal' : 'vertical',
@@ -326,24 +314,74 @@ function AlbumThumb({ options }: { options: Values }) {
   )
 }
 
-function ClassroomCard({ item }: { item: ClassroomItem }) {
-  const values = initialValues(item)
+const catalogPositions = new Map<string, { card: string; top: number }>()
+
+function ClassroomCard({
+  item,
+  catalogUrl,
+}: {
+  item: ClassroomItem
+  catalogUrl?: string
+}) {
+  const previewFrame = useRef<HTMLDivElement>(null)
+  const [showThumb, setShowThumb] = useState(!catalogUrl)
+  useEffect(() => {
+    const frame = previewFrame.current
+    if (!frame || showThumb) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return
+        setShowThumb(true)
+        observer.disconnect()
+      },
+      { rootMargin: '180px' },
+    )
+    observer.observe(frame)
+    return () => observer.disconnect()
+  }, [showThumb])
   const count = item.ready
     ? 1
     : item.visual
       ? undefined
-      : buildSheets(item, values).length
+      : item.tool === 'painel'
+        ? item.poster
+          ? kitSheetCount(item, initialValues(item))
+          : mosaicGeometry(item).tiles.length + 1
+        : item.task
+          ? item.task.mode === 'cards'
+            ? 2
+            : 1
+          : undefined
   return (
     <article className="school-card">
-      <Link to={'/app/colecao/' + item.id} className="school-card-link">
+      <Link
+        id={'modelo-' + item.id}
+        to={'/app/colecao/' + item.id}
+        className="school-card-link catalog-restore"
+        state={catalogUrl ? { catalogUrl } : undefined}
+        onClick={(event) => {
+          if (
+            catalogUrl &&
+            !event.ctrlKey &&
+            !event.metaKey &&
+            !event.shiftKey &&
+            !event.altKey
+          )
+            catalogPositions.set(catalogUrl, {
+              card: 'modelo-' + item.id,
+              top: window.scrollY,
+            })
+        }}
+      >
         <div
           className={
             'school-thumb' +
             (item.tool === 'painel' ? ' school-thumb-panel' : '')
           }
           aria-hidden="true"
+          ref={previewFrame}
         >
-          <PreviewThumb item={item} />
+          {showThumb && <PreviewThumb item={item} />}
         </div>
         <div className="school-card-body">
           <p className="school-card-meta">
@@ -353,13 +391,16 @@ function ClassroomCard({ item }: { item: ClassroomItem }) {
                 ? ' · Vivência guiada'
                 : ' · Folha do aluno'
               : ''}
+            {item.panel
+              ? ' · ' + (item.panel.landscape ? 'Horizontal' : 'Vertical')
+              : ''}
+            {item.tool === 'postagem' ? ' · PNG' : ' · PDF'}
             {count ? ' · ' + count + (count === 1 ? ' folha' : ' folhas') : ''}
           </p>
           <h3>{item.title}</h3>
           <p>{item.description}</p>
           <span className="school-card-action">
             {item.ready ? 'Pronto para imprimir' : 'Personalizar'}{' '}
-            <ArrowRight size={17} aria-hidden="true" />
           </span>
         </div>
       </Link>
@@ -377,7 +418,7 @@ export function CollectionShowcase() {
   )
 }
 
-function activityUse(item: ClassroomItem) {
+export function activityUse(item: ClassroomItem) {
   return item.task?.mode === 'cards' || item.task?.mode === 'experience'
     ? 'guided'
     : 'student'
@@ -401,10 +442,44 @@ export function ClassroomLibrary() {
   const purpose = params.get('uso') ?? ''
   const selectedSection = params.get('secao') ?? ''
   const choices = collectionSections.filter((section) => section.tool === tool)
-  const [pagination, setPagination] = useState({ filter: '', page: 1 })
-  const [age, setAge] = useState('')
-  const [mode, setMode] = useState('')
-  const [query, setQuery] = useState('')
+  const location = useLocation()
+  const navigation = useNavigationType()
+  const pendingFilters = useRef(params)
+  useEffect(() => {
+    if (navigation === 'POP' || !location.state?.catalogFilter)
+      pendingFilters.current = params
+  }, [location.state, navigation, params])
+  function setFilters(next: URLSearchParams, replace = false) {
+    pendingFilters.current = next
+    setParams(next, { replace, state: { catalogFilter: true } })
+  }
+  const catalogUrl = location.pathname + location.search
+  const age = params.get('turma') ?? ''
+  const mode = params.get('formato') ?? ''
+  const query = params.get('q') ?? ''
+  const searchInput = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (searchInput.current && document.activeElement !== searchInput.current)
+      searchInput.current.value = query
+  }, [query])
+  const orientation = params.get('orientacao') ?? ''
+  function filter(name: string, value: string, replace = false) {
+    const next = new URLSearchParams(pendingFilters.current)
+    if (value) next.set(name, value)
+    else next.delete(name)
+    if (name !== 'pagina') next.delete('pagina')
+    setFilters(next, replace)
+  }
+  useEffect(() => {
+    const saved = catalogPositions.get(catalogUrl)
+    if (!saved) return
+    const frame = requestAnimationFrame(() => {
+      catalogPositions.delete(catalogUrl)
+      document.getElementById(saved.card)?.focus({ preventScroll: true })
+      window.scrollTo(0, saved.top)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [catalogUrl])
   const search = normalized(query.trim())
   const results = classroom.filter(
     (item) =>
@@ -416,31 +491,31 @@ export function ClassroomLibrary() {
       (!category || item.category === category) &&
       (!age || item.age === age || (!item.age && item.tool !== 'atividade')) &&
       (!mode || (mode === 'pronto' ? !!item.ready : !item.ready)) &&
+      (!orientation ||
+        (item.tool === 'painel' &&
+          !item.poster &&
+          (item.panel?.landscape ? 'horizontal' : 'vertical') ===
+            orientation)) &&
       normalized(
         [item.title, item.category, item.age, item.description]
           .filter(Boolean)
           .join(' '),
       ).includes(search),
   )
-  const filterKey = [
-    tool,
-    category,
-    purpose,
-    selectedSection,
-    age,
-    mode,
-    search,
-  ].join('|')
   const totalPages = Math.max(1, Math.ceil(results.length / 24))
-  const activePage =
-    pagination.filter === filterKey ? Math.min(pagination.page, totalPages) : 1
+  const activePage = Math.min(
+    totalPages,
+    Math.max(1, Math.trunc(Number(params.get('pagina'))) || 1),
+  )
   const visible = results.slice((activePage - 1) * 24, activePage * 24)
   function setCategory(next: string) {
-    const filters = new URLSearchParams(params)
+    const filters = new URLSearchParams(pendingFilters.current)
     filters.delete('uso')
+    filters.delete('pagina')
+    filters.delete('orientacao')
     if (next) filters.set('categoria', next)
     else filters.delete('categoria')
-    setParams(filters)
+    setFilters(filters)
   }
   return (
     <div className="school-library">
@@ -475,10 +550,12 @@ export function ClassroomLibrary() {
           <select
             value={selectedSection}
             onChange={(event) => {
-              const next = new URLSearchParams(params)
+              const next = new URLSearchParams(pendingFilters.current)
+              next.delete('pagina')
+              if (event.target.value === 'kits') next.delete('orientacao')
               if (event.target.value) next.set('secao', event.target.value)
               else next.delete('secao')
-              setParams(next)
+              setFilters(next)
             }}
           >
             <option value="">Todas as seções</option>
@@ -515,10 +592,11 @@ export function ClassroomLibrary() {
               className="secondary"
               aria-pressed={purpose === id}
               onClick={() => {
-                const next = new URLSearchParams(params)
+                const next = new URLSearchParams(pendingFilters.current)
+                next.delete('pagina')
                 if (id) next.set('uso', id)
                 else next.delete('uso')
-                setParams(next)
+                setFilters(next)
               }}
             >
               <strong>{label}</strong>
@@ -576,14 +654,15 @@ export function ClassroomLibrary() {
             <input
               type="search"
               placeholder="Ex.: Pré II, recado ou chamadinha"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              ref={searchInput}
+              defaultValue={query}
+              onChange={(e) => filter('q', e.target.value, true)}
             />
           </span>
         </label>
         <label>
           Turma
-          <select value={age} onChange={(e) => setAge(e.target.value)}>
+          <select value={age} onChange={(e) => filter('turma', e.target.value)}>
             <option value="">Todas</option>
             {ageBands.map((band) => (
               <option key={band}>{band}</option>
@@ -592,12 +671,28 @@ export function ClassroomLibrary() {
         </label>
         <label>
           Formato
-          <select value={mode} onChange={(e) => setMode(e.target.value)}>
+          <select
+            value={mode}
+            onChange={(e) => filter('formato', e.target.value)}
+          >
             <option value="">Todos</option>
             <option value="pronto">Pronto para imprimir</option>
             <option value="editavel">Personalizável</option>
           </select>
         </label>
+        {(tool === 'painel' || category === 'Painéis') && (
+          <label>
+            Painel montado
+            <select
+              value={orientation}
+              onChange={(event) => filter('orientacao', event.target.value)}
+            >
+              <option value="">Todas as orientações</option>
+              <option value="horizontal">Horizontal</option>
+              <option value="vertical">Vertical</option>
+            </select>
+          </label>
+        )}
       </div>
       <p className="school-result" role="status">
         {results.length}{' '}
@@ -619,7 +714,11 @@ export function ClassroomLibrary() {
             {label && <h2>{label}</h2>}
             <div className="school-showcase">
               {items.map((item) => (
-                <ClassroomCard key={item.id} item={item} />
+                <ClassroomCard
+                  key={item.id}
+                  item={item}
+                  catalogUrl={catalogUrl}
+                />
               ))}
             </div>
           </section>
@@ -631,9 +730,7 @@ export function ClassroomLibrary() {
             type="button"
             className="secondary"
             disabled={activePage === 1}
-            onClick={() =>
-              setPagination({ filter: filterKey, page: activePage - 1 })
-            }
+            onClick={() => filter('pagina', String(activePage - 1))}
           >
             Anterior
           </button>
@@ -644,9 +741,7 @@ export function ClassroomLibrary() {
             type="button"
             className="secondary"
             disabled={activePage === totalPages}
-            onClick={() =>
-              setPagination({ filter: filterKey, page: activePage + 1 })
-            }
+            onClick={() => filter('pagina', String(activePage + 1))}
           >
             Próxima
           </button>
@@ -656,535 +751,12 @@ export function ClassroomLibrary() {
         <button
           className="secondary"
           onClick={() => {
-            setCategory('')
-            setAge('')
-            setMode('')
-            setQuery('')
+            setFilters(new URLSearchParams(tool ? { ferramenta: tool } : {}))
           }}
         >
           Limpar filtros
         </button>
       )}
     </div>
-  )
-}
-
-function PagePreview({
-  item,
-  values,
-  sheets,
-}: {
-  item: ClassroomItem
-  values: Values
-  sheets: ReturnType<typeof buildSheets>
-}) {
-  const [selected, setSelected] = useState(
-    item.id === 'boas-vindas' || Boolean(item.mosaicLabels) ? -1 : 0,
-  )
-  const [wide, setWide] = useState(false)
-  const active = Math.min(sheets.length - 1, selected)
-  const assembledPreview = active < 0
-  const title = assembledPreview ? 'Como fica montado' : sheets[active].name
-  return (
-    <div className="school-preview">
-      <div className="school-preview-heading">
-        <div>
-          <h2>{title}</h2>
-          <p>
-            {assembledPreview
-              ? 'Visualização da arte inteira'
-              : 'Folha ' + (active + 1) + ' de ' + sheets.length}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="secondary"
-          aria-pressed={wide}
-          onClick={() => setWide(!wide)}
-        >
-          {wide ? 'Ajustar à tela' : 'Ampliar folha'}
-        </button>
-      </div>
-      <div className="school-page-picker" aria-label="Páginas da prévia">
-        {(item.id === 'boas-vindas' || Boolean(item.mosaicLabels)) && (
-          <button
-            type="button"
-            className="secondary"
-            aria-pressed={assembledPreview}
-            onClick={() => setSelected(-1)}
-          >
-            Montado
-          </button>
-        )}
-        {sheets.map((sheet, index) => (
-          <button
-            type="button"
-            key={index}
-            aria-label={'Folha ' + (index + 1) + ' · ' + sheet.name}
-            className="secondary"
-            aria-pressed={index === active}
-            onClick={() => setSelected(index)}
-          >
-            {index + 1}
-          </button>
-        ))}
-      </div>
-      <div
-        className={'school-paper-stage' + (wide ? ' school-paper-zoom' : '')}
-        tabIndex={wide ? 0 : undefined}
-        aria-label={
-          wide ? 'Prévia ampliada, role para ver a folha inteira' : undefined
-        }
-      >
-        {assembledPreview ? (
-          <Paper
-            marks={panelArtwork(values, item)}
-            width={assembled.width}
-            height={assembled.height}
-          />
-        ) : (
-          <Paper marks={sheets[active].marks} />
-        )}
-      </div>
-      <p className="school-page-note">
-        {item.tool === 'painel'
-          ? 'A4 retrato · imprima em escala de 100%'
-          : 'A4 retrato'}{' '}
-        · {sheets.length} {sheets.length === 1 ? 'folha' : 'folhas'}
-      </p>
-    </div>
-  )
-}
-
-function ReadyMaterial({
-  item,
-}: {
-  item: ClassroomItem & { ready: NonNullable<ClassroomItem['ready']> }
-}) {
-  return (
-    <div className="school-editor school-ready">
-      <Link className="school-back" to="/app/colecao">
-        <ArrowLeft size={18} /> Coleção
-      </Link>
-      <h1>{item.title}</h1>
-      <p>{item.description}</p>
-      <img src={assetUrl(item.ready.image)} alt={item.title} />
-      <p>
-        <a href={item.ready.source}>{item.ready.author}</a>
-      </p>
-      <a className="button" href={assetUrl(item.ready.file)} download>
-        <Download size={18} aria-hidden="true" /> Baixar PDF
-      </a>
-    </div>
-  )
-}
-
-function SchoolEditor({
-  item,
-  draftId,
-}: {
-  item: ClassroomItem
-  draftId: string | null
-}) {
-  const flow = useWorkflow(
-    { tool: item.tool, model: 0, recoveryId: 'sala-' + item.id, draftId },
-    () => initialValues(item),
-  )
-  const [busy, setBusy] = useState(false)
-  const { values, set } = flow
-  const sheets = useMemo(() => buildSheets(item, values), [item, values])
-  const isWorksheet = Boolean(
-    item.task && item.task.mode !== 'experience' && item.task.mode !== 'cards',
-  )
-  const isPlan = item.tool === 'plano-de-aula'
-  const isReport = item.tool === 'relatorio'
-  const isNotice = item.category === 'Recados'
-  const isPanel = item.category === 'Painéis'
-  const fits = !isNotice || noticeFits(item, values)
-  function input(key: string, label: string, type?: string, maxLength = 65) {
-    return (
-      <label key={key}>
-        {label}
-        <input
-          type={type ?? 'text'}
-          value={values[key] ?? ''}
-          maxLength={maxLength}
-          onChange={(event) => set(key, event.target.value)}
-        />
-      </label>
-    )
-  }
-  async function output(format: 'pdf' | 'docx' | 'print') {
-    if (busy || !fits || !values.title.trim()) return
-    setBusy(true)
-    flow.setMessage('')
-    flow.setError('')
-    try {
-      const file =
-        format === 'docx'
-          ? await (await import('./classroom-word')).classroomWord(item, values)
-          : await (
-              await import('./classroom-export')
-            ).classroomPdf(values.title, sheets)
-      if (format === 'print') printBlob(file)
-      else download(file, filename(values.title) + '.' + format)
-      flow.setMessage('Arquivo preparado.')
-    } catch {
-      flow.setError(
-        'Não foi possível preparar o arquivo. Confira a conexão e tente novamente.',
-      )
-    } finally {
-      setBusy(false)
-    }
-  }
-  if (flow.loading) return <p role="status">Carregando rascunho…</p>
-  if (flow.unavailable) return <p role="alert">{flow.error}</p>
-  const form = (
-    <div className="school-form">
-      <h2>Personalizar material</h2>
-      {isNotice && (
-        <>
-          <div className="school-form-grid">
-            {(item.fields ?? []).map((field) =>
-              input(field.key, field.label, field.type, 30),
-            )}
-          </div>
-          {input('recipient', 'Destinatário')}
-          <label>
-            Distribuição
-            <select
-              value={values.copies}
-              onChange={(event) => set('copies', event.target.value)}
-            >
-              <option value="2">Duas vias para recortar</option>
-              <option value="1">Comunicado A4 inteiro</option>
-            </select>
-          </label>
-        </>
-      )}
-      {input('title', 'Título')}
-      <div className="school-form-grid">
-        {input('school', 'Escola')}
-        {input('classroom', 'Turma')}
-      </div>
-      {!isNotice && !isPanel && input('date', 'Data', 'date')}
-      {isNotice && input('signature', 'Assinatura')}
-      {isReport && (
-        <p className="school-materials">
-          Descreva uma brincadeira, fala ou ação que você observou. Use exemplos
-          da turma e indique como pretende retomar a proposta.
-        </p>
-      )}
-      {item.form === 'declaracao' && (
-        <p className="school-materials">
-          Preencha os dados do comparecimento. A declaração inclui um campo de
-          assinatura da escola.
-        </p>
-      )}
-      {!item.task &&
-        !isNotice &&
-        !isPanel &&
-        item.fields
-          ?.filter((field) => !isPlan || field.key !== 'conduct')
-          .map((field) =>
-            field.type === 'long' ? (
-              <label key={field.key}>
-                {field.label}
-                <textarea
-                  value={values[field.key]}
-                  maxLength={1500}
-                  rows={5}
-                  onChange={(event) => set(field.key, event.target.value)}
-                />
-              </label>
-            ) : (
-              input(field.key, field.label, field.type)
-            ),
-          )}
-      {isNotice && (
-        <label>
-          Mensagem
-          <textarea
-            value={values.body}
-            maxLength={isNotice ? 3000 : 8000}
-            rows={isNotice ? 7 : 15}
-            onChange={(event) => set('body', event.target.value)}
-          />
-        </label>
-      )}
-      {!fits && (
-        <p role="alert" className="school-warning">
-          O texto passou do espaço da folha. Encurte a mensagem ou escolha
-          Comunicado A4 inteiro.
-        </p>
-      )}
-      {isPlan && (
-        <fieldset className="school-moments">
-          <legend>Momentos da aula</legend>
-          <label>
-            <input
-              type="checkbox"
-              checked={values.extended === 'yes'}
-              onChange={(event) =>
-                set('extended', event.target.checked ? 'yes' : 'no')
-              }
-            />{' '}
-            Incluir extensão ou adaptação
-          </label>
-          <p>
-            Duração total: <strong>{planMinutes(values)} min</strong>
-          </p>
-          {planMoments(values).map((moment, index) => (
-            <div className="school-moment" key={index}>
-              <strong>{moment.label}</strong>
-              <label>
-                Duração em minutos
-                <input
-                  type="number"
-                  min="0"
-                  max="180"
-                  value={moment.minutes}
-                  onChange={(event) =>
-                    set('minute' + index, event.target.value)
-                  }
-                />
-              </label>
-              <label>
-                O que fazer
-                <textarea
-                  rows={3}
-                  maxLength={420}
-                  value={moment.action}
-                  onChange={(event) =>
-                    set('moment' + index, event.target.value)
-                  }
-                />
-              </label>
-            </div>
-          ))}
-        </fieldset>
-      )}
-      {isWorksheet && (
-        <>
-          <label>
-            Comando para a criança
-            <textarea
-              rows={2}
-              maxLength={95}
-              value={values.command ?? activityCommand(item, values)}
-              onChange={(event) => set('command', event.target.value)}
-            />
-          </label>
-          {['criar-contagem', 'criar-pares'].includes(item.id) && (
-            <label>
-              Figuras
-              <select
-                value={values.group ?? 'fruit'}
-                onChange={(event) => set('group', event.target.value)}
-              >
-                <option value="fruit">Frutas</option>
-                <option value="animals">Animais</option>
-                <option value="school">Materiais escolares</option>
-              </select>
-            </label>
-          )}
-          {(item.task?.mode === 'table' || item.task?.mode === 'count') && (
-            <fieldset className="school-moments">
-              <legend>Quantidade de figuras</legend>
-              <div className="school-form-grid">
-                {worksheetGroups(item, values).map((label, index) => (
-                  <label key={label}>
-                    {label}
-                    <select
-                      value={worksheetQuantity(values, index)}
-                      onChange={(event) =>
-                        set('quantity' + index, event.target.value)
-                      }
-                    >
-                      {[1, 2, 3, 4, 5].map((number) => (
-                        <option key={number}>{number}</option>
-                      ))}
-                    </select>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
-          <label>
-            Folhas do arquivo
-            <select
-              value={values.guide ?? 'no'}
-              onChange={(event) => set('guide', event.target.value)}
-            >
-              <option value="yes">Ficha e roteiro da professora</option>
-              <option value="no">Só a ficha para a criança</option>
-            </select>
-          </label>
-        </>
-      )}
-      {item.task && !isWorksheet && (
-        <div className="school-materials">
-          <h3>O que preparar</h3>
-          <p>{item.task.supplies}</p>
-          <p>{item.task.adaptation}</p>
-        </div>
-      )}
-      {item.poster && (
-        <label>
-          Texto dos cartões, um por linha
-          <textarea
-            rows={6}
-            maxLength={1200}
-            value={values.panelPieces ?? item.poster.join('\n')}
-            onChange={(event) => set('panelPieces', event.target.value)}
-          />
-          <small>
-            {panelPieces(item, values).length} cartões · até 28 peças e 40
-            caracteres por peça
-          </small>
-        </label>
-      )}
-      {isPanel && (
-        <div className="school-materials">
-          <Scissors aria-hidden="true" size={21} />
-          <h3>Impressão e montagem</h3>
-          <p>
-            {item.poster
-              ? 'Recorte os cartões e siga o mapa do guia. Cabeçalho de 18,2 × 4,2 cm e cartões de 8,8 × 4,9 cm.'
-              : 'Quatro folhas A4, mais um guia. Medida montada de 37,5 × 54,9 cm com sobreposição de 5 mm.'}
-          </p>
-        </div>
-      )}
-    </div>
-  )
-  return (
-    <div className="school-editor">
-      <Link
-        className="school-back"
-        to={
-          '/app/colecao?ferramenta=' +
-          item.tool +
-          (item.task ? '&uso=' + activityUse(item) : '')
-        }
-      >
-        <ArrowLeft size={18} /> Escolher outro modelo
-      </Link>
-      <div className="school-section-head">
-        <div>
-          <p className="school-card-meta">
-            {item.age ? ageGuides[item.age] : item.category}
-          </p>
-          <h1>{item.title}</h1>
-          <p>{item.description}</p>
-        </div>
-      </div>
-      <details className="school-template-reference">
-        <summary>Ver o modelo original</summary>
-        <p>Compare com a prévia atual antes de baixar.</p>
-        <PreviewThumb item={item} />
-      </details>
-      <AdjustLayout
-        form={form}
-        preview={<PagePreview item={item} values={values} sheets={sheets} />}
-      />
-      <p role="status">{flow.message}</p>
-      {flow.error && <p role="alert">{flow.error}</p>}
-      <div className="actions pinned-action school-export">
-        <button
-          type="button"
-          disabled={!fits || busy || !values.title.trim()}
-          onClick={() => void output('pdf')}
-        >
-          <Download size={17} aria-hidden="true" /> Baixar PDF
-        </button>
-        <details
-          className="school-export-menu"
-          onClick={(event) => {
-            if (
-              event.target instanceof Element &&
-              event.target.closest('button')
-            )
-              event.currentTarget.open = false
-          }}
-        >
-          <summary className="button secondary">Mais ações</summary>
-          <div className="school-export-menu-body">
-            {!isPanel && (
-              <button
-                type="button"
-                className="secondary"
-                disabled={!fits || busy || !values.title.trim()}
-                onClick={() => void output('docx')}
-              >
-                <FileText size={17} aria-hidden="true" /> Baixar Word
-              </button>
-            )}
-            <button
-              type="button"
-              className="secondary"
-              disabled={!fits || busy || !values.title.trim()}
-              onClick={() => void output('print')}
-            >
-              <Printer size={17} aria-hidden="true" /> Imprimir
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              disabled={busy}
-              onClick={() => void flow.save()}
-            >
-              Salvar rascunho
-            </button>
-          </div>
-        </details>
-      </div>
-    </div>
-  )
-}
-
-export function ClassroomRoute() {
-  const { id } = useParams()
-  const [params] = useSearchParams()
-  const item = findClassroomItem(id)
-  if (!item)
-    return (
-      <>
-        <h1>Material não encontrado</h1>
-        <Link to="/app/colecao">Voltar à coleção</Link>
-      </>
-    )
-  if (item.ready) return <ReadyMaterial item={{ ...item, ready: item.ready }} />
-  if (item.visual && params.has('rascunho')) {
-    const editor = new URLSearchParams({
-      colecao: item.id,
-      rascunho: params.get('rascunho')!,
-    })
-    return <Navigate replace to={'/app/criar/' + item.tool + '?' + editor} />
-  }
-  if (item.visual)
-    return (
-      <>
-        <Link className="school-back" to="/app/colecao">
-          <ArrowLeft size={18} /> Coleção
-        </Link>
-        <h1>{item.title}</h1>
-        <p>{item.description}</p>
-        <div className="school-selected-model">
-          <PreviewThumb item={item} />
-        </div>
-        <Link
-          className="button"
-          to={'/app/criar/' + item.tool + '?colecao=' + item.id}
-        >
-          Personalizar
-        </Link>
-      </>
-    )
-  return (
-    <SchoolEditor
-      key={item.id + ':' + (params.get('rascunho') ?? '')}
-      item={item}
-      draftId={params.get('rascunho')}
-    />
   )
 }

@@ -1157,3 +1157,17 @@ input[type='checkbox'] {
 .photo-sheet {
   container-type: inline-size;
 }
+.art-canvas-frame {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+}
+.art-canvas-frame > canvas {
+  display: block;
+}
+.art-safe-area {
+  position: absolute;
+  pointer-events: none;
+  border: 2px dashed #fff;
+  outline: 1px solid #183e33;
+}

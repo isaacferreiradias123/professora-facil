@@ -43,7 +43,7 @@ export interface Photo {
 }
 export interface PhotoOptions {
   orientation: 'vertical' | 'horizontal'
-  perPage: 1 | 2 | 4
+  perPage: 1 | 2 | 3 | 4
   margin: number
   crop: boolean
   quality: 'standard' | 'high'
@@ -51,6 +51,13 @@ export interface PhotoOptions {
   subtitle?: string
   numbering?: boolean
 }
+export function photoCount(value?: string): PhotoOptions['perPage'] {
+  if (value === '1') return 1
+  if (value === '2') return 2
+  if (value === '3') return 3
+  return 4
+}
+
 export function photoPages(items: Photo[], perPage: number) {
   const pages: Photo[][] = []
   for (const item of items) {
@@ -448,7 +455,7 @@ export function drawArt(
     draw(footer)
   }
   return (
-    y > h - pad * 0.3 ||
+    y > h - pad ||
     title.size < unit * 0.033 ||
     Boolean(options.body && body.size < unit * 0.022)
   )

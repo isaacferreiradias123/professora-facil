@@ -157,7 +157,7 @@ test('coleção é navegável por teclado e turma, com PDF pronto e rascunho rea
     await page
       .getByRole('combobox', { name: 'Turma', exact: true })
       .selectOption('Berçário')
-    await expect(page.getByRole('status')).toContainText('5 materiais')
+    await expect(page.getByRole('status')).toContainText('10 materiais')
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(width)
@@ -165,7 +165,7 @@ test('coleção é navegável por teclado e turma, com PDF pronto e rascunho rea
   const search = page.getByRole('searchbox')
   await search.focus()
   await page.keyboard.type('bercario')
-  await expect(page.getByRole('status')).toContainText('5 materiais')
+  await expect(page.getByRole('status')).toContainText('10 materiais')
   await page
     .getByRole('combobox', { name: 'Turma', exact: true })
     .selectOption('')

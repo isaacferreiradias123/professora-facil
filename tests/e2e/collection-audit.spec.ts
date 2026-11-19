@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test'
 import { readFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PDFDocument } from 'pdf-lib'
+import { photoCount } from '../../src/media'
+import { panelGeometry } from '../../src/panel-geometry'
 import { classroom } from '../../src/classroom-catalog'
 import { collectionSections, sectionFor } from '../../src/catalog-sections'
 
@@ -25,7 +27,19 @@ for (const section of collectionSections) {
     test.setTimeout(240000)
     const output = join(evidence!, 'catalogo', section.id)
     await mkdir(output, { recursive: true })
-    const photo = await readFile('public/colecao/openclipart-regador.png')
+    const photoNames = [
+      'mesa-atividades.webp',
+      'mesa-planejamento.webp',
+      'mesa-recados.webp',
+      'mesa-visual.webp',
+    ]
+    const photos = await Promise.all(
+      photoNames.map(async (name) => ({
+        name,
+        mimeType: 'image/webp',
+        buffer: await readFile('public/colecao/' + name),
+      })),
+    )
     for (const item of classroom.filter(
       (item) => sectionFor(item) === section.id,
     )) {
@@ -38,11 +52,9 @@ for (const section of collectionSections) {
             : '/app/colecao/' + item.id
         await page.goto(direct)
         if (isAlbum) {
-          await page.getByLabel('Selecionar fotos').setInputFiles({
-            name: 'amostra.png',
-            mimeType: 'image/png',
-            buffer: photo,
-          })
+          await page
+            .getByLabel('Selecionar fotos')
+            .setInputFiles(photos.slice(0, photoCount(item.visual?.perPage)))
           await page.getByRole('button', { name: 'Organizar folhas' }).click()
           await page.getByRole('button', { name: 'Conferir PDF' }).click()
         }
@@ -71,7 +83,20 @@ for (const section of collectionSections) {
         } else {
           const pdf = await PDFDocument.load(data)
           expect(pdf.getPageCount()).toBeGreaterThan(0)
-          if (item.mosaicLabels) expect(pdf.getPageCount()).toBe(5)
+          if (item.mosaicLabels) {
+            const geometry = panelGeometry(item.panel)
+            expect(pdf.getPageCount()).toBe(geometry.tiles.length + 1)
+            for (const sheet of pdf.getPages().slice(1)) {
+              expect(sheet.getWidth()).toBeCloseTo(
+                (geometry.paper.width * 72) / 25.4,
+                1,
+              )
+              expect(sheet.getHeight()).toBeCloseTo(
+                (geometry.paper.height * 72) / 25.4,
+                1,
+              )
+            }
+          }
           if (!item.ready)
             for (const sheet of pdf.getPages()) {
               const dimensions = [sheet.getWidth(), sheet.getHeight()].sort(
