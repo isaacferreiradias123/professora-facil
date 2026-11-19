@@ -465,11 +465,11 @@ test('postagens em cinco formatos com figuras reais e fatiador de painéis', asy
   ).toBe(8)
 })
 
-test('catálogo de 69 modelos com filtro e recuperação após recarregar', async ({
+test('catálogo de 77 modelos com filtro e recuperação após recarregar', async ({
   page,
 }) => {
   await page.goto('/app/colecao')
-  await expect(page.getByRole('status')).toContainText('69 materiais encontrados')
+  await expect(page.getByRole('status')).toContainText('77 materiais encontrados')
   await page
     .getByRole('combobox', { name: 'Turma', exact: true })
     .selectOption('Berçário')

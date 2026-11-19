@@ -1,4 +1,5 @@
 import type { PanelSpec } from './panel-geometry'
+import { archiveItems } from './archive-items'
 import type { Tool } from './catalog'
 import type { Values } from './store'
 
@@ -174,6 +175,7 @@ const schoolDocument = (
 })
 
 export const classroom: ClassroomItem[] = [
+  ...archiveItems,
   // =========================================================
   // 1. ATIVIDADES (16 modelos únicos + 3 montadores livres)
   // =========================================================

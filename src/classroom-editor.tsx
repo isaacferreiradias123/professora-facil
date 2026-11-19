@@ -172,6 +172,7 @@ function ReadyMaterial({
     <div className="school-editor school-ready">
       <CatalogBack />
       <h1>{item.title}</h1>
+      {item.age && <p>{ageGuides[item.age]} · PDF A4</p>}
       <p>{item.description}</p>
       <img src={assetUrl(item.ready.image)} alt={item.title} />
       <p>
