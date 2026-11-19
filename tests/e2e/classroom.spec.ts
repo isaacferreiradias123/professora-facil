@@ -25,7 +25,13 @@ async function save(page: Page, label: string, filename: string, link = false) {
 }
 async function showPreview(page: Page) {
   const tab = page.getByRole('button', { name: 'Ver prévia', exact: true })
-  if (await tab.isVisible()) await tab.click()
+  await expect(
+    page.getByRole('heading', { name: 'Personalizar material', exact: true }),
+  ).toBeVisible()
+  if (await tab.isVisible()) {
+    await tab.click()
+    await expect(tab).toHaveAttribute('aria-pressed', 'true')
+  }
 }
 async function verifyA4(data: Buffer, count: number) {
   const pdf = await PDFDocument.load(data)
@@ -88,6 +94,12 @@ test('recado de reunião tem duas vias editáveis e aviso para texto longo', asy
     .fill('Trecho longo para testar a área de impressão. '.repeat(50))
   await expect(page.getByRole('alert')).toContainText('passou do espaço')
   await expect(page.getByRole('button', { name: 'Baixar PDF' })).toBeDisabled()
+  await page.goto('/app/colecao/passeio')
+  await verifyA4(await save(page, 'Baixar PDF', 'passeio-autorizacao.pdf'), 1)
+  const permission = await docxXml(
+    await save(page, 'Baixar Word', 'passeio-autorizacao.docx'),
+  )
+  expect(permission.match(/AUTORIZAÇÃO PARA A SAÍDA/g)).toHaveLength(2)
 })
 
 test('boas-vindas tem maquete e quatro folhas com ordem de montagem', async ({

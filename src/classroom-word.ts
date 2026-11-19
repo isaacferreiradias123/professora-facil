@@ -3,6 +3,9 @@ import {
   BorderStyle,
   Document,
   HeadingLevel,
+  HeightRule,
+  VerticalAlign,
+  TableLayoutType,
   ImageRun,
   Packer,
   Paragraph,
@@ -49,106 +52,166 @@ function heading(value: string, breakBefore = false) {
     children: [new TextRun({ text: value, color: accent, bold: true })],
   })
 }
-function box(content: Paragraph[], fill: string) {
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [
-      new TableRow({
-        cantSplit: true,
-        children: [
-          new TableCell({
-            shading: { fill },
-            margins: { top: 110, bottom: 110, left: 180, right: 180 },
-            children: content,
+const noBorder = { style: BorderStyle.NONE }
+const fineRule = { style: BorderStyle.SINGLE, size: 4, color: 'A8BBB0' }
+const cutRule = { style: BorderStyle.DASHED, size: 7, color: '63756B' }
+function noticeContents(
+  item: ClassroomItem,
+  values: Values,
+  picture: Uint8Array,
+): Child[] {
+  const fill = item.id === 'passeio' ? 'F7DFCF' : 'E6F0E7'
+  const result: Child[] = [
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: TableLayoutType.FIXED,
+      columnWidths: [8550, 1900],
+      margins: { top: 130, bottom: 100, left: 180, right: 180 },
+      borders: {
+        top: noBorder,
+        bottom: noBorder,
+        left: noBorder,
+        right: noBorder,
+        insideHorizontal: noBorder,
+        insideVertical: noBorder,
+      },
+      rows: [
+        new TableRow({
+          cantSplit: true,
+          children: [
+            new TableCell({
+              shading: { fill },
+              verticalAlign: VerticalAlign.CENTER,
+              children: [
+                text(values.school || 'COMUNICADO ESCOLAR', {
+                  bold: true,
+                  size: 18,
+                  color: accent,
+                }),
+                text(values.title, { bold: true, size: 32, color: accent }),
+                ...(values.classroom
+                  ? [text(values.classroom, { size: 20 })]
+                  : []),
+              ],
+            }),
+            new TableCell({
+              shading: { fill },
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new ImageRun({
+                      type: 'png',
+                      data: picture,
+                      transformation: { width: 106, height: 71 },
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    }),
+    text('', { size: 8, after: 25 }),
+    text(values.recipient, { bold: true, after: 110 }),
+  ]
+  const details = noticeFields(item, values)
+  if (details.length)
+    result.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: {
+          top: noBorder,
+          bottom: noBorder,
+          left: noBorder,
+          right: noBorder,
+          insideHorizontal: noBorder,
+          insideVertical: noBorder,
+        },
+        rows: [
+          new TableRow({
+            cantSplit: true,
+            children: details.map(
+              (field) =>
+                new TableCell({
+                  shading: { fill: 'F9F4E8' },
+                  margins: { top: 90, bottom: 90, left: 110, right: 110 },
+                  children: [
+                    text(field.label, { bold: true, size: 17, after: 25 }),
+                    text(field.text, { size: 20, after: 25 }),
+                  ],
+                }),
+            ),
           }),
         ],
       }),
-    ],
-  })
+    )
+  result.push(text('', { size: 8, after: 38 }))
+  result.push(
+    ...values.body
+      .split(/\r?\n/)
+      .map((line) => text(line, { size: 21, after: 90 })),
+  )
+  result.push(text(values.signature, { bold: true, size: 20, after: 120 }))
+  return result
 }
-function notices(item: ClassroomItem, values: Values): Child[] {
-  const items: Child[] = []
+function authorization() {
+  return [
+    new Paragraph({
+      border: { top: cutRule },
+      spacing: { before: 160, after: 90 },
+      children: [
+        new TextRun({ text: 'AUTORIZAÇÃO PARA A SAÍDA', bold: true, size: 18 }),
+      ],
+    }),
+    text('Autorizo a participação de ______________________________________', {
+      size: 19,
+      after: 50,
+    }),
+    text('Assinatura: ____________________________  Data: _____/_____/_____', {
+      size: 19,
+      after: 70,
+    }),
+  ]
+}
+async function notices(item: ClassroomItem, values: Values): Promise<Child[]> {
+  const artwork = await imageBytes('recados.webp')
   const copies = values.copies === '2' ? 2 : 1
-  for (let index = 0; index < copies; index++) {
-    items.push(
-      box(
-        [
-          text(values.school || 'COMUNICADO ESCOLAR', {
-            bold: true,
-            size: 18,
-            color: accent,
+  const rows = Array.from(
+    { length: copies },
+    () =>
+      new TableRow({
+        cantSplit: true,
+        height: {
+          value: copies === 2 ? 6850 : 14300,
+          rule: HeightRule.ATLEAST,
+        },
+        children: [
+          new TableCell({
+            margins: { top: 220, bottom: 110, left: 160, right: 160 },
+            children: [
+              ...noticeContents(item, values, artwork),
+              ...(item.id === 'passeio' ? authorization() : []),
+            ],
           }),
-          text(values.title, { bold: true, size: 34, color: accent }),
-          ...(values.classroom ? [text(values.classroom, { size: 20 })] : []),
         ],
-        'E6F0E7',
-      ),
-    )
-    items.push(text(values.recipient, { bold: true, after: 110 }))
-    const data = noticeFields(item, values)
-    if (data.length)
-      items.push(
-        new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          rows: [
-            new TableRow({
-              cantSplit: true,
-              children: data.map(
-                (field) =>
-                  new TableCell({
-                    shading: { fill: 'F9F4E8' },
-                    margins: { top: 90, bottom: 90, left: 110, right: 110 },
-                    children: [
-                      text(field.label, { bold: true, size: 17, after: 25 }),
-                      text(field.text, { size: 20, after: 25 }),
-                    ],
-                  }),
-              ),
-            }),
-          ],
-        }),
-      )
-    items.push(
-      ...values.body
-        .split(/\r?\n/)
-        .map((line) => text(line, { size: 21, after: 90 })),
-    )
-    items.push(text(values.signature, { bold: true, size: 20, after: 120 }))
-    if (item.id === 'passeio')
-      items.push(
-        new Paragraph({
-          border: {
-            top: { style: BorderStyle.DASHED, size: 7, color: '63756B' },
-          },
-          children: [
-            new TextRun({
-              text: 'AUTORIZAÇÃO PARA A SAÍDA',
-              bold: true,
-              size: 18,
-            }),
-          ],
-        }),
-        text(
-          'Autorizo a participação de ______________________________________',
-          { size: 19, after: 50 },
-        ),
-        text(
-          'Assinatura: ____________________________  Data: _____/_____/_____',
-          { size: 19, after: 70 },
-        ),
-      )
-    if (index === 0 && copies === 2)
-      items.push(
-        new Paragraph({
-          spacing: { before: 100, after: 180 },
-          border: {
-            bottom: { style: BorderStyle.DASHED, size: 7, color: '63756B' },
-          },
-          children: [],
-        }),
-      )
-  }
-  return items
+      }),
+  )
+  return [
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: {
+        top: fineRule,
+        bottom: fineRule,
+        left: fineRule,
+        right: fineRule,
+        insideHorizontal: cutRule,
+        insideVertical: noBorder,
+      },
+      rows,
+    }),
+  ]
 }
 
 async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
@@ -208,9 +271,14 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
           const images = pictures.filter((p) => p.alt === label)
           return new TableRow({
             cantSplit: true,
+            height: { value: 1780, rule: HeightRule.ATLEAST },
             children: [
-              new TableCell({ children: [text(label, { bold: true })] }),
               new TableCell({
+                verticalAlign: VerticalAlign.CENTER,
+                children: [text(label, { bold: true, size: 25 })],
+              }),
+              new TableCell({
+                verticalAlign: VerticalAlign.CENTER,
                 children: [
                   new Paragraph({
                     children: images.map(
@@ -218,19 +286,33 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
                         new ImageRun({
                           type: 'png',
                           data: cache.get(p.asset)!,
-                          transformation: { width: 36, height: 36 },
+                          transformation: { width: 52, height: 52 },
                         }),
                     ),
                   }),
                 ],
               }),
-              new TableCell({ children: [text('____________')] }),
+              new TableCell({
+                verticalAlign: VerticalAlign.CENTER,
+                children: [text('_________', { size: 28 })],
+              }),
             ],
           })
         })
         contents.push(
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
+            margins: { left: 190, right: 190, top: 155, bottom: 155 },
+            borders: {
+              top: fineRule,
+              bottom: fineRule,
+              left: fineRule,
+              right: fineRule,
+              insideHorizontal: fineRule,
+              insideVertical: fineRule,
+            },
+            layout: TableLayoutType.FIXED,
+            columnWidths: [2300, 5750, 2400],
             rows: [
               new TableRow({
                 tableHeader: true,
@@ -247,9 +329,26 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
           }),
         )
         contents.push(
-          text(
-            'Onde há mais frutas? ___________________________________________',
-          ),
+          text(''),
+          text('Onde há mais frutas? Explique com palavras ou desenho.', {
+            bold: true,
+            size: 25,
+          }),
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+              top: fineRule,
+              bottom: fineRule,
+              left: fineRule,
+              right: fineRule,
+            },
+            rows: [
+              new TableRow({
+                height: { value: 2200, rule: HeightRule.ATLEAST },
+                children: [new TableCell({ children: [text('')] })],
+              }),
+            ],
+          }),
         )
       } else if (pictures.length) {
         // Use the same row and order as the printed activity, including blank cells.
@@ -316,7 +415,7 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
 }
 export async function classroomWord(item: ClassroomItem, values: Values) {
   let children: Child[]
-  if (item.category === 'Recados') children = notices(item, values)
+  if (item.category === 'Recados') children = await notices(item, values)
   else if (item.task) children = await activity(item, values)
   else
     children = [
