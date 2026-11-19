@@ -227,7 +227,7 @@ function Landing() {
               direta e prévia real.
             </p>
           </div>
-          <Link to="/app/colecao">Ver toda a coleção</Link>
+          <Link to="/app/colecao">Ver toda a coleção</Link> <Link to="/app/colecao?acervo=pt-br">Acervo em português</Link>
         </div>
         <CollectionShowcase />
       </section>

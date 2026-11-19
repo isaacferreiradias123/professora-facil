@@ -149,13 +149,13 @@ function PagePreview({
   )
 }
 
-function CatalogBack() {
+function CatalogBack({ archive = false }: { archive?: boolean }) {
   const { state } = useLocation()
   const origin =
     typeof state?.catalogUrl === 'string' &&
     state.catalogUrl.startsWith('/app/colecao')
       ? state.catalogUrl
-      : '/app/colecao'
+      : archive ? '/app/colecao?acervo=pt-br' : '/app/colecao'
   return (
     <Link className="school-back" to={origin}>
       <ArrowLeft size={18} aria-hidden="true" /> Escolher outro modelo
@@ -170,18 +170,40 @@ function ReadyMaterial({
 }) {
   return (
     <div className="school-editor school-ready">
-      <CatalogBack />
+      <CatalogBack archive={Boolean(item.archiveType)} />
       <h1>{item.title}</h1>
-      {item.age && <p>{ageGuides[item.age]} · PDF A4</p>}
+      {item.age && (
+        <p>{ageGuides[item.age]} · {item.ready.presentation ? 'PowerPoint e PDF A4' : 'PDF A4'}</p>
+      )}
       <p>{item.description}</p>
       <img src={assetUrl(item.ready.image)} alt={item.title} />
       <p>
         <a href={item.ready.source}>{item.ready.author}</a>
-        {item.ready.originalPage && <> · {item.ready.originalPage}</>}
+        {item.ready.originalPage && (
+          <> · {item.ready.presentation ? '11 páginas no material de origem' : item.ready.originalPage.replace(/^.*?, p\. /, 'Página original: ')}</>
+        )}
       </p>
-      <a className="button" href={assetUrl(item.ready.file)} download>
-        <Download size={18} aria-hidden="true" /> Baixar PDF
-      </a>
+      <div className="actions">
+        {item.ready.presentation ? (
+          <>
+            <a className="button" href={assetUrl(item.ready.presentation)} download>
+              <Download size={18} aria-hidden="true" /> Baixar PowerPoint editável
+            </a>
+            <a className="button secondary" href={assetUrl(item.ready.file)} target="_blank" rel="noreferrer">
+              Ver PDF
+            </a>
+          </>
+        ) : (
+          <a className="button" href={assetUrl(item.ready.file)} download>
+            <Download size={18} aria-hidden="true" /> Baixar PDF
+          </a>
+        )}
+        {item.ready.figure && (
+          <a className="button secondary" href={assetUrl(item.ready.figure)} download>
+            Baixar figura PNG
+          </a>
+        )}
+      </div>
     </div>
   )
 }

@@ -41,7 +41,7 @@ for (const section of collectionSections) {
       })),
     )
     for (const item of classroom.filter(
-      (item) => sectionFor(item) === section.id,
+      (item) => !item.archiveType && sectionFor(item) === section.id,
     )) {
       await test.step(item.id, async () => {
         const isAlbum = item.tool === 'fotos-em-pdf'
