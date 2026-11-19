@@ -190,6 +190,9 @@ test('atividade, Word/PDF em português, rascunho e limpeza', async ({
   page.once('dialog', (dialog) => void dialog.accept())
   await page.getByRole('button', { name: 'Voltar às ferramentas' }).click()
   await page.getByRole('link', { name: 'Documentos Word e PDF' }).click()
+  await page
+    .getByRole('link', { name: 'Abrir ou responder a um Word ou PDF' })
+    .click()
   await page.getByRole('button', { name: 'Abrir Word ou PDF' }).click()
   await page.getByLabel('Selecionar documento').setInputFiles({
     name: 'teste.pdf',

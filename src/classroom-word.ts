@@ -19,12 +19,15 @@ import { imageBytes } from './classroom-export'
 import { ageGuides, type ClassroomItem } from './classroom-catalog'
 import {
   noticeFields,
+  noticeVisual,
   buildSheets,
   planMoments,
   planMinutes,
   activityObservation,
   activityCommand,
   worksheetGroups,
+  documentDetails,
+  documentSignatures,
   type Mark,
 } from './classroom-layout'
 import type { Values } from './store'
@@ -69,7 +72,7 @@ function noticeContents(
   values: Values,
   picture: Uint8Array,
 ): Child[] {
-  const fill = item.id === 'passeio' ? 'F7DFCF' : 'E6F0E7'
+  const fill = noticeVisual(item).color.slice(1).toUpperCase()
   const result: Child[] = [
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
@@ -185,7 +188,7 @@ function authorization() {
   ]
 }
 async function notices(item: ClassroomItem, values: Values): Promise<Child[]> {
-  const artwork = await imageBytes('recados.webp')
+  const artwork = await imageBytes(noticeVisual(item).asset)
   const copies = values.copies === '2' ? 2 : 1
   const rows = Array.from(
     { length: copies },
@@ -378,34 +381,48 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
         contents.push(
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
+            ...(task.mode === 'match'
+              ? {
+                  layout: TableLayoutType.FIXED,
+                  columnWidths: [3000, 4450, 3000],
+                }
+              : {}),
+            margins: { top: 90, bottom: 90, left: 110, right: 110 },
             rows: rows.map(
               (row) =>
                 new TableRow({
                   cantSplit: true,
                   children: [
-                    ...row.map(
-                      (p) =>
-                        new TableCell({
-                          children: [
-                            new Paragraph({
-                              alignment: AlignmentType.CENTER,
-                              children: [
-                                new ImageRun({
-                                  type: 'png',
-                                  data: cache.get(p.asset)!,
-                                  transformation: { width: 44, height: 44 },
-                                }),
-                              ],
-                            }),
-                            text(
-                              task.mode === 'story'
-                                ? pictures.indexOf(p) + 1 + '. ' + p.alt
-                                : p.alt,
-                              { size: 17 },
-                            ),
-                          ],
-                        }),
-                    ),
+                    ...row.flatMap((p, index) => [
+                      ...(task.mode === 'match' && index === 1
+                        ? [new TableCell({ children: [text('')] })]
+                        : []),
+                      new TableCell({
+                        children: [
+                          new Paragraph({
+                            alignment: AlignmentType.CENTER,
+                            children: [
+                              new ImageRun({
+                                type: 'png',
+                                data: cache.get(p.asset)!,
+                                transformation: { width: 55, height: 55 },
+                                altText: {
+                                  title: p.alt,
+                                  description: p.alt,
+                                  name: p.asset,
+                                },
+                              }),
+                            ],
+                          }),
+                          text(
+                            task.mode === 'story'
+                              ? pictures.indexOf(p) + 1 + '. ' + p.alt
+                              : p.alt,
+                            { size: 17 },
+                          ),
+                        ],
+                      }),
+                    ]),
                     ...(task.mode === 'pattern'
                       ? [new TableCell({ children: [text('_____')] })]
                       : []),
@@ -442,7 +459,9 @@ export async function classroomWord(item: ClassroomItem, values: Values) {
   let children: Child[]
   if (item.category === 'Recados') children = await notices(item, values)
   else if (item.task) children = await activity(item, values)
-  else
+  else {
+    const details = documentDetails(item, values)
+    const signatures = documentSignatures(item)
     children = [
       heading(values.title),
       text(
@@ -451,6 +470,35 @@ export async function classroomWord(item: ClassroomItem, values: Values) {
           .join(' · '),
         { color: accent },
       ),
+      ...(details.length
+        ? [
+            new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              margins: { left: 180, right: 180, top: 120, bottom: 120 },
+              borders: {
+                top: fineRule,
+                bottom: fineRule,
+                left: fineRule,
+                right: fineRule,
+                insideHorizontal: fineRule,
+                insideVertical: fineRule,
+              },
+              rows: details.map(
+                (field) =>
+                  new TableRow({
+                    cantSplit: true,
+                    children: [
+                      new TableCell({
+                        shading: { fill: 'F9F4E8' },
+                        children: [text(field.label, { bold: true })],
+                      }),
+                      new TableCell({ children: [text(field.text)] }),
+                    ],
+                  }),
+              ),
+            }),
+          ]
+        : []),
       ...(item.tool === 'plano-de-aula'
         ? [
             text('Duração total · ' + planMinutes(values) + ' min', {
@@ -459,45 +507,52 @@ export async function classroomWord(item: ClassroomItem, values: Values) {
             }),
           ]
         : []),
-      ...(item.fields ?? []).flatMap((field) =>
-        field.key === 'conduct' && item.tool === 'plano-de-aula'
-          ? [
-              heading('Momentos da aula'),
-              new Table({
-                width: { size: 100, type: WidthType.PERCENTAGE },
-                rows: planMoments(values).map(
-                  (moment) =>
-                    new TableRow({
-                      cantSplit: true,
-                      children: [
-                        new TableCell({
-                          shading: { fill: 'E6F0E7' },
-                          children: [
-                            text(moment.label, { bold: true }),
-                            text(moment.minutes + ' min'),
-                          ],
-                        }),
-                        new TableCell({
-                          children: moment.action
-                            .split(/\r?\n/)
-                            .map((action) => text(action)),
-                        }),
-                      ],
-                    }),
-                ),
-              }),
-            ]
-          : [
-              heading(field.label),
-              ...(
-                values[field.key] ||
-                '______________________________________________________'
-              )
-                .split(/\r?\n/)
-                .map((line) => text(line, { size: 22 })),
-            ],
-      ),
+      ...(item.fields ?? [])
+        .filter((field) => !details.length || field.type === 'long')
+        .flatMap((field) =>
+          field.key === 'conduct' && item.tool === 'plano-de-aula'
+            ? [
+                heading('Momentos da aula'),
+                new Table({
+                  width: { size: 100, type: WidthType.PERCENTAGE },
+                  rows: planMoments(values).map(
+                    (moment) =>
+                      new TableRow({
+                        cantSplit: true,
+                        children: [
+                          new TableCell({
+                            shading: { fill: 'E6F0E7' },
+                            children: [
+                              text(moment.label, { bold: true }),
+                              text(moment.minutes + ' min'),
+                            ],
+                          }),
+                          new TableCell({
+                            children: moment.action
+                              .split(/\r?\n/)
+                              .map((action) => text(action)),
+                          }),
+                        ],
+                      }),
+                  ),
+                }),
+              ]
+            : [
+                heading(field.label),
+                ...(
+                  values[field.key] ||
+                  '______________________________________________________'
+                )
+                  .split(/\r?\n/)
+                  .map((line) => text(line, { size: 22 })),
+              ],
+        ),
+      ...signatures.flatMap((label) => [
+        text('_______________________________________', { after: 40 }),
+        text(label, { size: 19 }),
+      ]),
     ]
+  }
   return Packer.toBlob(
     new Document({
       title: values.title,

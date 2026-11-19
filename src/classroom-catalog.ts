@@ -56,6 +56,7 @@ export type ClassroomItem = {
   fields?: Field[]
   body?: string
   poster?: string[]
+  form?: 'ata' | 'declaracao' | 'entrega'
   style?: 'meadow' | 'night' | 'peach'
   ready?: { file: string; image: string; author: string; source: string }
   visual?: Values
@@ -571,9 +572,16 @@ const record = (
   tool: 'relatorio',
   fields: [
     { key: 'observationSubject', label: subject },
+    { key: 'period', label: 'Período observado' },
+    { key: 'teacher', label: 'Professora ou responsável pelo registro' },
     { key: 'context', label: 'Situação observada', type: 'long' },
-    { key: 'observation', label: 'O que aconteceu', type: 'long' },
-    { key: 'next', label: 'Próximos encaminhamentos', type: 'long' },
+    {
+      key: 'observation',
+      label: 'Ações, falas e interações observadas',
+      type: 'long',
+    },
+    { key: 'evidence', label: 'Exemplo ou produção da criança', type: 'long' },
+    { key: 'next', label: 'Próximas propostas e apoios', type: 'long' },
   ],
 })
 const visual = (
@@ -591,7 +599,63 @@ const visual = (
   visual: { ...values, title },
 })
 
+const schoolDocument = (
+  id: string,
+  form: NonNullable<ClassroomItem['form']>,
+  title: string,
+  description: string,
+  fields: Field[],
+): ClassroomItem => ({
+  id,
+  form,
+  title,
+  description,
+  fields,
+  category: 'Organização da turma',
+  tool: 'documento',
+})
+
 classroom.push(
+  schoolDocument(
+    'ata-de-reuniao',
+    'ata',
+    'Ata de reunião escolar',
+    'Registre participantes, decisões, responsáveis e prazos.',
+    [
+      { key: 'participants', label: 'Participantes' },
+      { key: 'place', label: 'Local' },
+      { key: 'agenda', label: 'Pauta', type: 'long' },
+      { key: 'discussion', label: 'Síntese da reunião', type: 'long' },
+      {
+        key: 'commitments',
+        label: 'Encaminhamentos, responsáveis e prazos',
+        type: 'long',
+      },
+    ],
+  ),
+  schoolDocument(
+    'declaracao-comparecimento',
+    'declaracao',
+    'Declaração de comparecimento',
+    'Preencha quem compareceu, o horário e a finalidade.',
+    [
+      { key: 'person', label: 'Nome da pessoa' },
+      { key: 'period', label: 'Horário ou período' },
+      { key: 'statement', label: 'Finalidade do comparecimento', type: 'long' },
+    ],
+  ),
+  schoolDocument(
+    'termo-entrega',
+    'entrega',
+    'Registro de entrega de materiais',
+    'Identifique os itens e registre quem entregou e recebeu.',
+    [
+      { key: 'person', label: 'Quem recebeu' },
+      { key: 'sender', label: 'Quem entregou' },
+      { key: 'items', label: 'Materiais e quantidades', type: 'long' },
+      { key: 'conditions', label: 'Observações sobre a entrega', type: 'long' },
+    ],
+  ),
   plan(
     'plano-texturas',
     'Berçário',
@@ -688,6 +752,8 @@ classroom.push(
       font: 'Georgia',
       format: 'Quadrado 1:1',
       model: '1',
+      composition: 'aviso',
+      callout: 'Confirme pela agenda',
       figure: '01_livro',
     },
   ),
@@ -703,6 +769,8 @@ classroom.push(
       font: 'Georgia',
       format: 'Vertical 4:5',
       model: '2',
+      composition: 'convite',
+      callout: 'Esperamos sua família!',
       figure: '02_estrela',
     },
   ),
@@ -732,6 +800,8 @@ classroom.push(
       margin: '15',
       crop: 'no',
       quality: 'high',
+      printedHeader: 'yes',
+      printedNumbering: 'yes',
     },
   ),
   visual(
@@ -745,6 +815,8 @@ classroom.push(
       margin: '10',
       crop: 'no',
       quality: 'high',
+      printedHeader: 'yes',
+      printedNumbering: 'yes',
     },
   ),
   visual(
@@ -758,6 +830,8 @@ classroom.push(
       margin: '5',
       crop: 'no',
       quality: 'standard',
+      printedHeader: 'yes',
+      printedNumbering: 'yes',
     },
   ),
 )
@@ -780,7 +854,26 @@ const customWorksheet: ClassroomItem = {
   },
 }
 
+const pairTemplate = classroom.find((item) => item.id === 'pares-ilustrados')!
+const customPairs: ClassroomItem = {
+  ...pairTemplate,
+  id: 'criar-pares',
+  title: 'Minha ficha de pareamento',
+  description: 'Monte duas colunas de figuras para a criança ligar os pares.',
+  task: {
+    ...pairTemplate.task!,
+    supplies: 'Ficha impressa e lápis. Ofereça cartões móveis, se necessário.',
+    steps: [
+      'Observe as figuras das duas colunas.',
+      'Ligue cada figura à sua correspondente.',
+      'Explique como você encontrou um par.',
+    ],
+    guide:
+      'Confira se cada figura foi ligada à sua correspondente. Considere também o pareamento com cartões.',
+  },
+}
 export function findClassroomItem(id: string | undefined) {
+  if (id === customPairs.id) return customPairs
   return id === customWorksheet.id
     ? customWorksheet
     : classroom.find((item) => item.id === id)

@@ -184,6 +184,16 @@ export async function pdf(data: Material): Promise<Blob> {
       }
     }
   }
+  for (const [index, printed] of doc.getPages().entries()) {
+    const label = 'Folha ' + (index + 1) + ' de ' + doc.getPageCount()
+    printed.drawText(label, {
+      x: a4[0] - margin - regular.widthOfTextAtSize(label, 9),
+      y: Math.max(12, margin * 0.45),
+      size: 9,
+      font: regular,
+      color: rgb(0.31, 0.38, 0.34),
+    })
+  }
   return new Blob([new Uint8Array(await doc.save())], {
     type: 'application/pdf',
   })

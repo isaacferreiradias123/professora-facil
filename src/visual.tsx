@@ -51,6 +51,9 @@ const photoDefaults = {
   margin: '10',
   crop: 'no',
   quality: 'standard',
+  printedHeader: 'no',
+  printedNumbering: 'no',
+  albumSubtitle: '',
 }
 function artDefaults(props: EditorProps, index: number): Values {
   const options = catalog[props.tool],
@@ -87,6 +90,22 @@ function artDefaults(props: EditorProps, index: number): Values {
     font: fontOptions[0],
     format: formatNames[0],
     grid: '2',
+    composition: panel
+      ? 'texto'
+      : ([
+          'convite',
+          'aviso',
+          'texto',
+          'convite',
+          'aviso',
+          'texto',
+          'convite',
+          'memoria',
+          'aviso',
+        ][index] ?? 'texto'),
+    callout: '',
+    panelGuide: 'no',
+    artCrop: 'no',
   }
 }
 function Frame({
@@ -215,6 +234,9 @@ function Photos(props: EditorProps) {
       : 10,
     crop: values.crop === 'yes',
     quality: values.quality === 'high' ? 'high' : 'standard',
+    header: values.printedHeader === 'yes' ? values.title : undefined,
+    subtitle: values.albumSubtitle,
+    numbering: values.printedNumbering === 'yes',
   }
   const layout = photoLayout(options)
   const sheets = photoPages(photos, options.perPage)
@@ -356,6 +378,29 @@ function Photos(props: EditorProps) {
                 aspectRatio: layout.pageWidth + '/' + layout.pageHeight,
               }}
             >
+              {options.header?.trim() && (
+                <div
+                  className="photo-print-header"
+                  style={{
+                    top: (100 * layout.margin) / layout.pageHeight + '%',
+                    insetInline: (100 * layout.margin) / layout.pageWidth + '%',
+                  }}
+                >
+                  <strong>{options.header}</strong>
+                  {options.subtitle && <span>{options.subtitle}</span>}
+                </div>
+              )}
+              {options.numbering && (
+                <small
+                  className="photo-print-number"
+                  style={{
+                    bottom: (100 * layout.margin) / layout.pageHeight + '%',
+                    right: (100 * layout.margin) / layout.pageWidth + '%',
+                  }}
+                >
+                  Folha {i + 1} de {sheets.length}
+                </small>
+              )}
               {sheet.map((p, index) => (
                 <figure
                   key={p.id}
@@ -543,6 +588,31 @@ function Photos(props: EditorProps) {
           form={
             <div className="form-grid">
               <TextField flow={flow} label="Nome do arquivo" id="title" />
+              <Choice
+                flow={flow}
+                label="Título na folha"
+                id="printedHeader"
+                options={[
+                  ['no', 'Ocultar'],
+                  ['yes', 'Mostrar em todas as folhas'],
+                ]}
+              />
+              {values.printedHeader === 'yes' && (
+                <TextField
+                  flow={flow}
+                  label="Turma, data ou projeto"
+                  id="albumSubtitle"
+                />
+              )}
+              <Choice
+                flow={flow}
+                label="Numeração das folhas"
+                id="printedNumbering"
+                options={[
+                  ['no', 'Ocultar'],
+                  ['yes', 'Mostrar'],
+                ]}
+              />
               <Choice
                 flow={flow}
                 label="Orientação do A4"
@@ -754,6 +824,8 @@ function Art(props: EditorProps) {
           font: values.font,
           model: Number(values.model) || 0,
           crop: values.artCrop === 'yes',
+          composition: values.composition,
+          callout: values.callout,
         },
         photo,
         panel,
@@ -810,7 +882,7 @@ function Art(props: EditorProps) {
     setError('')
     let url = ''
     try {
-      url = URL.createObjectURL(await imageFromFile(file, 1500))
+      url = URL.createObjectURL(await imageFromFile(file, panel ? 4000 : 1500))
       const img = new Image()
       img.src = url
       await img.decode()
@@ -827,6 +899,10 @@ function Art(props: EditorProps) {
     }
   }
   async function output(print = false) {
+    if (panel && values.composition === 'imagem' && !photo) {
+      setError('Adicione a imagem do painel antes de preparar o PDF.')
+      return
+    }
     setBusy('Preparando arquivo…')
     setError('')
     setMessage('')
@@ -837,7 +913,15 @@ function Art(props: EditorProps) {
     }
     try {
       const blob = panel
-        ? await (await import('./visual-pdf')).panelPdf(target, columns, rows)
+        ? await (
+            await import('./visual-pdf')
+          ).panelPdf(
+            target,
+            columns,
+            rows,
+            values.panelGuide === 'yes',
+            values.title,
+          )
         : await blobOf(target)
       if (print) printBlob(blob)
       else download(blob, filename(values.title) + (panel ? '.pdf' : '.png'))
@@ -980,19 +1064,64 @@ function Art(props: EditorProps) {
             form={
               <div className="form-grid">
                 <TextField flow={artFlow} label="Título" id="title" />
-                <TextField
-                  flow={artFlow}
-                  label="Data (opcional)"
-                  id="date"
-                  type="date"
-                />
-                <TextField
-                  flow={artFlow}
-                  label={panel ? 'Texto do painel' : 'Legenda'}
-                  id="body"
-                  type="textarea"
-                />
-                {!panel && values.templateId && (
+                {panel ? (
+                  <Choice
+                    flow={artFlow}
+                    label="Conteúdo do painel"
+                    id="composition"
+                    options={[
+                      ['texto', 'Texto e figuras'],
+                      ['imagem', 'Minha imagem inteira'],
+                    ]}
+                  />
+                ) : (
+                  <Choice
+                    flow={artFlow}
+                    label="Composição da postagem"
+                    id="composition"
+                    options={[
+                      ['texto', 'Mensagem'],
+                      ['convite', 'Convite com data'],
+                      ['aviso', 'Aviso com destaque'],
+                      ['memoria', 'Registro com foto em destaque'],
+                    ]}
+                  />
+                )}
+                {panel && (
+                  <Choice
+                    flow={artFlow}
+                    label="Guia no PDF"
+                    id="panelGuide"
+                    options={[
+                      ['no', 'Somente as folhas do painel'],
+                      ['yes', 'Incluir mapa de montagem'],
+                    ]}
+                  />
+                )}
+                {(!panel || values.composition !== 'imagem') && (
+                  <>
+                    <TextField
+                      flow={artFlow}
+                      label="Data (opcional)"
+                      id="date"
+                      type="date"
+                    />
+                    <TextField
+                      flow={artFlow}
+                      label={panel ? 'Texto do painel' : 'Texto na arte'}
+                      id="body"
+                      type="textarea"
+                    />
+                  </>
+                )}
+                {!panel && (
+                  <TextField
+                    flow={artFlow}
+                    label="Destaque final na arte (opcional)"
+                    id="callout"
+                  />
+                )}
+                {!panel && (
                   <TextField
                     flow={artFlow}
                     label="Legenda para compartilhar"
@@ -1000,9 +1129,13 @@ function Art(props: EditorProps) {
                     type="textarea"
                   />
                 )}
-                {!panel && (
+                {(!panel || values.composition === 'imagem') && (
                   <FileDrop
-                    label="Adicionar imagem (opcional)"
+                    label={
+                      panel
+                        ? 'Escolher imagem para o painel'
+                        : 'Adicionar imagem (opcional)'
+                    }
                     instructions="Escolha ou arraste uma imagem JPG, PNG ou WebP de até 14 MB."
                     accept=".jpg,.jpeg,.png,.webp"
                     disabled={Boolean(busy)}
@@ -1138,8 +1271,13 @@ function Art(props: EditorProps) {
                 {cm(geometry.width)} × {cm(geometry.height)} cm · sobreposição
                 de {cm(16)} cm
               </p>
+              {values.panelGuide === 'yes' && (
+                <p>
+                  O PDF começa com um mapa. As folhas numeradas vêm em seguida.
+                </p>
+              )}
               <p>
-                Nitidez estimada: {Math.round(72 / paperRatio)} pixels por
+                Nitidez da grade: {Math.round(72 / paperRatio)} pixels por
                 polegada. Confira as letras e os detalhes na prévia. Imprima em
                 escala de 100%.
               </p>

@@ -241,3 +241,182 @@ test('cria uma folha infantil com figuras escolhidas e plano com tempos editados
   expect(plan).toContain('31 min')
   expect(plan).toContain('Contar os cartões em roda.')
 })
+test('ata e relatório saem com campos próprios em PDF e Word editável', async ({
+  page,
+}) => {
+  await page.goto('/app/colecao?ferramenta=documento')
+  await page.getByRole('link', { name: /Ata de reunião escolar/ }).click()
+  await page
+    .getByRole('textbox', { name: 'Participantes', exact: true })
+    .fill('Equipe da turma Ipê')
+  await page
+    .getByRole('textbox', { name: 'Pauta', exact: true })
+    .fill('Organizar a feira do livro.')
+  await page
+    .getByRole('textbox', {
+      name: 'Encaminhamentos, responsáveis e prazos',
+      exact: true,
+    })
+    .fill('Ana reúne os materiais até sexta-feira.')
+  await showPreview(page)
+  await expect(page.locator('.school-preview')).toContainText(
+    'Equipe da turma Ipê',
+  )
+  await expect(page.locator('.school-preview')).toContainText(
+    'Responsável pela ata',
+  )
+  await verifyA4(await save(page, 'Baixar PDF', 'ata-escolar.pdf'), 1)
+  const doc = await docxXml(await save(page, 'Baixar Word', 'ata-escolar.docx'))
+  expect(doc).toContain('<w:tbl>')
+  expect(doc).toContain('Ana reúne os materiais até sexta-feira.')
+  await page.goto('/app/colecao/registro-individual')
+  await page
+    .getByRole('textbox', { name: 'Identificação no registro', exact: true })
+    .fill('Criança A')
+  await page
+    .getByRole('textbox', { name: 'Período observado', exact: true })
+    .fill('1º trimestre')
+  await page
+    .getByRole('textbox', {
+      name: 'Ações, falas e interações observadas',
+      exact: true,
+    })
+    .fill('Distribuiu os pincéis para o grupo.')
+  await page
+    .getByRole('textbox', {
+      name: 'Exemplo ou produção da criança',
+      exact: true,
+    })
+    .fill('Contou dois pincéis em voz alta.')
+  await showPreview(page)
+  await expect(page.locator('.school-preview')).toContainText(
+    'Contou dois pincéis em voz alta.',
+  )
+  await verifyA4(await save(page, 'Baixar PDF', 'registro-individual.pdf'), 1)
+  const report = await docxXml(
+    await save(page, 'Baixar Word', 'registro-individual.docx'),
+  )
+  expect(report).toContain('1º trimestre')
+  expect(report).toContain('Responsável pelo registro')
+})
+
+test('álbum, arte e painel próprios usam os controles novos nos arquivos', async ({
+  page,
+}) => {
+  const photo = Buffer.from(
+    await page.evaluate(() => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 640
+      canvas.height = 480
+      const ctx = canvas.getContext('2d')!
+      ctx.fillStyle = '#d6c5ed'
+      ctx.fillRect(0, 0, 640, 480)
+      ctx.fillStyle = '#226754'
+      ctx.fillRect(80, 80, 480, 320)
+      return canvas.toDataURL('image/png').split(',')[1]
+    }),
+    'base64',
+  )
+  const input = {
+    name: 'imagem-ficticia.png',
+    mimeType: 'image/png',
+    buffer: photo,
+  }
+  await page.goto('/app/criar/fotos-em-pdf')
+  await page.getByLabel('Selecionar fotos').setInputFiles(input)
+  await page.getByRole('button', { name: 'Organizar folhas' }).click()
+  await page
+    .getByRole('textbox', { name: 'Nome do arquivo', exact: true })
+    .fill('Portfólio da turma Ipê')
+  await page
+    .getByRole('combobox', { name: 'Título na folha', exact: true })
+    .selectOption('yes')
+  await page
+    .getByRole('textbox', { name: 'Turma, data ou projeto', exact: true })
+    .fill('Pré II · produção coletiva')
+  await page
+    .getByRole('combobox', { name: 'Numeração das folhas', exact: true })
+    .selectOption('yes')
+  await page.getByRole('button', { name: 'Conferir PDF' }).click()
+  await expect(page.locator('.photo-print-header')).toContainText(
+    'Pré II · produção coletiva',
+  )
+  await expect(page.locator('.photo-print-number')).toHaveText('Folha 1 de 1')
+  await verifyA4(await save(page, 'Baixar PDF', 'album-com-cabecalho.pdf'), 1)
+  await page.goto('/app/criar/postagem')
+  await page.getByRole('button', { name: 'Personalizar', exact: true }).click()
+  await page
+    .getByRole('combobox', { name: 'Composição da postagem', exact: true })
+    .selectOption('memoria')
+  await page
+    .getByRole('textbox', { name: 'Título', exact: true })
+    .fill('Nossa feira do livro')
+  await page
+    .getByRole('textbox', {
+      name: 'Destaque final na arte (opcional)',
+      exact: true,
+    })
+    .fill('Até a próxima leitura!')
+  await page.getByLabel('Adicionar imagem (opcional)').setInputFiles(input)
+  await page.getByRole('button', { name: 'Conferir arte' }).click()
+  const png = await save(page, 'Baixar PNG', 'postagem-fotografica.png')
+  expect(png.readUInt32BE(16)).toBe(1080)
+  expect(png.readUInt32BE(20)).toBe(1080)
+  await page.goto('/app/criar/painel')
+  await page.getByRole('button', { name: 'Personalizar', exact: true }).click()
+  await page
+    .getByRole('combobox', { name: 'Conteúdo do painel', exact: true })
+    .selectOption('imagem')
+  await page
+    .getByRole('combobox', { name: 'Guia no PDF', exact: true })
+    .selectOption('yes')
+  await page.getByLabel('Escolher imagem para o painel').setInputFiles(input)
+  await page.getByRole('button', { name: 'Conferir arte' }).click()
+  await expect(page.getByRole('img', { name: /Prévia da folha/ })).toHaveCount(
+    4,
+  )
+  await verifyA4(
+    await save(page, 'Baixar PDF', 'painel-de-imagem-com-mapa.pdf'),
+    5,
+  )
+})
+
+test('pareamento, extensão de aula e cartões de rotina são personalizáveis', async ({
+  page,
+}) => {
+  await page.goto('/app/colecao/criar-pares')
+  await page
+    .getByRole('combobox', { name: 'Figuras', exact: true })
+    .selectOption('school')
+  await showPreview(page)
+  await expect(
+    page
+      .locator('.school-preview')
+      .getByRole('img', { name: 'Pincel', exact: true }),
+  ).toHaveCount(2)
+  await verifyA4(await save(page, 'Baixar PDF', 'pareamento-escolar.pdf'), 1)
+  await page.goto('/app/colecao/plano-feira')
+  await page
+    .getByRole('checkbox', { name: 'Incluir extensão ou adaptação' })
+    .check()
+  await page
+    .getByRole('spinbutton', { name: 'Duração em minutos' })
+    .last()
+    .fill('7')
+  await page
+    .getByRole('textbox', { name: 'O que fazer' })
+    .last()
+    .fill('Recontar com materiais táteis.')
+  await showPreview(page)
+  await expect(page.locator('.school-preview')).toContainText('35 min')
+  await expect(page.locator('.school-preview')).toContainText(
+    'Recontar com materiais táteis.',
+  )
+  await page.goto('/app/colecao/painel-rotina')
+  await page
+    .getByRole('textbox', { name: /Texto dos cartões/ })
+    .fill('Chegada\nHorta\nRoda')
+  await showPreview(page)
+  await expect(page.locator('.school-preview')).toContainText('Horta')
+  await verifyA4(await save(page, 'Baixar PDF', 'rotina-personalizada.pdf'), 3)
+})

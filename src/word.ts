@@ -1,4 +1,8 @@
 import {
+  AlignmentType,
+  BorderStyle,
+  Footer,
+  PageNumber,
   Document,
   HeadingLevel,
   ImageRun,
@@ -34,12 +38,30 @@ function renderBlock(block: Block): Child[] {
       return [
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
+          margins: { top: 110, bottom: 110, left: 150, right: 150 },
+          borders: Object.fromEntries(
+            [
+              'top',
+              'bottom',
+              'left',
+              'right',
+              'insideHorizontal',
+              'insideVertical',
+            ].map((side) => [
+              side,
+              { style: BorderStyle.SINGLE, size: 4, color: 'A8BBB0' },
+            ]),
+          ),
           rows: block.rows.map(
-            (row) =>
+            (row, index) =>
               new TableRow({
                 cantSplit: true,
                 children: row.map(
-                  (text) => new TableCell({ children: [new Paragraph(text)] }),
+                  (text) =>
+                    new TableCell({
+                      shading: { fill: index % 2 ? 'F7F4EB' : 'FFFFFF' },
+                      children: [new Paragraph(text)],
+                    }),
                 ),
               }),
           ),
@@ -131,6 +153,22 @@ export function word(material: Material): Promise<Blob> {
               size: { width: 11906, height: 16838 },
               margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 },
             },
+          },
+          footers: {
+            default: new Footer({
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.RIGHT,
+                  children: [
+                    new TextRun({
+                      children: ['Folha ', PageNumber.CURRENT],
+                      color: '536860',
+                      size: 18,
+                    }),
+                  ],
+                }),
+              ],
+            }),
           },
           children,
         },
