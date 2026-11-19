@@ -63,7 +63,7 @@ export type ClassroomItem = {
   poster?: string[]
   mosaicLabels?: string[]
   scope?: 'individual' | 'collective'
-  form?: 'ata' | 'declaracao' | 'entrega'
+  form?: 'ata' | 'declaracao' | 'entrega' | 'ficha'
   style?: 'meadow' | 'night' | 'peach'
   ready?: { file: string; image: string; author: string; source: string }
   visual?: Values

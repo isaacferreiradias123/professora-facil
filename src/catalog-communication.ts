@@ -234,7 +234,9 @@ const documents: ClassroomItem[] = forms.map(
       ? 'declaracao'
       : id.includes('entrega') || id.includes('recebimento')
         ? 'entrega'
-        : 'ata',
+        : title.startsWith('Ata de ')
+          ? 'ata'
+          : 'ficha',
     fields: [
       row('participants', subject),
       row('place', 'Local'),

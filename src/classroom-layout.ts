@@ -861,12 +861,14 @@ export function documentDetails(item: ClassroomItem, values: Values) {
 export function documentSignatures(item: ClassroomItem) {
   if (item.form === 'entrega') return ['Quem entregou', 'Quem recebeu']
   if (item.form === 'ata') return ['Responsável pela ata', 'Coordenação']
+  if (item.form === 'ficha') return ['Responsável pelo preenchimento']
   if (item.form === 'declaracao')
     return ['Responsável e identificação da escola']
   return item.tool === 'relatorio' ? ['Responsável pelo registro'] : []
 }
 export function documentKind(item: ClassroomItem) {
   if (item.form === 'ata') return 'Ata escolar'
+  if (item.form === 'ficha') return 'Ficha escolar'
   if (item.form === 'declaracao') return 'Declaração escolar'
   if (item.form === 'entrega') return 'Registro de entrega'
   return item.tool === 'plano-de-aula' ? 'Plano de aula' : 'Registro pedagógico'
@@ -943,9 +945,7 @@ export function buildSheets(item: ClassroomItem, values: Values): Sheet[] {
       }
       continue
     }
-    const content =
-      values[field.key] ||
-      '______________________________________________________'
+    const content = values[field.key]?.trim()
     if (y > 243) nextPage()
     if (structured) page!.box(16, y - 2, 178, 10, sage)
     page!.text(field.label, structured ? 20 : 16, y, 4.5, {
@@ -953,12 +953,24 @@ export function buildSheets(item: ClassroomItem, values: Values): Sheet[] {
       color: darkGreen,
     })
     y += 11
-    for (const row of lineWrap(content, 175, 4.1)) {
-      if (y > 275) nextPage()
-      if (row) page!.text(row, 16, y, 4.1, { width: 176 })
-      y += 6.36
+    if (!content && structured) {
+      for (let line = 0; line < 2; line++) {
+        if (y > 272) nextPage()
+        page!.line(16, y + 5, 176, rule)
+        y += 6
+      }
+    } else {
+      for (const row of lineWrap(
+        content || '________________________________________',
+        175,
+        4.1,
+      )) {
+        if (y > 275) nextPage()
+        if (row) page!.text(row, 16, y, 4.1, { width: 176 })
+        y += 6.36
+      }
     }
-    y += 9
+    y += structured ? 6 : 9
   }
   const signatures = documentSignatures(item)
   if (signatures.length) {
