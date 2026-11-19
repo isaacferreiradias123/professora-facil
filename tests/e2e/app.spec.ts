@@ -101,10 +101,7 @@ test('páginas, larguras, navegação e acessibilidade', async ({
   await expect(skip).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('main')).toBeFocused()
-  await page
-    .getByRole('link', { name: 'Experimentar gratuitamente' })
-    .first()
-    .click()
+  await page.getByRole('link', { name: 'Criar um material' }).first().click()
   await expect(
     page.getByRole('heading', { name: 'Olá! O que vamos preparar hoje?' }),
   ).toBeVisible()
@@ -178,14 +175,12 @@ test('atividade, Word/PDF em português, rascunho e limpeza', async ({
   await page.getByRole('button', { name: 'Conferir material' }).click()
   await open(page, 'documento')
   await page.getByRole('button', { name: 'Abrir Word ou PDF' }).click()
-  await page
-    .getByLabel('Selecionar documento')
-    .setInputFiles({
-      name: 'teste.docx',
-      mimeType:
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      buffer: docx,
-    })
+  await page.getByLabel('Selecionar documento').setInputFiles({
+    name: 'teste.docx',
+    mimeType:
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: docx,
+  })
   await expect(page.locator('.file-text')).toContainText(
     'Ação, emoção, café e corações',
   )
@@ -196,13 +191,11 @@ test('atividade, Word/PDF em português, rascunho e limpeza', async ({
   await page.getByRole('button', { name: 'Voltar às ferramentas' }).click()
   await page.getByRole('link', { name: 'Documentos Word e PDF' }).click()
   await page.getByRole('button', { name: 'Abrir Word ou PDF' }).click()
-  await page
-    .getByLabel('Selecionar documento')
-    .setInputFiles({
-      name: 'teste.pdf',
-      mimeType: 'application/pdf',
-      buffer: pdf,
-    })
+  await page.getByLabel('Selecionar documento').setInputFiles({
+    name: 'teste.pdf',
+    mimeType: 'application/pdf',
+    buffer: pdf,
+  })
   await expect(page.locator('.file-text')).toContainText(
     'Ação, emoção, café e corações',
   )
@@ -290,10 +283,13 @@ test('prepara um PDF local para a opção Imprimir', async ({ page }) => {
   await expect(page.getByRole('status')).toContainText('Documento preparado')
   const frame = page.locator('iframe[title="Documento para impressão"]')
   await expect(frame).toHaveAttribute('src', /^blob:/)
-  const pdfHeader = await page.evaluate(async (url) => {
-    const file = await (await fetch(url)).blob()
-    return { type: file.type, signature: await file.slice(0, 5).text() }
-  }, (await frame.getAttribute('src'))!)
+  const pdfHeader = await page.evaluate(
+    async (url) => {
+      const file = await (await fetch(url)).blob()
+      return { type: file.type, signature: await file.slice(0, 5).text() }
+    },
+    (await frame.getAttribute('src'))!,
+  )
   expect(pdfHeader).toEqual({ type: 'application/pdf', signature: '%PDF-' })
 })
 
@@ -301,13 +297,11 @@ test('18 fotos, reordenação, legenda e três distribuições A4', async ({
   page,
 }, info) => {
   await open(page, 'fotos-em-pdf')
-  await page
-    .getByLabel('Selecionar fotos')
-    .setInputFiles({
-      name: 'invalida.png',
-      mimeType: 'image/png',
-      buffer: Buffer.from('texto'),
-    })
+  await page.getByLabel('Selecionar fotos').setInputFiles({
+    name: 'invalida.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('texto'),
+  })
   await expect(page.getByRole('alert')).toContainText('não corresponde')
   const photos = await page.evaluate(() => {
     const canvas = document.createElement('canvas')
@@ -315,7 +309,12 @@ test('18 fotos, reordenação, legenda e três distribuições A4', async ({
     return Array.from({ length: 18 }, (_, index) => {
       canvas.width = index % 2 ? 1536 : 2048
       canvas.height = index % 2 ? 2048 : 1536
-      const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height)
+      const gradient = context.createLinearGradient(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      )
       gradient.addColorStop(0, 'hsl(' + index * 20 + ',50%,75%)')
       gradient.addColorStop(1, '#faf7f0')
       context.fillStyle = gradient
@@ -323,14 +322,16 @@ test('18 fotos, reordenação, legenda e três distribuições A4', async ({
       context.fillStyle = '#252e29'
       context.font = 'bold 160px sans-serif'
       context.fillText(String(index + 1), 160, 250)
-      return canvas.toDataURL('image/jpeg', .9).split(',')[1]
+      return canvas.toDataURL('image/jpeg', 0.9).split(',')[1]
     })
   })
-  await page.getByLabel('Selecionar fotos').setInputFiles(photos.map((photo, index) => ({
-    name: 'foto-' + (index + 1) + '.jpg',
-    mimeType: 'image/jpeg',
-    buffer: Buffer.from(photo, 'base64'),
-  })))
+  await page.getByLabel('Selecionar fotos').setInputFiles(
+    photos.map((photo, index) => ({
+      name: 'foto-' + (index + 1) + '.jpg',
+      mimeType: 'image/jpeg',
+      buffer: Buffer.from(photo, 'base64'),
+    })),
+  )
   await expect(
     page.getByText('18 de 24 fotos selecionadas.', { exact: false }),
   ).toBeVisible()
@@ -423,4 +424,124 @@ test('postagens em cinco formatos e painéis com quatro e nove folhas', async ({
     await page.getByRole('button', { name: 'Voltar', exact: true }).click()
     await page.getByRole('button', { name: 'Voltar', exact: true }).click()
   }
+})
+test('catálogo com faixa etária e folheto ilustrado com gabarito separado', async ({
+  page,
+}) => {
+  await page.goto('/app/modelos')
+  await page.getByText('Filtrar por categoria, faixa ou tema').click()
+  await page.getByLabel('Faixa etária').selectOption({ index: 1 })
+  await page.getByRole('searchbox').fill('pareamento de figuras')
+  await expect(page.getByText('Nenhum modelo encontrado.')).toBeVisible()
+  await page.getByLabel('Faixa etária').selectOption({ index: 3 })
+  await page.getByRole('link', { name: /Pareamento de figuras/ }).click()
+  await preview(page)
+  await expect(
+    page.getByRole('img', { name: /Círculo, quadrado e triângulo à esquerda/ }),
+  ).toBeVisible()
+  const pdf = await PDFDocument.load(await download(page, 'Baixar PDF'))
+  expect(pdf.getPageCount()).toBe(2)
+})
+
+test('recupera edição após recarregar e importa uma cópia editável', async ({
+  page,
+}) => {
+  await open(page, 'plano-de-aula')
+  await page.getByRole('button', { name: 'Personalizar', exact: true }).click()
+  await page
+    .getByRole('textbox', { name: 'Título', exact: true })
+    .fill('Roda da manhã')
+  await page.getByRole('button', { name: 'Adicionar momento' }).click()
+  await page
+    .getByRole('textbox', { name: 'Momento 1', exact: true })
+    .fill('Leitura compartilhada')
+  await page
+    .getByRole('spinbutton', { name: 'Minutos do momento 1' })
+    .fill('40')
+  await expect(page.getByText(/duração informada foi excedida/)).toBeVisible()
+  page.once('dialog', (dialog) => {
+    void dialog.accept()
+  })
+  await page.reload()
+  await page.getByRole('button', { name: 'Personalizar', exact: true }).click()
+  await expect(
+    page.getByRole('textbox', { name: 'Título', exact: true }),
+  ).toHaveValue('Roda da manhã')
+  await expect(
+    page.getByRole('textbox', { name: 'Momento 1', exact: true }),
+  ).toHaveValue('Leitura compartilhada')
+  await page.getByRole('button', { name: 'Conferir material' }).click()
+  await page.getByRole('button', { name: 'Salvar rascunho' }).click()
+  await expect(
+    page.getByText('Rascunho salvo em Meus materiais.'),
+  ).toBeVisible()
+  await page.getByRole('link', { name: 'Meus materiais', exact: true }).click()
+  const copy = await download(page, 'Baixar cópia editável')
+  const input = page.getByLabel('Importar cópia editável')
+  await input.setInputFiles({
+    name: 'invalido.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"version":7}'),
+  })
+  await expect(page.getByRole('status')).toContainText('Não foi possível')
+  await input.setInputFiles({
+    name: 'plano.json',
+    mimeType: 'application/json',
+    buffer: copy,
+  })
+  await expect(page.getByRole('status')).toContainText('Cópia importada.')
+  await expect(
+    page.getByRole('heading', { name: 'Roda da manhã', exact: true }),
+  ).toHaveCount(2)
+})
+
+test('gira uma foto, insere uma quebra e exporta uma grade retangular', async ({
+  page,
+}) => {
+  await open(page, 'fotos-em-pdf')
+  const photos = Array.from({ length: 4 }, (_, i) => ({
+    name: 'foto-' + i + '.png',
+    mimeType: 'image/png',
+    buffer: png,
+  }))
+  await page.getByLabel('Selecionar fotos').setInputFiles(photos)
+  await expect(page.getByText(/4 de 24 fotos selecionadas/)).toBeVisible()
+  await page.getByRole('button', { name: 'Girar foto 1' }).click()
+  await page.getByLabel('Começar nova folha antes da foto 2').check()
+  await page.getByRole('button', { name: 'Organizar folhas' }).click()
+  await page.getByText('Margens, encaixe e qualidade').click()
+  await page
+    .getByRole('combobox', { name: 'Encaixe das fotos' })
+    .selectOption('yes')
+  await page.getByRole('button', { name: 'Conferir PDF' }).click()
+  await page.getByText('Ajustar recorte da folha 1').click()
+  await page
+    .getByRole('slider', { name: 'Posição horizontal' })
+    .first()
+    .fill('25')
+  await expect(
+    page.getByRole('img', { name: 'Foto 1', exact: true }),
+  ).toHaveCSS('object-position', '25% 50%')
+  expect(
+    (await PDFDocument.load(await download(page, 'Baixar PDF'))).getPageCount(),
+  ).toBe(2)
+  page.once('dialog', (dialog) => {
+    void dialog.accept()
+  })
+  await open(page, 'painel')
+  await page.getByLabel('Grade de impressão').selectOption('custom')
+  await page
+    .getByRole('combobox', { name: 'Colunas', exact: true })
+    .selectOption('4')
+  await page
+    .getByRole('combobox', { name: 'Linhas', exact: true })
+    .selectOption('2')
+  await page.getByRole('button', { name: 'Personalizar', exact: true }).click()
+  await page.getByRole('button', { name: 'Conferir arte' }).click()
+  await expect(
+    page.getByRole('link', { name: 'Ir para folha 8' }),
+  ).toBeVisible()
+  expect(
+    (await PDFDocument.load(await download(page, 'Baixar PDF'))).getPageCount(),
+  ).toBe(8)
 })

@@ -2,23 +2,32 @@ import { useEffect, useState } from 'react'
 import { useBeforeUnload, useBlocker, useNavigate } from 'react-router-dom'
 import { drafts, newId, type Values } from './store'
 import type { Tool } from './catalog'
+import { clearRecovery, recover, recoveryPrefix } from './draft-transfer'
 
 export interface EditorProps {
   tool: Tool
   model: number
   draftId: string | null
+  age?: number
 }
 export function useWorkflow(
-  { tool, draftId }: EditorProps,
+  { tool, draftId, model, age }: EditorProps,
   initial: () => Values,
 ) {
-  const [values, setValues] = useState(initial)
+  const recoveryKey =
+    recoveryPrefix + tool + ':' + (draftId ?? model + ':' + (age ?? ''))
+  const [recovered] = useState(() => recover(recoveryKey))
+  const [values, setValues] = useState(() => ({ ...initial(), ...recovered }))
   const [id, setId] = useState(draftId)
   const [name, setName] = useState('')
-  const [dirty, setDirty] = useState(false)
+  const [dirty, setDirty] = useState(Boolean(recovered))
   const [loading, setLoading] = useState(Boolean(draftId))
   const [unavailable, setUnavailable] = useState(false)
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(
+    recovered
+      ? 'Edição recuperada neste navegador. Os anexos precisam ser selecionados novamente.'
+      : '',
+  )
   const [error, setError] = useState('')
   const navigate = useNavigate()
   const set = (key: string, value: string) => {
@@ -37,7 +46,7 @@ export function useWorkflow(
       .then((d) => {
         if (!active) return
         if (!d || d.tool !== tool) throw new Error()
-        setValues(d.values)
+        setValues((defaults) => ({ ...defaults, ...d.values, ...recovered }))
         setName(d.name)
         if (d.needsFiles)
           setMessage(
@@ -56,7 +65,15 @@ export function useWorkflow(
     return () => {
       active = false
     }
-  }, [draftId, tool])
+  }, [draftId, tool, recovered])
+  useEffect(() => {
+    if (!dirty || loading || unavailable) return
+    try {
+      localStorage.setItem(recoveryKey, JSON.stringify(values))
+    } catch {
+      /* manual saving remains available */
+    }
+  }, [dirty, loading, unavailable, recoveryKey, values])
   useBeforeUnload((e) => {
     if (dirty) {
       e.preventDefault()
@@ -71,10 +88,12 @@ export function useWorkflow(
   )
   useEffect(() => {
     if (blocker.state === 'blocked') {
-      if (window.confirm('Sair sem salvar as alterações?')) blocker.proceed()
-      else blocker.reset()
+      if (window.confirm('Sair sem salvar as alterações?')) {
+        clearRecovery(recoveryKey)
+        blocker.proceed()
+      } else blocker.reset()
     }
-  }, [blocker])
+  }, [blocker, recoveryKey])
   async function save(needsFiles = false) {
     setError('')
     setMessage('')
@@ -91,6 +110,7 @@ export function useWorkflow(
       })
       setId(next)
       setDirty(false)
+      clearRecovery(recoveryKey)
       setMessage(
         needsFiles
           ? 'Rascunho salvo. Selecione os anexos novamente quando voltar.'

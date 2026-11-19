@@ -94,6 +94,7 @@ export function word(material: Material): Promise<Blob> {
       children.push(
         new Paragraph({
           heading: HeadingLevel.HEADING_1,
+          pageBreakBefore: section.newPage,
           keepNext: true,
           children: [new TextRun({ text: section.title, color })],
         }),

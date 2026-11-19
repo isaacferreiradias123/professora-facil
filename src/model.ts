@@ -10,6 +10,8 @@ import {
   type Tool,
 } from './catalog'
 import type { Values } from './store'
+import { firstIllustratedActivity, worksheet } from './activities'
+import { parseMoments } from './lesson-moments'
 
 export type Block =
   | { kind: 'text'; text: string }
@@ -26,7 +28,7 @@ export type Block =
 export interface Material {
   title: string
   metadata: string[]
-  sections: { title: string; blocks: Block[] }[]
+  sections: { title: string; blocks: Block[]; newPage?: boolean }[]
   accent: 'green' | 'peach' | 'mono'
 }
 export interface Field {
@@ -156,7 +158,7 @@ export function seed(tool: Tool, index: number): Values {
     return {
       ...base,
       title: m[0],
-      group: groups[0],
+      group: groups[index >= firstIllustratedActivity ? 2 : 0],
       theme: themes[m[1]],
       field: fields[m[2]],
       instructions:
@@ -231,31 +233,67 @@ export function material(tool: Tool, v: Values): Material {
     add('Tema', v.theme)
     add('Campo de experiências', v.field)
     add('Orientações', v.instructions)
-    sections.push({
-      title: older ? 'Propostas para a turma' : 'Experiências e interações',
-      blocks: [
-        {
-          kind: 'list',
-          numbered: true,
-          items: [
-            older ? m[4] : m[3],
-            ...Array.from({ length: count - 1 }, (_, i) =>
-              i < 3
-                ? extensions[i]
-                : [
-                    'Com outros materiais: ',
-                    'Em outro momento da rotina: ',
-                    'Com novas parcerias: ',
-                  ][Math.floor((i - 3) / 3)] + extensions[(i - 3) % 3],
-            ),
+    const illustrated = Number(v.model) - firstIllustratedActivity
+    if (older && illustrated >= 0 && illustrated < 3) {
+      const drawing = worksheet(illustrated, v.style === 'Preto e branco')
+      sections.push({
+        title: 'Folha de atividade',
+        blocks: [{ kind: 'text', text: m[4] }, ...(drawing ? [drawing] : [])],
+      })
+      if (illustrated < 2)
+        sections.push({
+          title: 'Gabarito para a professora',
+          newPage: true,
+          blocks: [
+            {
+              kind: 'text',
+              text:
+                illustrated === 0
+                  ? 'Círculo com círculo, quadrado com quadrado e triângulo com triângulo.'
+                  : 'O espaço em branco deve receber um quadrado.',
+            },
           ],
-        },
-      ],
-    })
+        })
+    } else
+      sections.push({
+        title: older ? 'Propostas para a turma' : 'Experiências e interações',
+        blocks: [
+          {
+            kind: 'list',
+            numbered: true,
+            items: [
+              older ? m[4] : m[3],
+              ...Array.from({ length: count - 1 }, (_, i) =>
+                i < 3
+                  ? extensions[i]
+                  : [
+                      'Com outros materiais: ',
+                      'Em outro momento da rotina: ',
+                      'Com novas parcerias: ',
+                    ][Math.floor((i - 3) / 3)] + extensions[(i - 3) % 3],
+              ),
+            ],
+          },
+        ],
+      })
   } else if (tool === 'plano-de-aula') {
     add('Tema e duração', [v.theme, v.duration].filter(Boolean).join(' · '))
     add('Campos de experiências', v.fields?.replaceAll('|', '\n'))
     add('Direitos de aprendizagem', v.rights?.replaceAll('|', '\n'))
+    const moments = parseMoments(v.moments).filter((item) => item.title.trim())
+    if (moments.length)
+      sections.push({
+        title: 'Momentos da aula',
+        blocks: [
+          {
+            kind: 'list',
+            numbered: true,
+            items: moments.map(
+              (item) => item.title.trim() + ' · ' + item.minutes + ' min',
+            ),
+          },
+        ],
+      })
     for (const item of details[tool]!.slice(9)) add(item.label, v[item.key])
   } else if (tool === 'relatorio') {
     add('Identificação', [v.scope, v.subject].filter(Boolean).join(' · '))

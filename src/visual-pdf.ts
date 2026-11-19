@@ -4,6 +4,9 @@ import {
   blobOf,
   canvas,
   photoCell,
+  photoLayout,
+  panelMargin,
+  photoPages,
   tiles,
   type Photo,
   type PhotoOptions,
@@ -16,23 +19,14 @@ export async function photosPdf(
 ) {
   const pdf = await PDFDocument.create()
   const { regular } = await fonts(pdf)
-  const [w, h] = options.orientation === 'vertical' ? a4 : [a4[1], a4[0]]
-  const cols =
-    options.perPage === 4 ||
-    (options.perPage === 2 && options.orientation === 'horizontal')
-      ? 2
-      : 1
-  const rows = options.perPage / cols
-  const margin = (options.margin * 72) / 25.4,
-    gap = 12
-  const width = (w - 2 * margin - (cols - 1) * gap) / cols,
-    height = (h - 2 * margin - (rows - 1) * gap) / rows
-  for (let start = 0; start < items.length; start += options.perPage) {
+  const layout = photoLayout(options)
+  const { pageWidth: w, pageHeight: h, width, height } = layout
+  let done = 0
+  for (const sheet of photoPages(items, options.perPage)) {
     const page = pdf.addPage([w, h])
-    for (let i = 0; i < options.perPage && start + i < items.length; i++) {
-      const photo = items[start + i],
-        x = margin + (i % cols) * (width + gap),
-        top = h - margin - Math.floor(i / cols) * (height + gap)
+    for (const [i, photo] of sheet.entries()) {
+      const x = layout.x(i)
+      const top = h - layout.y(i)
       const label = wrapText(printable(photo.caption, regular), width, (v) =>
         regular.widthOfTextAtSize(v, 9),
       )
@@ -55,7 +49,7 @@ export async function photosPdf(
             size: 9,
           }),
         )
-      progress(start + i + 1)
+      progress(++done)
       await new Promise<void>((resolve) => setTimeout(resolve, 0))
     }
   }
@@ -64,11 +58,15 @@ export async function photosPdf(
   })
 }
 
-export async function panelPdf(source: HTMLCanvasElement, grid: number) {
+export async function panelPdf(
+  source: HTMLCanvasElement,
+  grid: number,
+  rows = grid,
+) {
   const pdf = await PDFDocument.create()
   const { regular } = await fonts(pdf)
-  const { size, positions } = tiles(grid)
-  const margin = 23
+  const { size, positions } = tiles(grid, rows)
+  const margin = panelMargin
   const width = a4[0] - margin * 2,
     height = (width * size.height) / size.width
   const baseY = (a4[1] - height) / 2

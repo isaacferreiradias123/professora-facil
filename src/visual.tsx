@@ -7,6 +7,11 @@ import {
   formats,
   imageFromFile,
   photoLimit,
+  a4Points,
+  panelMargin,
+  photoLayout,
+  photoPages,
+  rotatePhoto,
   tiles,
   type ArtOptions,
   type Photo,
@@ -194,16 +199,15 @@ function Photos(props: EditorProps) {
   const options: PhotoOptions = {
     orientation:
       values.orientation === 'horizontal' ? 'horizontal' : 'vertical',
-    perPage: Number(values.perPage) as PhotoOptions['perPage'],
-    margin: Number(values.margin),
+    perPage: values.perPage === '1' ? 1 : values.perPage === '2' ? 2 : 4,
+    margin: [5, 10, 15, 20].includes(Number(values.margin))
+      ? Number(values.margin)
+      : 10,
     crop: values.crop === 'yes',
     quality: values.quality === 'high' ? 'high' : 'standard',
   }
-  const cols =
-    options.perPage === 4 ||
-    (options.perPage === 2 && options.orientation === 'horizontal')
-      ? 2
-      : 1
+  const layout = photoLayout(options)
+  const sheets = photoPages(photos, options.perPage)
   async function add(files: File[]) {
     if (!files.length || busy) return
     setError('')
@@ -246,6 +250,30 @@ function Photos(props: EditorProps) {
       return next
     })
     setDirty(true)
+  }
+  function updatePhoto(photo: Photo, changes: Partial<Photo>) {
+    setPhotos((items) =>
+      items.map((item) =>
+        item.id === photo.id ? { ...item, ...changes } : item,
+      ),
+    )
+    setDirty(true)
+  }
+  async function turn(photo: Photo) {
+    setBusy('Girando foto…')
+    try {
+      const blob = await rotatePhoto(photo.url)
+      if (!alive.current) return
+      const url = URL.createObjectURL(blob)
+      urls.current.add(url)
+      urls.current.delete(photo.url)
+      URL.revokeObjectURL(photo.url)
+      updatePhoto(photo, { blob, url, cropX: 50, cropY: 50 })
+    } catch {
+      setError('Não foi possível girar esta foto.')
+    } finally {
+      setBusy('')
+    }
   }
   function remove(photo: Photo) {
     URL.revokeObjectURL(photo.url)
@@ -311,6 +339,7 @@ function Photos(props: EditorProps) {
           <div className="thumbs">
             {photos.map((p, i) => (
               <article className="card" key={p.id}>
+                <strong>Foto {i + 1}</strong>
                 <img src={p.url} alt={'Foto ' + (i + 1)} loading="lazy" />
                 <div className="actions">
                   <button
@@ -340,7 +369,28 @@ function Photos(props: EditorProps) {
                   >
                     Excluir foto
                   </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={Boolean(busy)}
+                    onClick={() => void turn(p)}
+                    aria-label={'Girar foto ' + (i + 1)}
+                  >
+                    Girar
+                  </button>
                 </div>
+                {i > 0 && (
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(p.breakBefore)}
+                      onChange={(event) =>
+                        updatePhoto(p, { breakBefore: event.target.checked })
+                      }
+                    />{' '}
+                    Começar nova folha antes da foto {i + 1}
+                  </label>
+                )}
                 <label>
                   Legenda da foto {i + 1}
                   <input
@@ -395,55 +445,87 @@ function Photos(props: EditorProps) {
       {step === 2 && (
         <>
           <p>
-            {Math.ceil(photos.length / options.perPage)} folhas A4 ·{' '}
+            {sheets.length} folhas A4 ·{' '}
             {options.crop
-              ? 'Preenchimento com recorte central'
+              ? 'Preenchimento com recorte ajustável'
               : 'Encaixe sem recorte'}
           </p>
           <div className="sheets">
-            {Array.from(
-              { length: Math.ceil(photos.length / options.perPage) },
-              (_, i) => (
-                <div key={i}>
-                  <p>Folha {i + 1}</p>
-                  <div
-                    className="photo-sheet"
-                    style={{
-                      aspectRatio:
-                        options.orientation === 'vertical'
-                          ? '210/297'
-                          : '297/210',
-                      gridTemplateColumns: 'repeat(' + cols + ',minmax(0,1fr))',
-                      gridTemplateRows:
-                        'repeat(' + options.perPage / cols + ',minmax(0,1fr))',
-                      padding:
-                        (100 * options.margin) /
-                          (options.orientation === 'vertical' ? 210 : 297) +
-                        '%',
-                      gap:
-                        (100 * 4.23) /
-                          (options.orientation === 'vertical' ? 210 : 297) +
-                        '%',
-                    }}
-                  >
-                    {photos
-                      .slice(i * options.perPage, (i + 1) * options.perPage)
-                      .map((p, j) => (
-                        <figure key={p.id}>
-                          <img
-                            src={p.url}
-                            alt={'Foto ' + (i * options.perPage + j + 1)}
-                            style={{
-                              objectFit: options.crop ? 'cover' : 'contain',
-                            }}
-                          />
-                          {p.caption && <figcaption>{p.caption}</figcaption>}
-                        </figure>
-                      ))}
-                  </div>
+            {sheets.map((sheet, i) => (
+              <div key={i}>
+                <p>Folha {i + 1}</p>
+                <div
+                  className="photo-sheet"
+                  style={{
+                    aspectRatio: layout.pageWidth + '/' + layout.pageHeight,
+                  }}
+                >
+                  {sheet.map((p, index) => (
+                    <figure
+                      key={p.id}
+                      style={{
+                        left: (100 * layout.x(index)) / layout.pageWidth + '%',
+                        top: (100 * layout.y(index)) / layout.pageHeight + '%',
+                        width: (100 * layout.width) / layout.pageWidth + '%',
+                        height: (100 * layout.height) / layout.pageHeight + '%',
+                      }}
+                    >
+                      <img
+                        src={p.url}
+                        alt={'Foto ' + (photos.indexOf(p) + 1)}
+                        style={{
+                          objectFit: options.crop ? 'cover' : 'contain',
+                          objectPosition:
+                            (p.cropX ?? 50) + '% ' + (p.cropY ?? 50) + '%',
+                        }}
+                      />
+                      {p.caption && <figcaption>{p.caption}</figcaption>}
+                    </figure>
+                  ))}
                 </div>
-              ),
-            )}
+                {options.crop && (
+                  <details className="photo-position">
+                    <summary>Ajustar recorte da folha {i + 1}</summary>
+                    {sheet.map((photo) => {
+                      const number = photos.indexOf(photo) + 1
+                      return (
+                        <fieldset key={photo.id}>
+                          <legend>Foto {number}</legend>
+                          <label>
+                            Posição horizontal
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={photo.cropX ?? 50}
+                              onChange={(event) =>
+                                updatePhoto(photo, {
+                                  cropX: Number(event.target.value),
+                                })
+                              }
+                            />
+                          </label>
+                          <label>
+                            Posição vertical
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={photo.cropY ?? 50}
+                              onChange={(event) =>
+                                updatePhoto(photo, {
+                                  cropY: Number(event.target.value),
+                                })
+                              }
+                            />
+                          </label>
+                        </fieldset>
+                      )
+                    })}
+                  </details>
+                )}
+              </div>
+            ))}
           </div>
         </>
       )}
@@ -488,8 +570,8 @@ function Photos(props: EditorProps) {
       </div>
       {step === 1 && options.crop && (
         <p className="notice">
-          O recorte é central. Confira se todos os rostos e detalhes importantes
-          aparecem na prévia.
+          Ajuste o recorte na prévia para manter os detalhes importantes
+          visíveis.
         </p>
       )}
     </Frame>
@@ -510,7 +592,7 @@ function PhotoAdvanced({ flow }: { flow: Flow }) {
         id="crop"
         options={[
           ['no', 'Mostrar foto inteira'],
-          ['yes', 'Preencher com recorte central'],
+          ['yes', 'Preencher e ajustar recorte'],
         ]}
       />
       <Choice
@@ -543,10 +625,30 @@ function Art(props: EditorProps) {
   const panel = props.tool === 'painel'
   const easy = useEasy()
   const { values, replace, setDirty, setError, setMessage } = flow
-  const grid = Number(values.grid) === 3 ? 3 : 2
-  const geometry = tiles(grid)
-  const dimensions =
-    formats[values.format as keyof typeof formats] ?? formats['Quadrado 1:1']
+  const [previous, setPrevious] = useState<Values | null>(null)
+  const [smallText, setSmallText] = useState(false)
+  const [showArt, setShowArt] = useState(false)
+  const safeGrid = (value: string) =>
+    ['1', '2', '3', '4'].includes(value) ? Number(value) : 2
+  const grid = safeGrid(values.grid)
+  const columns = values.grid === 'custom' ? safeGrid(values.columns) : grid
+  const rows = values.grid === 'custom' ? safeGrid(values.rows) : grid
+  const geometry = tiles(columns, rows)
+  const paperRatio = (a4Points[0] - panelMargin * 2) / geometry.size.width
+  const cm = (pixels: number) =>
+    ((pixels * paperRatio * 2.54) / 72).toLocaleString('pt-BR', {
+      maximumFractionDigits: 1,
+    })
+  const chooseArt = (next: Values) => {
+    setPrevious(values)
+    replace(next)
+  }
+  const updateArt = (key: string, value: string) =>
+    chooseArt({ ...values, [key]: value })
+  const artFlow = { ...flow, set: updateArt }
+  const dimensions = Object.hasOwn(formats, values.format)
+    ? formats[values.format as keyof typeof formats]
+    : formats['Quadrado 1:1']
   const settings: ArtOptions = {
     title: values.title,
     body: values.body,
@@ -559,26 +661,33 @@ function Art(props: EditorProps) {
   useEffect(() => {
     if (!ref.current) return
     const target = ref.current
-    const width = panel ? geometry.width : dimensions[0],
-      height = panel ? geometry.height : dimensions[1]
+    const scale =
+      panel && step === 1
+        ? Math.min(1, 900 / Math.max(geometry.width, geometry.height))
+        : 1
+    const width = panel ? Math.round(geometry.width * scale) : dimensions[0],
+      height = panel ? Math.round(geometry.height * scale) : dimensions[1]
     target.width = width
     target.height = height
-    drawArt(
-      target,
-      {
-        title: values.title,
-        body: values.body,
-        date: dateLabel(values.date),
-        background: values.background,
-        foreground: values.foreground,
-        font: values.font,
-        model: Number(values.model) || 0,
-      },
-      photo,
-      panel,
+    setSmallText(
+      drawArt(
+        target,
+        {
+          title: values.title,
+          body: values.body,
+          date: dateLabel(values.date),
+          background: values.background,
+          foreground: values.foreground,
+          font: values.font,
+          model: Number(values.model) || 0,
+          crop: values.artCrop === 'yes',
+        },
+        photo,
+        panel,
+      ),
     )
-    if (panel)
-      tiles(grid).positions.forEach((position, index) => {
+    if (panel && step === 2)
+      tiles(columns, rows).positions.forEach((position, index) => {
         const tile = tileRefs.current[index]
         tile
           ?.getContext('2d')
@@ -604,7 +713,9 @@ function Art(props: EditorProps) {
     geometry.size.width,
     geometry.size.height,
     dimensions,
-    grid,
+    columns,
+    rows,
+    showArt,
   ])
   useEffect(
     () => () => {
@@ -650,7 +761,7 @@ function Art(props: EditorProps) {
     }
     try {
       const blob = panel
-        ? await (await import('./visual-pdf')).panelPdf(target, grid)
+        ? await (await import('./visual-pdf')).panelPdf(target, columns, rows)
         : await blobOf(target)
       if (print) printBlob(blob)
       else download(blob, filename(values.title) + (panel ? '.pdf' : '.png'))
@@ -689,19 +800,19 @@ function Art(props: EditorProps) {
   const style = (
     <>
       <TextField
-        flow={flow}
+        flow={artFlow}
         label="Cor de fundo"
         id="background"
         type="color"
       />
       <TextField
-        flow={flow}
+        flow={artFlow}
         label="Cor do texto"
         id="foreground"
         type="color"
       />
       <Choice
-        flow={flow}
+        flow={artFlow}
         label="Fonte"
         id="font"
         options={pairs(fontOptions)}
@@ -721,9 +832,11 @@ function Art(props: EditorProps) {
             <select
               value={values.model}
               onChange={(e) =>
-                replace({
+                chooseArt({
                   ...values,
                   ...artDefaults(props, Number(e.target.value)),
+                  grid: values.grid,
+                  format: values.format,
                 })
               }
             >
@@ -736,74 +849,148 @@ function Art(props: EditorProps) {
           </label>
           {panel ? (
             <Choice
-              flow={flow}
+              flow={artFlow}
               label="Grade de impressão"
               id="grid"
               options={[
                 ['2', '2 × 2 · 4 folhas'],
                 ['3', '3 × 3 · 9 folhas'],
+                ['custom', 'Escolher linhas e colunas'],
               ]}
             />
           ) : (
             <Choice
-              flow={flow}
+              flow={artFlow}
               label="Formato"
               id="format"
               options={pairs(formatNames)}
             />
           )}
+          {panel && values.grid === 'custom' && (
+            <>
+              <Choice
+                flow={artFlow}
+                label="Colunas"
+                id="columns"
+                options={pairs(['1', '2', '3', '4'])}
+              />
+              <Choice
+                flow={artFlow}
+                label="Linhas"
+                id="rows"
+                options={pairs(['1', '2', '3', '4'])}
+              />
+            </>
+          )}
         </div>
       )}
       {step === 1 && (
         <>
-          <div className="form-grid">
-            <TextField flow={flow} label="Título" id="title" />
-            <TextField
-              flow={flow}
-              label="Data (opcional)"
-              id="date"
-              type="date"
-            />
-            <TextField
-              flow={flow}
-              label={panel ? 'Texto do painel' : 'Legenda'}
-              id="body"
-              type="textarea"
-            />
-            {!panel && (
-              <label>
-                Adicionar imagem (opcional)
-                <input
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.webp"
-                  disabled={Boolean(busy)}
-                  onChange={(e) => {
-                    void readFile(e.target.files?.[0])
-                    e.target.value = ''
-                  }}
+          <div className="visual-columns" data-editor-step>
+            <div className="form-grid">
+              <TextField flow={artFlow} label="Título" id="title" />
+              <TextField
+                flow={artFlow}
+                label="Data (opcional)"
+                id="date"
+                type="date"
+              />
+              <TextField
+                flow={artFlow}
+                label={panel ? 'Texto do painel' : 'Legenda'}
+                id="body"
+                type="textarea"
+              />
+              {!panel && (
+                <label>
+                  Adicionar imagem (opcional)
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp"
+                    disabled={Boolean(busy)}
+                    onChange={(e) => {
+                      void readFile(e.target.files?.[0])
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+              )}
+              {photo && (
+                <Choice
+                  flow={artFlow}
+                  label="Enquadramento da imagem"
+                  id="artCrop"
+                  options={[
+                    ['no', 'Mostrar imagem inteira'],
+                    ['yes', 'Preencher com recorte central'],
+                  ]}
                 />
-              </label>
-            )}
-            {photo && (
+              )}
+              {photo && (
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    setPhoto(null)
+                    setPhotoUrl('')
+                    setDirty(true)
+                  }}
+                >
+                  Remover imagem
+                </button>
+              )}
+              {easy ? (
+                <details className="wide">
+                  <summary>Cores e fonte</summary>
+                  <div className="form-grid">{style}</div>
+                </details>
+              ) : (
+                style
+              )}
+              {previous && (
+                <div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      replace(previous)
+                      setPrevious(null)
+                    }}
+                  >
+                    Desfazer última alteração
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="art-live">
               <button
-                className="secondary"
-                onClick={() => {
-                  setPhoto(null)
-                  setPhotoUrl('')
-                  setDirty(true)
-                }}
+                type="button"
+                className="secondary live-preview-mobile"
+                aria-expanded={showArt}
+                aria-controls="art-preview-live"
+                onClick={() => setShowArt(!showArt)}
               >
-                Remover imagem
+                {showArt ? 'Ocultar prévia' : 'Ver prévia'}
               </button>
-            )}
-            {easy ? (
-              <details className="wide">
-                <summary>Cores e fonte</summary>
-                <div className="form-grid">{style}</div>
-              </details>
-            ) : (
-              style
-            )}
+              <div
+                id="art-preview-live"
+                className={
+                  showArt ? 'art-preview-visible' : 'live-preview-desktop'
+                }
+              >
+                <canvas
+                  ref={ref}
+                  className="art-preview"
+                  aria-label={'Prévia de ' + values.title}
+                  role="img"
+                />
+                {smallText && (
+                  <p role="status" className="notice">
+                    O texto ficou pequeno. Encurte o título ou a mensagem para
+                    melhorar a leitura.
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </>
       )}
@@ -815,18 +1002,54 @@ function Art(props: EditorProps) {
             aria-label={'Prévia de ' + values.title}
             role="img"
           />
+          {smallText && (
+            <p role="status" className="notice">
+              O texto ficou pequeno. Volte e encurte a mensagem para melhorar a
+              leitura.
+            </p>
+          )}
           {panel ? (
             <>
               <p>
                 Monte da esquerda para a direita, de cima para baixo. Use as
                 marcas de corte e alinhe a pequena faixa de sobreposição.
               </p>
+              <p>
+                <strong>{geometry.positions.length} folhas A4</strong> ·{' '}
+                {cm(geometry.width)} × {cm(geometry.height)} cm · sobreposição
+                de {cm(16)} cm
+              </p>
+              <p>
+                Nitidez estimada: {Math.round(72 / paperRatio)} pixels por
+                polegada. Confira as letras e os detalhes na prévia. Imprima em
+                escala de 100%.
+              </p>
+              <ol
+                className="panel-map"
+                aria-label="Mapa de montagem"
+                style={{ gridTemplateColumns: 'repeat(' + columns + ', 1fr)' }}
+              >
+                {geometry.positions.map((_, index) => (
+                  <li key={index}>
+                    <a
+                      href={'#folha-' + (index + 1)}
+                      aria-label={'Ir para folha ' + (index + 1)}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        document.getElementById('folha-' + (index + 1))?.focus()
+                      }}
+                    >
+                      {index + 1}
+                    </a>
+                  </li>
+                ))}
+              </ol>
               <div className="sheets">
-                {geometry.positions.map((p, i) => (
-                  <div key={i}>
+                {geometry.positions.map((_, i) => (
+                  <div key={i} id={'folha-' + (i + 1)} tabIndex={-1}>
                     <p>
-                      Folha {i + 1} · Linha {Math.floor(i / grid) + 1}, coluna{' '}
-                      {(i % grid) + 1}
+                      Folha {i + 1} · Linha {Math.floor(i / columns) + 1},
+                      coluna {(i % columns) + 1}
                     </p>
                     <canvas
                       className="tile"
