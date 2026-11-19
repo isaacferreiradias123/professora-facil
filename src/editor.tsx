@@ -21,6 +21,11 @@ import {
 import { groups } from './catalog'
 import { LessonMoments } from './lesson-moments'
 
+import { AdjustLayout, FileDrop, PreviewFeedback, Stages } from './editor-ui'
+import { presetValues, worksheetUrl, type PackTemplate } from './template-pack'
+import { PackPicker } from './template-controls'
+import { withWorksheet } from './worksheet-export'
+
 function Input({
   field,
   value,
@@ -137,22 +142,70 @@ function ImageBlock({
   )
 }
 export default function Editor(props: EditorProps) {
-  const { tool, model, age } = props
+  const { tool, model, age, preset } = props
   const models = catalog[tool]
   const initial =
     Number.isInteger(model) && model >= 0 && model < models.length ? model : 0
   const flow = useWorkflow(props, () => ({
-    ...seed(tool, initial),
+    ...(preset
+      ? presetValues(seed(tool, initial), preset)
+      : seed(tool, initial)),
     ...(age !== undefined ? { group: groups[age] } : {}),
   }))
   const [step, setStep] = useState(0)
+  const [reached, setReached] = useState(0)
   const [imported, setImported] = useState('')
   const [importMode, setImportMode] = useState(false)
   const [busy, setBusy] = useState(false)
   const easy = useEasy()
   const { values, set, replace, error, message, setError, setMessage } = flow
   const data = useMemo(() => material(tool, values), [tool, values])
-  const detail = details[tool] ?? []
+  const sheet =
+    tool === 'atividade' && values.group === groups[2]
+      ? worksheetUrl(values.asset)
+      : undefined
+  const detail = [
+    ...(details[tool] ?? []),
+    ...(tool === 'atividade' && values.templateId
+      ? ([
+          { key: 'goal', label: 'Objetivo', kind: 'long' },
+          { key: 'materials', label: 'Materiais', kind: 'long' },
+          { key: 'steps', label: 'Passo a passo', kind: 'long' },
+          { key: 'adaptation', label: 'Adaptações', kind: 'long' },
+          { key: 'assessment', label: 'Registro', kind: 'long' },
+        ] as Field[])
+      : []),
+  ]
+  const preview = (
+    <>
+      <Preview data={data} />
+      {sheet && (
+        <figure className="worksheet-preview">
+          <img src={sheet} alt={'Ficha A4 de ' + data.title} />
+          <figcaption>
+            <a href={sheet} download>
+              Baixar ficha SVG
+            </a>{' '}
+            ·{' '}
+            <a href={sheet} target="_blank" rel="noreferrer">
+              Abrir ficha A4
+            </a>
+          </figcaption>
+        </figure>
+      )}
+    </>
+  )
+  function selectPreset(template: PackTemplate) {
+    replace({
+      ...presetValues(seed(tool, 0), template),
+      ...Object.fromEntries(
+        ['school', 'teacher', 'class', 'date']
+          .filter((key) => values[key])
+          .map((key) => [key, values[key]]),
+      ),
+    })
+    setImported('')
+  }
   function choose(index: number) {
     const next = seed(tool, index)
     for (const field of ['school', 'teacher', 'class', 'date', 'group'])
@@ -163,6 +216,7 @@ export default function Editor(props: EditorProps) {
   }
   function changeStep(n: number) {
     setError('')
+    setReached((current) => Math.max(current, n))
     setStep(n)
     requestAnimationFrame(() => document.getElementById('editor-step')?.focus())
   }
@@ -200,10 +254,11 @@ export default function Editor(props: EditorProps) {
     setError('')
     setMessage('')
     try {
+      const exportData = sheet ? await withWorksheet(data, sheet) : data
       const blob =
         type === 'docx'
-          ? await (await import('./word')).word(data)
-          : await (await import('./pdf')).pdf(data)
+          ? await (await import('./word')).word(exportData)
+          : await (await import('./pdf')).pdf(exportData)
       if (type === 'print') printBlob(blob)
       else download(blob, filename(data.title) + '.' + type)
       setMessage(
@@ -227,6 +282,135 @@ export default function Editor(props: EditorProps) {
       set={(v) => set(f.key, v)}
     />
   )
+  const editForm = (
+    <form id="material-editor-form" onSubmit={next}>
+      {step === 0 ? (
+        <>
+          {tool === 'documento' && (
+            <div className="actions">
+              <button
+                type="button"
+                className={importMode ? 'secondary' : ''}
+                onClick={() => setImportMode(false)}
+              >
+                Criar documento
+              </button>
+              <button
+                type="button"
+                className={importMode ? '' : 'secondary'}
+                onClick={() => setImportMode(true)}
+              >
+                Abrir Word ou PDF
+              </button>
+            </div>
+          )}
+          {tool === 'documento' && importMode ? (
+            <>
+              <p>
+                O arquivo é lido neste dispositivo. Você poderá consultar o
+                texto e criar um novo documento a partir dele.
+              </p>
+              <FileDrop
+                label="Selecionar documento"
+                instructions="DOCX ou PDF de até 12 MB. O arquivo fica no navegador."
+                accept=".docx,.pdf"
+                disabled={busy}
+                onFiles={([file]) => void read(file)}
+              />
+            </>
+          ) : (
+            <>
+              <div className="form-grid">
+                <label>
+                  {tool === 'atividade' ? 'Tipo de atividade' : 'Modelo'}
+                  <select
+                    value={values.templateId ? '' : values.model}
+                    onChange={(e) => choose(Number(e.target.value))}
+                  >
+                    {values.templateId && (
+                      <option value="" disabled>
+                        Modelo da coleção selecionado
+                      </option>
+                    )}
+                    {models.map((m, i) => (
+                      <option key={m} value={i}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {chooseFields[tool]?.map(field)}
+                <PackPicker
+                  tool={tool}
+                  selected={values.templateId}
+                  onSelect={selectPreset}
+                />
+              </div>
+              {(tool === 'atividade' || tool === 'plano-de-aula') && (
+                <p>
+                  <a href={bncc}>Consultar a BNCC do MEC</a>. Os objetivos
+                  editáveis são sugestões pedagógicas. Confira eventuais códigos
+                  na fonte oficial.
+                </p>
+              )}
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          {values.importMode === 'yes' && (
+            <details open={Boolean(imported)}>
+              <summary>Texto do documento original</summary>
+              {imported ? (
+                <div className="file-text">{imported}</div>
+              ) : (
+                <p>
+                  Para consultar o original novamente, volte à etapa anterior e
+                  abra o arquivo.
+                </p>
+              )}
+            </details>
+          )}
+          <div className="form-grid">
+            {detail.filter((f) => !easy || !f.optional).map(field)}
+            {easy && detail.some((f) => f.optional) && (
+              <details className="wide">
+                <summary>Informações opcionais</summary>
+                <div className="form-grid">
+                  {detail.filter((f) => f.optional).map(field)}
+                </div>
+              </details>
+            )}
+          </div>
+          {tool === 'plano-de-aula' && (
+            <LessonMoments
+              value={values.moments}
+              duration={values.duration}
+              onChange={(value) => set('moments', value)}
+            />
+          )}
+        </>
+      )}
+    </form>
+  )
+  const nextActions = (
+    <div className="actions pinned-action">
+      {step > 0 && (
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => changeStep(step - 1)}
+        >
+          Voltar
+        </button>
+      )}
+      {!(step === 0 && tool === 'documento' && importMode) && (
+        <button type="submit" form="material-editor-form" disabled={busy}>
+          {step === 0 ? 'Personalizar' : 'Conferir material'}
+        </button>
+      )}
+    </div>
+  )
   if (flow.loading) return <p role="status">Abrindo rascunho…</p>
   if (flow.unavailable)
     return (
@@ -242,13 +426,14 @@ export default function Editor(props: EditorProps) {
       </button>
       <h1>{tools[tool].name}</h1>
       <div className="card editor-card">
-        <ol className="editor-stages" aria-label="Etapas do material">
-          {['Escolher', 'Ajustar', 'Baixar'].map((label, index) => (
-            <li aria-current={step === index ? 'step' : undefined} key={label}>
-              {index + 1}. {label}
-            </li>
-          ))}
-        </ol>
+        <Stages
+          step={step}
+          reached={reached}
+          disabled={busy}
+          change={(next) => {
+            if (next !== 2 || values.title?.trim()) changeStep(next)
+          }}
+        />
         <h2 id="editor-step" tabIndex={-1}>
           {['Escolher', 'Personalizar', 'Conferir'][step]}
         </h2>
@@ -273,151 +458,26 @@ export default function Editor(props: EditorProps) {
           </p>
         )}
         {step < 2 ? (
-          <div
-            className={step === 1 ? 'editor-columns' : undefined}
-            data-editor-step
-            key={step}
-          >
-            <form onSubmit={next}>
-              {step === 0 ? (
-                <>
-                  {tool === 'documento' && (
-                    <div className="actions">
-                      <button
-                        type="button"
-                        className={importMode ? 'secondary' : ''}
-                        onClick={() => setImportMode(false)}
-                      >
-                        Criar documento
-                      </button>
-                      <button
-                        type="button"
-                        className={importMode ? '' : 'secondary'}
-                        onClick={() => setImportMode(true)}
-                      >
-                        Abrir Word ou PDF
-                      </button>
-                    </div>
-                  )}
-                  {tool === 'documento' && importMode ? (
-                    <>
-                      <p>
-                        O arquivo é lido neste dispositivo. Você poderá
-                        consultar o texto e criar um novo documento a partir
-                        dele.
-                      </p>
-                      <label>
-                        Selecionar documento
-                        <input
-                          type="file"
-                          accept=".docx,.pdf"
-                          disabled={busy}
-                          onChange={(e) => {
-                            void read(e.target.files?.[0])
-                            e.target.value = ''
-                          }}
-                        />
-                      </label>
-                    </>
-                  ) : (
-                    <>
-                      <div className="form-grid">
-                        <label>
-                          {tool === 'atividade'
-                            ? 'Tipo de atividade'
-                            : 'Modelo'}
-                          <select
-                            value={values.model}
-                            onChange={(e) => choose(Number(e.target.value))}
-                          >
-                            {models.map((m, i) => (
-                              <option key={m} value={i}>
-                                {m}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        {chooseFields[tool]?.map(field)}
-                      </div>
-                      {(tool === 'atividade' || tool === 'plano-de-aula') && (
-                        <p>
-                          <a href={bncc}>Consultar a BNCC do MEC</a>. Os
-                          objetivos editáveis são sugestões pedagógicas. Confira
-                          eventuais códigos na fonte oficial.
-                        </p>
-                      )}
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
-                  {values.importMode === 'yes' && (
-                    <details open={Boolean(imported)}>
-                      <summary>Texto do documento original</summary>
-                      {imported ? (
-                        <div className="file-text">{imported}</div>
-                      ) : (
-                        <p>
-                          Para consultar o original novamente, volte à etapa
-                          anterior e abra o arquivo.
-                        </p>
-                      )}
-                    </details>
-                  )}
-                  <div className="form-grid">
-                    {detail.filter((f) => !easy || !f.optional).map(field)}
-                    {easy && detail.some((f) => f.optional) && (
-                      <details className="wide">
-                        <summary>Informações opcionais</summary>
-                        <div className="form-grid">
-                          {detail.filter((f) => f.optional).map(field)}
-                        </div>
-                      </details>
-                    )}
-                  </div>
-                  {tool === 'plano-de-aula' && (
-                    <LessonMoments
-                      value={values.moments}
-                      duration={values.duration}
-                      onChange={(value) => set('moments', value)}
-                    />
-                  )}
-                </>
-              )}
-              <div className="actions">
-                {step > 0 && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => changeStep(step - 1)}
-                  >
-                    Voltar
-                  </button>
-                )}
-                {!(step === 0 && tool === 'documento' && importMode) && (
-                  <button disabled={busy}>
-                    {step === 0 ? 'Personalizar' : 'Conferir material'}
-                  </button>
-                )}
-              </div>
-            </form>
-            {step === 1 && (
-              <aside className="editor-live" aria-label="Prévia do material">
-                <div className="live-preview-desktop">
-                  <h3>Prévia atualizada</h3>
-                  <Preview data={data} />
-                </div>
-                <details className="live-preview-mobile">
-                  <summary>Ver prévia</summary>
-                  <Preview data={data} />
-                </details>
-              </aside>
+          <>
+            {step === 1 ? (
+              <AdjustLayout
+                form={editForm}
+                preview={
+                  <>
+                    <PreviewFeedback revision={JSON.stringify(values)} />
+                    {preview}
+                  </>
+                }
+              />
+            ) : (
+              <div data-editor-step>{editForm}</div>
             )}
-          </div>
+            {nextActions}
+          </>
         ) : (
           <>
-            <Preview data={data} />
-            <div className="actions">
+            {preview}
+            <div className="actions pinned-action">
               <button className="secondary" onClick={() => changeStep(1)}>
                 Editar
               </button>

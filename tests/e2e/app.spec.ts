@@ -545,3 +545,108 @@ test('gira uma foto, insere uma quebra e exporta uma grade retangular', async ({
     (await PDFDocument.load(await download(page, 'Baixar PDF'))).getPageCount(),
   ).toBe(8)
 })
+
+test('abre modelos da coleção nas sete ferramentas', async ({ page }) => {
+  for (const [tool, expected] of [
+    ['atividade', 'Cores no cotidiano'],
+    ['plano-de-aula', 'Semana das cores'],
+    ['relatorio', 'Acolhimento e adaptação'],
+    ['documento', 'Comunicado de reunião'],
+    ['postagem', 'Bem-vindas, famílias!'],
+    ['painel', 'Bem-vindos à turma'],
+  ]) {
+    await open(page, tool + '?modelo=pf327-' + tool + '-001')
+    await page
+      .getByRole('button', { name: 'Personalizar', exact: true })
+      .click()
+    await expect(
+      page.getByRole('textbox', { name: 'Título', exact: true }),
+    ).toHaveValue(new RegExp(expected))
+    if (tool === 'plano-de-aula')
+      await expect(
+        page.getByRole('textbox', { name: 'Momento 1', exact: true }),
+      ).toHaveValue('Acolhida')
+  }
+  await open(page, 'fotos-em-pdf?modelo=pf327-fotos-em-pdf-001')
+  await page
+    .getByLabel('Selecionar fotos')
+    .setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: png })
+  await page.getByRole('button', { name: 'Organizar folhas' }).click()
+  await expect(
+    page.getByRole('textbox', { name: 'Nome do arquivo' }),
+  ).toHaveValue('Fotos da rotina — galeria')
+  await expect(
+    page.getByRole('combobox', { name: 'Fotos por folha' }),
+  ).toHaveValue('4')
+})
+
+test('ficha licenciada, navegação móvel e exportação de Word e PDF', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 780 })
+  await open(page, 'atividade?modelo=pf327-atividade-073')
+  await page.getByRole('button', { name: 'Personalizar', exact: true }).click()
+  await page.getByRole('button', { name: 'Ver prévia', exact: true }).click()
+  await expect(page.getByRole('img', { name: /Ficha A4/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Conferir material' }).click()
+  await expect(
+    page.getByRole('link', { name: 'Baixar ficha SVG' }),
+  ).toHaveAttribute('href', /folha_01\.svg$/)
+  const pdf = await PDFDocument.load(await download(page, 'Baixar PDF'))
+  expect(pdf.getPageCount()).toBe(2)
+  const zip = await JSZip.loadAsync(await download(page, 'Baixar Word'))
+  expect(
+    Object.keys(zip.files).some((name) => /^word\/media\/.+\.png$/.test(name)),
+  ).toBe(true)
+  await page.getByRole('button', { name: '2. Ajustar', exact: true }).click()
+  await expect(
+    page.getByRole('textbox', { name: 'Título', exact: true }),
+  ).toHaveValue(/Ligue formas iguais/)
+})
+
+test('catálogo carrega a coleção por categoria e limita a primeira página', async ({
+  page,
+}) => {
+  const chunks: string[] = []
+  page.on('request', (request) => {
+    if (
+      /\/assets\/(atividade|documento|fotos-em-pdf|painel|plano-de-aula|postagem|relatorio)-[^/]+\.js/.test(
+        request.url(),
+      )
+    )
+      chunks.push(request.url())
+  })
+  await page.goto('/')
+  await expect(
+    page.getByRole('img', { name: /Materiais ilustrados/ }),
+  ).toBeVisible()
+  expect(chunks).toHaveLength(0)
+  await page.goto('/app/modelos')
+  await page
+    .getByRole('button', { name: 'Criar atividade', exact: true })
+    .click()
+  await expect(page.getByText('103 modelos encontrados')).toBeVisible()
+  await expect(page.locator('.model-card')).toHaveCount(24)
+  await page.getByRole('button', { name: 'Mostrar mais 24' }).click()
+  await expect(page.locator('.model-card')).toHaveCount(48)
+  expect(chunks).toHaveLength(1)
+})
+
+test('adiciona e remove uma figura do pacote em uma postagem', async ({
+  page,
+}) => {
+  await open(page, 'postagem?modelo=pf327-postagem-001')
+  await page.getByRole('button', { name: 'Personalizar', exact: true }).click()
+  await page.getByText('Figuras decorativas', { exact: true }).click()
+  await page.getByRole('button', { name: 'Gato', exact: true }).click()
+  await expect(
+    page.getByRole('button', { name: 'Gato', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Conferir arte' }).click()
+  const illustrated = await download(page, 'Baixar PNG')
+  await page.getByRole('button', { name: '2. Ajustar', exact: true }).click()
+  await page.getByText('Figuras decorativas · 1 escolhida').click()
+  await page.getByRole('button', { name: 'Sem figura', exact: true }).click()
+  await page.getByRole('button', { name: 'Conferir arte' }).click()
+  expect(await download(page, 'Baixar PNG')).not.toEqual(illustrated)
+})

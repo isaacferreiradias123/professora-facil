@@ -24,6 +24,7 @@ export type Block =
       width: number
       height: number
       alt: string
+      worksheet?: boolean
     }
 export interface Material {
   title: string
@@ -234,7 +235,13 @@ export function material(tool: Tool, v: Values): Material {
     add('Campo de experiências', v.field)
     add('Orientações', v.instructions)
     const illustrated = Number(v.model) - firstIllustratedActivity
-    if (older && illustrated >= 0 && illustrated < 3) {
+    if (v.templateId?.startsWith('pf327-atividade-')) {
+      add('Objetivo', v.goal)
+      add('Materiais', v.materials)
+      add('Passo a passo', v.steps)
+      add('Adaptações', v.adaptation)
+      add('Registro', v.assessment)
+    } else if (older && illustrated >= 0 && illustrated < 3) {
       const drawing = worksheet(illustrated, v.style === 'Preto e branco')
       sections.push({
         title: 'Folha de atividade',

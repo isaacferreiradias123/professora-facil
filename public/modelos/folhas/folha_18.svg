@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 794 1123" role="img" aria-label="Sombras de animais">
+<rect width="794" height="1123" fill="white"/>
+<rect x="44" y="43" width="706" height="1037" rx="16" fill="none" stroke="#39453d" stroke-width="3"/>
+<text x="67" y="102" font-family="Arial,sans-serif" font-weight="bold" font-size="31" fill="#26352e">Sombras de animais</text>
+<text x="67" y="153" font-family="Arial,sans-serif" font-size="19" fill="#26352e">Nome: __________________________________________</text>
+<text x="67" y="195" font-family="Arial,sans-serif" font-size="19" fill="#26352e">Data: ____ / ____ / ______</text>
+<path d="M67 232 H726" stroke="#26352e" stroke-width="2"/>
+<circle cx="180" cy="380" r="43.5" fill="white" stroke="#26352e" stroke-width="4"/>
+<polygon points="180,610.7 232.2,699.15 127.80000000000001,699.15" fill="#999" stroke="#26352e" stroke-width="4"/>
+<rect x="356.5" y="336.5" width="87.0" height="87.0" rx="2" fill="white" stroke="#26352e" stroke-width="4"/>
+<circle cx="400" cy="660" r="43.5" fill="#999" stroke="#26352e" stroke-width="4"/>
+<polygon points="620,330.7 672.2,419.15 567.8,419.15" fill="white" stroke="#26352e" stroke-width="4"/>
+<rect x="576.5" y="616.5" width="87.0" height="87.0" rx="2" fill="#999" stroke="#26352e" stroke-width="4"/>
+<text x="67" y="1033" font-family="Arial,sans-serif" font-size="14" fill="#26352e">Professora Fácil · Atividade original e editável · Ajuste para sua turma</text>
+</svg>

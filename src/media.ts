@@ -36,6 +36,7 @@ export interface Photo {
   url: string
   blob: Blob
   caption: string
+  thumb?: string
   breakBefore?: boolean
   cropX?: number
   cropY?: number
@@ -119,7 +120,7 @@ export function blobOf(
     ),
   )
 }
-function openImage(url: string) {
+export function openImage(url: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image()
     img.onload = () => resolve(img)
@@ -155,6 +156,23 @@ export async function imageFromFile(file: File, limit: number) {
     }
   } finally {
     URL.revokeObjectURL(url)
+  }
+}
+export async function photoThumbnail(url: string) {
+  const image = await openImage(url)
+  const scale = Math.min(
+    1,
+    480 / Math.max(image.naturalWidth, image.naturalHeight),
+  )
+  const target = canvas(
+    Math.max(1, Math.round(image.naturalWidth * scale)),
+    Math.max(1, Math.round(image.naturalHeight * scale)),
+  )
+  try {
+    target.getContext('2d')!.drawImage(image, 0, 0, target.width, target.height)
+    return await blobOf(target, 'image/jpeg', 0.8)
+  } finally {
+    target.width = 0
   }
 }
 export function fitted(
@@ -257,6 +275,7 @@ export function drawArt(
   options: ArtOptions,
   image?: HTMLImageElement | null,
   panel = false,
+  figure?: HTMLImageElement,
 ) {
   const ctx = element.getContext('2d')!
   const { width: w, height: h } = element
@@ -292,6 +311,23 @@ export function drawArt(
     ctx.fillRect(pad * 0.45, h - pad * 0.45, w - 2 * pad * 0.45, unit * 0.008)
   }
   ctx.restore()
+  if (figure) {
+    const side = unit * 0.125
+    const fit = fitted(
+      figure.naturalWidth || 1,
+      figure.naturalHeight || 1,
+      side,
+      side,
+      false,
+    )
+    ctx.drawImage(
+      figure,
+      w - pad - side + fit.x,
+      pad * 0.55 + fit.y,
+      fit.width,
+      fit.height,
+    )
+  }
   ctx.fillStyle = options.foreground
   const headLimit = image ? h * 0.28 : h * 0.39
   function fit(text: string, size: number, maxHeight: number, bold = false) {
