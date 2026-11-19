@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, Copy, Download, Printer } from 'lucide-react'
+import { Copy, Download, Printer } from 'lucide-react'
 import { tools } from './catalog'
 import {
   a4Points,
@@ -99,9 +98,6 @@ function Frame({
 }) {
   return (
     <div className="school-editor">
-      <Link className="school-back" to={'/app/colecao?ferramenta=' + tool}>
-        <ArrowLeft size={18} aria-hidden="true" /> Voltar aos modelos
-      </Link>
       <div className="school-section-head">
         <div>
           <h1>{tools[tool].name}</h1>
@@ -137,6 +133,7 @@ function TextField({
       {label}
       {type === 'textarea' ? (
         <textarea
+          data-art-field={id}
           value={flow.values[id] || ''}
           maxLength={450}
           rows={3}
@@ -144,6 +141,7 @@ function TextField({
         />
       ) : (
         <input
+          data-art-field={id}
           type={type}
           value={flow.values[id] || ''}
           maxLength={120}
@@ -672,7 +670,7 @@ function Photos(props: EditorProps) {
 
   return (
     <Frame tool={props.tool} flow={flow} busy={busy}>
-      <AdjustLayout form={form} preview={preview} />
+      <AdjustLayout form={form} preview={preview} catalogUrl="/app/colecao?ferramenta=fotos-em-pdf" />
       <div className="actions pinned-action">
         <button
           type="button"
@@ -745,7 +743,8 @@ function Art(props: EditorProps) {
   const tileRefs = useRef<(HTMLCanvasElement | null)[]>([])
   const { values, replace, setDirty, setError, setMessage } = flow
   const [previous, setPrevious] = useState<Values | null>(null)
-  const [smallText, setSmallText] = useState(false)
+  const [tightField, setTightField] = useState<'title' | 'date' | 'body' | 'callout' | null>(null)
+  const fieldLabels = { title: 'Título', date: 'Data', body: 'Mensagem', callout: 'Destaque' }
   const [showSafeArea, setShowSafeArea] = useState(false)
   const [ornament, setOrnament] = useState<{
     url: string
@@ -808,7 +807,7 @@ function Art(props: EditorProps) {
     const height = panel ? geometry.height : dimensions[1]
     target.width = width
     target.height = height
-    setSmallText(
+    setTightField(
       drawArt(
         target,
         {
@@ -895,6 +894,13 @@ function Art(props: EditorProps) {
       setError('Adicione a imagem do painel antes de preparar o PDF.')
       return
     }
+    if (tightField) {
+      const editor = ref.current?.closest('.school-editor')
+      editor?.querySelector<HTMLButtonElement>('.preview-switch button')?.click()
+      setError('Encurte o campo ' + fieldLabels[tightField] + ' para baixar o arquivo.')
+      requestAnimationFrame(() => editor?.querySelector<HTMLElement>('[data-art-field="' + tightField + '"]')?.focus())
+      return
+    }
     setBusy('Preparando arquivo…')
     setError('')
     setMessage('')
@@ -978,9 +984,9 @@ function Art(props: EditorProps) {
           />
         )}
       </div>
-      {smallText && (
+      {tightField && (
         <p role="status" className="school-warning">
-          O texto ficou apertado. Encurte a mensagem para melhorar a leitura.
+          O campo {fieldLabels[tightField]} ultrapassa o espaço disponível.
         </p>
       )}
       {!panel && (
@@ -1027,8 +1033,8 @@ function Art(props: EditorProps) {
   const form = (
     <div className="school-form">
       {!panel && (
-        <fieldset className="theme-picker">
-          <legend>Paleta de cores</legend>
+        <details className="wide art-palettes">
+          <summary>Paleta de cores</summary>
           <div className="theme-swatches">
             {postPalettes.map((palette) => (
               <button
@@ -1059,7 +1065,7 @@ function Art(props: EditorProps) {
               </button>
             ))}
           </div>
-        </fieldset>
+        </details>
       )}
 
       <div className="form-grid">
@@ -1175,7 +1181,7 @@ function Art(props: EditorProps) {
               label={
                 panel
                   ? 'Escolher imagem para dividir em A4'
-                  : 'Adicionar foto (opcional)'
+                  : photo ? 'Trocar foto' : 'Adicionar foto (opcional)'
               }
               instructions="Escolha ou arraste uma imagem JPG, PNG ou WebP de até 14 MB."
               accept=".jpg,.jpeg,.png,.webp"
@@ -1315,7 +1321,7 @@ function Art(props: EditorProps) {
 
   return (
     <Frame tool={props.tool} flow={flow} busy={busy}>
-      <AdjustLayout form={form} preview={previewArt} />
+      <AdjustLayout form={form} preview={previewArt} catalogUrl={'/app/colecao?ferramenta=' + props.tool} />
       <div className="actions pinned-action">
         <button
           type="button"

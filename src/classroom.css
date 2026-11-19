@@ -883,3 +883,38 @@
     padding: 0.65rem 0.7rem;
   }
 }
+
+.editor-steps-guide {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .45rem 1rem;
+}
+
+.editor-steps-guide a,
+.editor-steps-guide button,
+.editor-steps-guide span {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tool-shortcuts,
+.tool-extra-filters {
+  margin-block: .5rem;
+}
+
+.tool-shortcuts summary,
+.tool-extra-filters summary,
+.art-palettes summary {
+  min-height: 44px;
+  cursor: pointer;
+  padding-block: .55rem;
+}
+
+.editor-steps-guide button[aria-current='step'] {
+  border-color: var(--border);
+  text-decoration: underline;
+  text-underline-offset: .24em;
+}

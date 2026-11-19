@@ -212,6 +212,7 @@ test('atividade, Word/PDF em português, rascunho e limpeza', async ({
   )
 
   await page.goto('/app/colecao?ferramenta=documento')
+  await page.getByText('Abrir meu arquivo', { exact: true }).click()
   await page.getByRole('link', { name: 'Responder no PDF', exact: true }).click()
   await page.getByLabel('Selecionar arquivo para responder').setInputFiles({
     name: 'teste.pdf',

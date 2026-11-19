@@ -19,6 +19,7 @@ test('posiciona, redimensiona e remove respostas em PDF digitalizado, paisagem e
     .drawText('Folha em paisagem', { x: 40, y: 520 })
   source.addPage([595.28, 841.89]).setRotation(degrees(90))
   await page.goto('/app/colecao?ferramenta=documento')
+  await page.getByText('Abrir meu arquivo', { exact: true }).click()
   await page.getByRole('link', { name: 'Responder no PDF' }).click()
   await page
     .getByLabel('Selecionar arquivo para responder')

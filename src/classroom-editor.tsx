@@ -856,17 +856,6 @@ function SchoolEditor({
 
   return (
     <div className="school-editor">
-      <Link
-        className="school-back"
-        to={
-          typeof state?.catalogUrl === 'string' &&
-          state.catalogUrl.startsWith('/app/colecao')
-            ? state.catalogUrl
-            : '/app/colecao?ferramenta=' + item.tool
-        }
-      >
-        <ArrowLeft size={18} aria-hidden="true" /> Escolher outro modelo
-      </Link>
       <div className="school-section-head">
         <div>
           <p className="school-card-meta">
@@ -879,6 +868,11 @@ function SchoolEditor({
 
       <AdjustLayout
         form={form}
+        catalogUrl={
+          typeof state?.catalogUrl === 'string' && state.catalogUrl.startsWith('/app/colecao')
+            ? state.catalogUrl
+            : '/app/colecao?ferramenta=' + item.tool
+        }
         preview={<PagePreview item={item} values={values} sheets={sheets} />}
       />
 

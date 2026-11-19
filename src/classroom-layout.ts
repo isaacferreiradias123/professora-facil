@@ -496,15 +496,23 @@ export function activityObservation(item: ClassroomItem, values: Values) {
   )
 }
 
-function guidePage(item: ClassroomItem, values: Values) {
+function guidePages(item: ClassroomItem, values: Values) {
   const task = item.task!
   const theme = resolveTheme(item, values)
-  const result = sheet('Roteiro da professora')
-  const page = draw(result, theme.ink, theme.rule)
-  heading(page, item, values, 'Roteiro da professora', theme)
-  if (item.age) {
-    page.text(ageGuides[item.age], 16, 58, 3.4, { color: theme.muted, width: 180 })
+  const pages: Sheet[] = []
+  function nextPage() {
+    const label = pages.length ? 'Roteiro da professora · continuação' : 'Roteiro da professora'
+    const result = sheet(label)
+    pages.push(result)
+    const page = draw(result, theme.ink, theme.rule)
+    heading(page, item, values, label, theme)
+    if (item.age) {
+      page.text(ageGuides[item.age], 16, 58, 3.4, { color: theme.muted, width: 180 })
+    }
+    page.text('Professora Fácil · Educação Infantil', 16, 283, 3.1, { color: theme.muted })
+    return page
   }
+  let page = nextPage()
   const supplies = values.supplies?.trim() || task.supplies
   const stepsList = (values.stepsText?.trim()
     ? values.stepsText.split(/\r?\n/).filter((s) => s.trim())
@@ -522,14 +530,21 @@ function guidePage(item: ClassroomItem, values: Values) {
     ['Como adaptar e incluir', adaptation],
     ...(obs ? [['O que observar', obs]] : []),
   ]) {
-    page.box(14, y - 2, 182, 8.5, theme.headerBg, undefined, false, 2)
-    page.text(label, 18, y + 0.5, 4.4, { bold: true, color: theme.primary })
-    y = textRows(page, lineWrap(content, 175, 3.85), 16, y + 10.5, 178, 3.85) + 7
+    const rows = lineWrap(content, 175, 3.85)
+    let offset = 0
+    do {
+      if (y + 23 > 276) {
+        page = nextPage()
+        y = 70
+      }
+      page.box(14, y - 2, 182, 8.5, theme.headerBg, undefined, false, 2)
+      page.text(label + (offset ? ' · continuação' : ''), 18, y + 0.5, 4.4, { bold: true, color: theme.primary })
+      const count = Math.floor((276 - y - 10.5) / (3.85 * 1.55))
+      y = textRows(page, rows.slice(offset, offset + count), 16, y + 10.5, 178, 3.85) + 7
+      offset += count
+    } while (offset < rows.length)
   }
-  page.text('Professora Fácil · Educação Infantil', 16, 283, 3.1, {
-    color: theme.muted,
-  })
-  return result
+  return pages
 }
 
 function card(
@@ -1607,84 +1622,82 @@ export function documentKind(item: ClassroomItem) {
     : 'Registro pedagógico'
 }
 
-function buildWeeklyPlanSheet(item: ClassroomItem, values: Values): Sheet {
+function buildWeeklyPlanSheets(item: ClassroomItem, values: Values): Sheet[] {
   const theme = resolveTheme(item, values)
-  const landscape = { width: 297, height: 210 }
-  const result = sheet('Planejamento semanal', landscape)
-  const page = draw(result, theme.ink, theme.rule)
-  heading(page, item, values, 'Planejamento semanal · BNCC', theme, 297)
-
-  const bnccTags = [
-    values.bnccFields?.replaceAll('|', ' · '),
-    values.bnccRights?.replaceAll('|', ' · '),
-  ]
-    .filter(Boolean)
-    .join('  |  ')
-  let y = 55
-  if (bnccTags) {
-    page.box(12, y, 273, 12, theme.cardB, theme.rule, false, 2)
-    page.text('BNCC: ' + bnccTags, 16, y + 4, 3.1, {
-      bold: true,
-      color: theme.primary,
-      width: 265,
-    })
-    y += 15
+  const pages: Sheet[] = []
+  function nextPage(label: string) {
+    const result = sheet(label, { width: 297, height: 210 })
+    pages.push(result)
+    const page = draw(result, theme.ink, theme.rule)
+    heading(page, item, values, label, theme, 297)
+    page.text('Professora Fácil · Educação Infantil', 12, 203, 2.9, { color: theme.muted })
+    return page
   }
 
-  const objective = values.objective?.trim() || 'Objetivo da semana.'
-  page.box(12, y, 273, 15, '#FFFFFF', theme.rule, false, 2)
-  page.text('FOCO DA SEMANA: ', 16, y + 5, 3.3, {
-    bold: true,
-    color: theme.primary,
-    width: 42,
-  })
-  page.text(objective, 56, y + 5, 3.6, { width: 225 })
-  y += 19
+  const tags = [values.bnccFields, values.bnccRights]
+    .filter(Boolean)
+    .join(' | ')
+    .replaceAll('|', ' · ')
+  const objective = lineWrap(values.objective?.trim() || 'Objetivo da semana.', 260, 3.6)
+  const focus = [...(tags ? lineWrap('BNCC: ' + tags, 260, 3.6) : []), ...objective]
+  if (focus.length > 5) {
+    for (let start = 0; start < focus.length; start += 22) {
+      const page = nextPage(start ? 'Foco da semana · continuação' : 'Foco da semana')
+      textRows(page, focus.slice(start, start + 22), 16, 58, 265, 3.6)
+    }
+  }
 
   const days = [
-    ['mon', 'Segunda'],
-    ['tue', 'Terça'],
-    ['wed', 'Quarta'],
-    ['thu', 'Quinta'],
-    ['fri', 'Sexta'],
+    ['mon', 'Segunda'], ['tue', 'Terça'], ['wed', 'Quarta'],
+    ['thu', 'Quinta'], ['fri', 'Sexta'],
   ] as const
   const gap = 4
-  const colW = (273 - gap * 4) / 5
-  const colH = 200 - y - 6
+  const width = (273 - gap * 4) / 5
+  const rows = days.map(([key]) => lineWrap(values[key] ?? '', width - 8, 3.6))
   const tints = [theme.cardA, theme.cardB, theme.cardC, theme.cardD, theme.cardA]
-
-  days.forEach(([key, label], index) => {
-    const x = 12 + index * (colW + gap)
-    page.box(x, y, colW, colH, '#FFFFFF', theme.rule, false, 3)
-    page.box(x, y, colW, 13, tints[index])
-    page.text(label, x + 3, y + 4.5, 4.1, {
-      bold: true,
-      color: theme.primary,
-      width: colW - 6,
-      align: 'center',
+  let offset = 0
+  do {
+    const page = nextPage(offset ? 'Planejamento semanal · continuação' : 'Planejamento semanal')
+    let y = 55
+    if (!offset && focus.length <= 5) {
+      const height = 12 + focus.length * 5.58
+      page.box(12, y, 273, height, theme.cardB, theme.rule, false, 2)
+      page.text('FOCO DA SEMANA', 16, y + 3, 3.3, { bold: true, color: theme.primary })
+      textRows(page, focus, 16, y + 9, 265, 3.6)
+      y += height + 4
+    }
+    const height = 194 - y
+    const capacity = Math.floor((height - 20) / (3.6 * 1.55))
+    days.forEach(([, label], index) => {
+      const x = 12 + index * (width + gap)
+      page.box(x, y, width, height, '#FFFFFF', theme.rule, false, 3)
+      page.box(x, y, width, 13, tints[index])
+      page.text(label, x + 3, y + 4.5, 4.1, {
+        bold: true,
+        color: theme.primary,
+        width: width - 6,
+        align: 'center',
+      })
+      textRows(page, rows[index].slice(offset, offset + capacity), x + 4, y + 18, width - 8, 3.6)
     })
-    const rows = lineWrap(values[key] ?? '', colW - 8, 3.6)
-    textRows(page, rows.slice(0, 14), x + 4, y + 18, colW - 8, 3.6)
-  })
-  page.text('Professora Fácil · Educação Infantil', 12, 203, 2.9, {
-    color: theme.muted,
-  })
-  return result
+    offset += capacity
+  } while (rows.some((day) => day.length > offset))
+  return pages
 }
 
 export function buildSheets(item: ClassroomItem, values: Values): Sheet[] {
   if (item.task) {
-    if (item.task.mode === 'experience') return [guidePage(item, values)]
+    if (item.task.mode === 'experience') return guidePages(item, values)
     const workSheets = worksheet(item, values)
     return item.task.mode === 'cards' || values.guide === 'yes'
-      ? [...workSheets, guidePage(item, values)]
+      ? [...workSheets, ...guidePages(item, values)]
       : workSheets
   }
   if (item.category === 'Recados') return [noticeSheet(item, values)]
   if (item.category === 'Painéis')
     return item.poster ? cutoutPanel(item, values) : mosaic(item, values)
   if (item.tool === 'plano-de-aula' && item.planLayout === 'weekly') {
-    return [buildWeeklyPlanSheet(item, values)]
+    return buildWeeklyPlanSheets(item, values)
   }
 
   const theme = resolveTheme(item, values)

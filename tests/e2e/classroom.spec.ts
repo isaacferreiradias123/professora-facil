@@ -206,6 +206,7 @@ test('coleção é navegável por teclado, filtros, pronto e rascunho reaberto',
     .getByRole('combobox', { name: 'Turma', exact: true })
     .selectOption('')
   await search.clear()
+  await page.getByText('Mais filtros', { exact: true }).click()
   await page
     .getByRole('combobox', { name: 'Formato', exact: true })
     .selectOption('pronto')
@@ -236,6 +237,7 @@ test('montadores livres (contagem, pares, traçado) e planos com BNCC', async ({
   page,
 }, info) => {
   await page.goto('/app/colecao?ferramenta=atividade')
+  await page.getByText('Começar em branco', { exact: true }).click()
   await page.getByRole('link', { name: 'Montar ficha de contagem' }).click()
   await page
     .getByRole('combobox', { name: 'Conjunto de figuras', exact: true })
