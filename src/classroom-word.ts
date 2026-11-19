@@ -17,7 +17,16 @@ import {
 } from 'docx'
 import { imageBytes } from './classroom-export'
 import { ageGuides, type ClassroomItem } from './classroom-catalog'
-import { noticeFields, buildSheets, type Mark } from './classroom-layout'
+import {
+  noticeFields,
+  buildSheets,
+  planMoments,
+  planMinutes,
+  activityObservation,
+  activityCommand,
+  worksheetGroups,
+  type Mark,
+} from './classroom-layout'
 import type { Values } from './store'
 
 type Child = Paragraph | Table
@@ -236,7 +245,9 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
           task.steps.map((step, index) => index + 1 + '. ' + step).join('\n'),
         ],
         ['Como adaptar', task.adaptation],
-        ...(task.guide ? [['O que observar', task.guide]] : []),
+        ...(activityObservation(item, values)
+          ? [['O que observar', activityObservation(item, values)!]]
+          : []),
       ]) {
         contents.push(text(label, { bold: true, color: accent, size: 25 }))
         contents.push(
@@ -256,7 +267,7 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
         text(
           task.mode === 'cards'
             ? 'Recorte os cartões e apresente um de cada vez.'
-            : task.steps[1],
+            : activityCommand(item, values),
         ),
       )
       const pictures = sheet.marks.filter(
@@ -267,7 +278,7 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
       for (const p of pictures)
         if (!cache.has(p.asset)) cache.set(p.asset, await imageBytes(p.asset))
       if (task.mode === 'table' || task.mode === 'count') {
-        const rows = (task.prompts ?? []).map((label) => {
+        const rows = worksheetGroups(item, values).map((label) => {
           const images = pictures.filter((p) => p.alt === label)
           return new TableRow({
             cantSplit: true,
@@ -316,7 +327,11 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
             rows: [
               new TableRow({
                 tableHeader: true,
-                children: ['Frutas', 'Figuras', 'Quantidade'].map(
+                children: [
+                  item.id === 'criar-contagem' ? 'Grupo' : 'Frutas',
+                  'Figuras',
+                  'Quantidade',
+                ].map(
                   (label) =>
                     new TableCell({
                       shading: { fill: 'E6F0E7' },
@@ -330,10 +345,15 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
         )
         contents.push(
           text(''),
-          text('Onde há mais frutas? Explique com palavras ou desenho.', {
-            bold: true,
-            size: 25,
-          }),
+          text(
+            item.id === 'criar-contagem'
+              ? 'Qual grupo tem mais figuras? Escreva ou desenhe.'
+              : 'Onde há mais frutas? Explique com palavras ou desenho.',
+            {
+              bold: true,
+              size: 25,
+            },
+          ),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: {
@@ -377,7 +397,12 @@ async function activity(item: ClassroomItem, values: Values): Promise<Child[]> {
                                 }),
                               ],
                             }),
-                            text(p.alt, { size: 17 }),
+                            text(
+                              task.mode === 'story'
+                                ? pictures.indexOf(p) + 1 + '. ' + p.alt
+                                : p.alt,
+                              { size: 17 },
+                            ),
                           ],
                         }),
                     ),
@@ -426,15 +451,52 @@ export async function classroomWord(item: ClassroomItem, values: Values) {
           .join(' · '),
         { color: accent },
       ),
-      ...(item.fields ?? []).flatMap((field) => [
-        heading(field.label),
-        ...(
-          values[field.key] ||
-          '______________________________________________________'
-        )
-          .split(/\r?\n/)
-          .map((line) => text(line, { size: 22 })),
-      ]),
+      ...(item.tool === 'plano-de-aula'
+        ? [
+            text('Duração total · ' + planMinutes(values) + ' min', {
+              bold: true,
+              color: accent,
+            }),
+          ]
+        : []),
+      ...(item.fields ?? []).flatMap((field) =>
+        field.key === 'conduct' && item.tool === 'plano-de-aula'
+          ? [
+              heading('Momentos da aula'),
+              new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: planMoments(values).map(
+                  (moment) =>
+                    new TableRow({
+                      cantSplit: true,
+                      children: [
+                        new TableCell({
+                          shading: { fill: 'E6F0E7' },
+                          children: [
+                            text(moment.label, { bold: true }),
+                            text(moment.minutes + ' min'),
+                          ],
+                        }),
+                        new TableCell({
+                          children: moment.action
+                            .split(/\r?\n/)
+                            .map((action) => text(action)),
+                        }),
+                      ],
+                    }),
+                ),
+              }),
+            ]
+          : [
+              heading(field.label),
+              ...(
+                values[field.key] ||
+                '______________________________________________________'
+              )
+                .split(/\r?\n/)
+                .map((line) => text(line, { size: 22 })),
+            ],
+      ),
     ]
   return Packer.toBlob(
     new Document({

@@ -15,14 +15,20 @@ import {
   categories,
   categoryArt,
   classroom,
+  findClassroomItem,
   type ClassroomItem,
 } from './classroom-catalog'
 import {
+  activityCommand,
   assembled,
   assetUrl,
   buildSheets,
   initialValues,
   noticeFits,
+  planMinutes,
+  planMoments,
+  worksheetQuantity,
+  worksheetGroups,
   panelArtwork,
   paper,
   type Mark,
@@ -36,10 +42,7 @@ import './classroom.css'
 
 export function draftLink(item: Draft) {
   const id = item.values.collectionId
-  if (
-    id &&
-    classroom.some((entry) => entry.id === id && entry.tool === item.tool)
-  )
+  if (id && findClassroomItem(id)?.tool === item.tool)
     return '/app/colecao/' + id + '?rascunho=' + item.id
   return '/app/criar/' + item.tool + '?rascunho=' + item.id
 }
@@ -364,12 +367,15 @@ const normalized = (value: string) =>
 export function ClassroomLibrary() {
   const [params, setParams] = useSearchParams()
   const category = params.get('categoria') ?? ''
+  const tool = params.get('ferramenta')
+  const creating = tool === 'atividade' || tool === 'plano-de-aula'
   const [age, setAge] = useState('')
   const [mode, setMode] = useState('')
   const [query, setQuery] = useState('')
   const search = normalized(query.trim())
   const results = classroom.filter(
     (item) =>
+      (!creating || (item.tool === tool && !item.ready)) &&
       (!category || item.category === category) &&
       (!age || item.age === age || (!item.age && item.tool !== 'atividade')) &&
       (!mode || (mode === 'pronto' ? !!item.ready : !item.ready)) &&
@@ -386,12 +392,29 @@ export function ClassroomLibrary() {
     <div className="school-library">
       <div className="school-section-head">
         <div>
-          <h1>Coleção de sala de aula</h1>
-          <p>Veja o material antes de personalizar ou imprimir.</p>
+          <h1>
+            {tool === 'atividade'
+              ? 'Criar atividade'
+              : tool === 'plano-de-aula'
+                ? 'Criar plano de aula'
+                : 'Coleção de sala de aula'}
+          </h1>
+          <p>
+            {tool === 'atividade'
+              ? 'Escolha a turma e abra uma folha ilustrada ou uma proposta para conduzir com as crianças.'
+              : tool === 'plano-de-aula'
+                ? 'Escolha a turma e abra um plano para ajustar os momentos e a duração.'
+                : 'Veja o material antes de personalizar ou imprimir.'}
+          </p>
         </div>
         <Link to="/app/modelos">Modelos anteriores</Link>
       </div>
-      <ClassroomTabs selected={category} choose={setCategory} />
+      {tool === 'atividade' && (
+        <Link className="button" to="/app/colecao/criar-contagem">
+          Montar ficha de contagem
+        </Link>
+      )}
+      {!creating && <ClassroomTabs selected={category} choose={setCategory} />}
       <div className="school-filters">
         <label>
           Buscar na coleção
@@ -545,6 +568,10 @@ function SchoolEditor({
   const [busy, setBusy] = useState(false)
   const { values, set } = flow
   const sheets = useMemo(() => buildSheets(item, values), [item, values])
+  const isWorksheet = Boolean(
+    item.task && item.task.mode !== 'experience' && item.task.mode !== 'cards',
+  )
+  const isPlan = item.tool === 'plano-de-aula'
   const isNotice = item.category === 'Recados'
   const isPanel = item.category === 'Painéis'
   const fits = !isNotice || noticeFits(item, values)
@@ -619,21 +646,23 @@ function SchoolEditor({
       {!item.task &&
         !isNotice &&
         !isPanel &&
-        item.fields?.map((field) =>
-          field.type === 'long' ? (
-            <label key={field.key}>
-              {field.label}
-              <textarea
-                value={values[field.key]}
-                maxLength={1500}
-                rows={5}
-                onChange={(event) => set(field.key, event.target.value)}
-              />
-            </label>
-          ) : (
-            input(field.key, field.label)
-          ),
-        )}
+        item.fields
+          ?.filter((field) => !isPlan || field.key !== 'conduct')
+          .map((field) =>
+            field.type === 'long' ? (
+              <label key={field.key}>
+                {field.label}
+                <textarea
+                  value={values[field.key]}
+                  maxLength={1500}
+                  rows={5}
+                  onChange={(event) => set(field.key, event.target.value)}
+                />
+              </label>
+            ) : (
+              input(field.key, field.label)
+            ),
+          )}
       {isNotice && (
         <label>
           Mensagem
@@ -651,7 +680,101 @@ function SchoolEditor({
           Comunicado A4 inteiro.
         </p>
       )}
-      {item.task && (
+      {isPlan && (
+        <fieldset className="school-moments">
+          <legend>Momentos da aula</legend>
+          <p>
+            Duração total: <strong>{planMinutes(values)} min</strong>
+          </p>
+          {planMoments(values).map((moment, index) => (
+            <div className="school-moment" key={index}>
+              <strong>{moment.label}</strong>
+              <label>
+                Duração em minutos
+                <input
+                  type="number"
+                  min="0"
+                  max="180"
+                  value={moment.minutes}
+                  onChange={(event) =>
+                    set('minute' + index, event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                O que fazer
+                <textarea
+                  rows={3}
+                  maxLength={420}
+                  value={moment.action}
+                  onChange={(event) =>
+                    set('moment' + index, event.target.value)
+                  }
+                />
+              </label>
+            </div>
+          ))}
+        </fieldset>
+      )}
+      {isWorksheet && (
+        <>
+          <label>
+            Comando para a criança
+            <textarea
+              rows={2}
+              maxLength={95}
+              value={values.command ?? activityCommand(item, values)}
+              onChange={(event) => set('command', event.target.value)}
+            />
+          </label>
+          {item.id === 'criar-contagem' && (
+            <label>
+              Figuras
+              <select
+                value={values.group ?? 'fruit'}
+                onChange={(event) => set('group', event.target.value)}
+              >
+                <option value="fruit">Frutas</option>
+                <option value="animals">Animais</option>
+                <option value="school">Materiais escolares</option>
+              </select>
+            </label>
+          )}
+          {(item.task?.mode === 'table' || item.task?.mode === 'count') && (
+            <fieldset className="school-moments">
+              <legend>Quantidade de figuras</legend>
+              <div className="school-form-grid">
+                {worksheetGroups(item, values).map((label, index) => (
+                  <label key={label}>
+                    {label}
+                    <select
+                      value={worksheetQuantity(values, index)}
+                      onChange={(event) =>
+                        set('quantity' + index, event.target.value)
+                      }
+                    >
+                      {[1, 2, 3, 4, 5].map((number) => (
+                        <option key={number}>{number}</option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+          <label>
+            Folhas do arquivo
+            <select
+              value={values.guide ?? 'no'}
+              onChange={(event) => set('guide', event.target.value)}
+            >
+              <option value="yes">Ficha e roteiro da professora</option>
+              <option value="no">Só a ficha para a criança</option>
+            </select>
+          </label>
+        </>
+      )}
+      {item.task && !isWorksheet && (
         <div className="school-materials">
           <h3>O que preparar</h3>
           <p>{item.task.supplies}</p>
@@ -733,7 +856,7 @@ function SchoolEditor({
 export function ClassroomRoute() {
   const { id } = useParams()
   const [params] = useSearchParams()
-  const item = classroom.find((entry) => entry.id === id)
+  const item = findClassroomItem(id)
   if (!item)
     return (
       <>

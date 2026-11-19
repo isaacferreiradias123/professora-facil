@@ -525,6 +525,7 @@ const plan = (
   id: string,
   age: AgeBand,
   title: string,
+  objective: string,
   preparation: string,
   conduct: string,
   observation: string,
@@ -536,6 +537,12 @@ const plan = (
   tool: 'plano-de-aula',
   description: 'Planejamento editável com preparação, condução e observação.',
   fields: [
+    {
+      key: 'objective',
+      label: 'Objetivo da aula',
+      type: 'long',
+      value: objective,
+    },
     {
       key: 'preparation',
       label: 'Preparação e materiais',
@@ -589,6 +596,7 @@ classroom.push(
     'plano-texturas',
     'Berçário',
     'Encontro com tecidos',
+    'Explorar texturas com as mãos e manifestar preferências por gestos ou olhares.',
     'Organize um tapete firme com dois tecidos grandes de diferentes texturas. Higienize o material antes e depois.',
     '3 min · acolhida no tapete.\n7 min · exploração livre de um tecido por vez.\n3 min · retomada de sons e gestos observados.',
     'Observe olhar, alcance e escolha. Ajuste a intensidade do estímulo e respeite sinais de recusa.',
@@ -597,6 +605,7 @@ classroom.push(
     'plano-escuta',
     'Berçário',
     'Escuta perto e longe',
+    'Investigar sons suaves e responder a pausas, ritmos e vozes conhecidas.',
     'Escolha um local sem barulho externo. Separe dois objetos grandes de som suave para uso da professora.',
     '4 min · voz e pausa.\n5 min · som suave de um lado e do outro, com a fonte visível.\n3 min · presença tranquila e fechamento.',
     'Registre como a criança indica interesse e se procura novamente pela fonte sonora.',
@@ -605,6 +614,7 @@ classroom.push(
     'plano-animais',
     'Maternal',
     'Roda dos animais',
+    'Associar figuras de animais a movimentos e sons que as crianças reconhecem.',
     'Imprima cartões de quatro animais e organize espaço para a roda e para movimentos livres.',
     '5 min · descobrir a figura do envelope.\n10 min · imitar som e movimento.\n5 min · escolher a figura que a turma quer repetir.',
     'Observe como cada criança participa. Aceite movimentos, olhar, fala ou apontar.',
@@ -613,6 +623,7 @@ classroom.push(
     'plano-percurso',
     'Maternal',
     'Percurso com pausas',
+    'Experimentar formas de deslocamento num percurso com opções de participação.',
     'Delimite um caminho seguro no chão. Separe fita, tapete fixo e uma almofada sem quinas.',
     '5 min · apresentação do caminho.\n10 min · exploração em pequenos grupos.\n5 min · roda curta sobre os movimentos escolhidos.',
     'Registre quais apoios foram pedidos. Prepare alternativas de trajeto e exploração com as mãos.',
@@ -621,6 +632,7 @@ classroom.push(
     'plano-reconto',
     'Pré I',
     'História da semente',
+    'Organizar cenas em uma sequência e recontar o que aconteceu com apoio das imagens.',
     'Organize um vaso, uma semente grande para demonstração e cartões das três cenas.',
     '7 min · observar e antecipar.\n10 min · ordenar cartões do plantio.\n8 min · recontar em pares ou dramatizar.',
     'Escute os conectivos que surgem. Ofereça duas imagens por vez quando fizer sentido.',
@@ -629,6 +641,7 @@ classroom.push(
     'plano-pares',
     'Pré I',
     'Pares na feira',
+    'Comparar figuras e explicar como dois elementos formam um par.',
     'Imprima os pares de frutas e tenha uma mesa grande sem excesso de elementos.',
     '5 min · nomear frutas.\n12 min · parear as figuras em dupla.\n8 min · comparar as estratégias e organizar os cartões.',
     'Observe se a criança usa forma, textura ou tamanho. Evite usar apenas cor como pista.',
@@ -637,6 +650,7 @@ classroom.push(
     'plano-nomes',
     'Pré II',
     'Os nomes da nossa roda',
+    'Reconhecer o próprio nome e comparar letras iniciais com os nomes do grupo.',
     'Prepare cartões com os nomes do grupo, letras móveis grandes e folhas de registro.',
     '5 min · encontrar o próprio cartão.\n12 min · comparar as letras iniciais em trios.\n10 min · registrar uma descoberta do grupo.',
     'Registre justificativas e interações. Considere a escrita espontânea sem exigir convenção.',
@@ -645,6 +659,7 @@ classroom.push(
     'plano-feira',
     'Pré II',
     'Contar, registrar e comparar',
+    'Contar coleções, registrar quantidades e comparar os resultados.',
     'Separe as fichas da feira, cartões móveis e lápis. Organize mesas para pequenos grupos.',
     '6 min · observar os grupos de frutas.\n12 min · contar e registrar na tabela.\n10 min · comparar os grupos e explicar os procedimentos.',
     'Observe correspondência um a um e estratégias de registro. Apoie com cartões móveis ou registro oral.',
@@ -746,3 +761,27 @@ classroom.push(
     },
   ),
 )
+const fruitWorksheet = classroom.find((item) => item.id === 'tabela-de-frutas')!
+const customWorksheet: ClassroomItem = {
+  ...fruitWorksheet,
+  id: 'criar-contagem',
+  title: 'Minha ficha de contagem',
+  description:
+    'Escolha as figuras e as quantidades. A folha sai pronta para a criança responder.',
+  task: {
+    ...fruitWorksheet.task!,
+    supplies:
+      'Ficha impressa e lápis. Separe objetos ou cartões para apoiar a contagem.',
+    steps: [
+      'Peça que a criança conte um grupo por vez.',
+      'Convide a registrar com traços ou números.',
+      'Compare os grupos e converse sobre como a criança descobriu a quantidade.',
+    ],
+  },
+}
+
+export function findClassroomItem(id: string | undefined) {
+  return id === customWorksheet.id
+    ? customWorksheet
+    : classroom.find((item) => item.id === id)
+}
