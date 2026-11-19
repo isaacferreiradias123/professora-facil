@@ -14,6 +14,7 @@ export const archiveItems: ClassroomItem[] = [
       author: 'Abby the Pup · CC0 1.0 · adaptação em PT-BR',
       source:
         'https://drive.google.com/file/d/1dTOP9epZl1JDvcDioIkJmhg-Mh5DmZoO/view',
+      originalPage: 'Feelings.pdf, p. 2',
     },
   },
   {
@@ -29,6 +30,7 @@ export const archiveItems: ClassroomItem[] = [
       author: 'Abby the Pup · CC0 1.0 · adaptação em PT-BR',
       source:
         'https://drive.google.com/file/d/1dTOP9epZl1JDvcDioIkJmhg-Mh5DmZoO/view',
+      originalPage: 'Feelings.pdf, p. 4',
     },
   },
   {
@@ -42,7 +44,9 @@ export const archiveItems: ClassroomItem[] = [
       file: 'acervo/077.pdf',
       image: 'acervo/077.webp',
       author: 'Abby the Pup · CC0 1.0 · adaptação em PT-BR',
-      source: 'https://www.abbythepup.com/',
+      source:
+        'https://drive.google.com/file/d/161N4WyWLExy8c-129MVL6XCqQk2UqsWF/view',
+      originalPage: 'Shapes.pdf, p. 1',
     },
   },
   {
@@ -56,7 +60,9 @@ export const archiveItems: ClassroomItem[] = [
       file: 'acervo/078.pdf',
       image: 'acervo/078.webp',
       author: 'Abby the Pup · CC0 1.0 · adaptação em PT-BR',
-      source: 'https://www.abbythepup.com/',
+      source:
+        'https://drive.google.com/file/d/161N4WyWLExy8c-129MVL6XCqQk2UqsWF/view',
+      originalPage: 'Shapes.pdf, p. 2',
     },
   },
   {
@@ -70,7 +76,9 @@ export const archiveItems: ClassroomItem[] = [
       file: 'acervo/138.pdf',
       image: 'acervo/138.webp',
       author: 'Abby the Pup · referência',
-      source: 'https://www.abbythepup.com/',
+      source:
+        'https://drive.google.com/file/d/1dbPc7B_uT5qiJuvva8AJWKiBlzpb-84l/view',
+      originalPage: 'Shadow Matching.pdf, p. 3',
     },
   },
   {
@@ -84,7 +92,9 @@ export const archiveItems: ClassroomItem[] = [
       file: 'acervo/139.pdf',
       image: 'acervo/139.webp',
       author: 'Abby the Pup · referência',
-      source: 'https://www.abbythepup.com/',
+      source:
+        'https://drive.google.com/file/d/1dbPc7B_uT5qiJuvva8AJWKiBlzpb-84l/view',
+      originalPage: 'Shadow Matching.pdf, p. 4',
     },
   },
   {
@@ -100,6 +110,7 @@ export const archiveItems: ClassroomItem[] = [
       author: 'Abby the Pup · CC0 1.0 · adaptação em PT-BR',
       source:
         'https://drive.google.com/file/d/1BBNFlk3SCT4QUCpXtSJXbYmqUtUZ7-vA/view',
+      originalPage: 'Numbers 1-5.pdf, p. 12',
     },
   },
   {
@@ -115,6 +126,7 @@ export const archiveItems: ClassroomItem[] = [
       author: 'Abby the Pup · CC0 1.0 · adaptação em PT-BR',
       source:
         'https://drive.google.com/file/d/1BBNFlk3SCT4QUCpXtSJXbYmqUtUZ7-vA/view',
+      originalPage: 'Numbers 1-5.pdf, p. 13',
     },
   },
 ]

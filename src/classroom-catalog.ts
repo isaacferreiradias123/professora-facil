@@ -87,7 +87,7 @@ export type ClassroomItem = {
   panel?: PanelSpec
   scope?: 'individual' | 'collective'
   form?: 'ata' | 'declaracao' | 'entrega' | 'ficha' | 'checklist' | 'authorization'
-  ready?: { file: string; image: string; author: string; source: string }
+  ready?: { file: string; image: string; author: string; source: string; originalPage?: string }
   visual?: Values
 }
 
