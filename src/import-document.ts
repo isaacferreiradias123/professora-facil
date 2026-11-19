@@ -92,7 +92,7 @@ export async function readDocument(file: File): Promise<string> {
     )
   return text.trim().slice(0, 100000)
 }
-function validateZip(bytes: Uint8Array) {
+export function validateZip(bytes: Uint8Array) {
   const invalid = () =>
     new Error(
       'Este Word não pôde ser aberto dentro dos limites de processamento.',

@@ -14,6 +14,14 @@ test.beforeEach(async ({ page }) => {
 })
 
 async function save(page: Page, label: string, filename: string, link = false) {
+  if (label === 'Baixar Word') {
+    const details = page.locator('.school-export-menu')
+    if (
+      (await details.count()) &&
+      (await details.getAttribute('open')) === null
+    )
+      await details.getByText('Mais ações', { exact: true }).click()
+  }
   const ready = page.waitForEvent('download')
   await page
     .getByRole(link ? 'link' : 'button', { name: label, exact: true })
@@ -149,7 +157,7 @@ test('coleção é navegável por teclado e turma, com PDF pronto e rascunho rea
     await page
       .getByRole('combobox', { name: 'Turma', exact: true })
       .selectOption('Berçário')
-    await expect(page.getByRole('status')).toContainText('4 materiais')
+    await expect(page.getByRole('status')).toContainText('5 materiais')
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(width)
@@ -157,7 +165,7 @@ test('coleção é navegável por teclado e turma, com PDF pronto e rascunho rea
   const search = page.getByRole('searchbox')
   await search.focus()
   await page.keyboard.type('bercario')
-  await expect(page.getByRole('status')).toContainText('4 materiais')
+  await expect(page.getByRole('status')).toContainText('5 materiais')
   await page
     .getByRole('combobox', { name: 'Turma', exact: true })
     .selectOption('')
@@ -176,6 +184,7 @@ test('coleção é navegável por teclado e turma, com PDF pronto e rascunho rea
   ).toBe(1)
   await page.goto('/app/colecao/reuniao')
   await page.getByLabel('Título').fill('Reunião da turma Girassol')
+  await page.getByText('Mais ações', { exact: true }).click()
   await page.getByRole('button', { name: 'Salvar rascunho' }).click()
   await expect(
     page.getByText('Rascunho salvo em Meus materiais.'),
@@ -419,4 +428,195 @@ test('pareamento, extensão de aula e cartões de rotina são personalizáveis',
   await showPreview(page)
   await expect(page.locator('.school-preview')).toContainText('Horta')
   await verifyA4(await save(page, 'Baixar PDF', 'rotina-personalizada.pdf'), 3)
+})
+test('atividades separam folhas e vivências e mostram o modelo original', async ({
+  page,
+}) => {
+  await page.goto('/app/colecao?ferramenta=atividade')
+  await page.getByRole('button', { name: /Para fazer com os alunos/ }).click()
+  await expect(
+    page.getByRole('link', { name: /Tecidos à luz da janela/ }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('link', { name: /Da rega ao broto/ }),
+  ).toHaveCount(0)
+  await page.getByRole('button', { name: /Folhas para os alunos/ }).click()
+  await page.getByRole('link', { name: /Da rega ao broto/ }).click()
+  await page.getByText('Ver o modelo original', { exact: true }).click()
+  await expect(
+    page.locator('.school-template-reference .print-paper'),
+  ).toBeVisible()
+  await showPreview(page)
+  await page.getByRole('button', { name: 'Ampliar folha' }).click()
+  await expect(
+    page.getByRole('button', { name: 'Ajustar à tela' }),
+  ).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.school-preview')).toContainText(
+    'Desenhe o que pode acontecer depois.',
+  )
+  await verifyA4(await save(page, 'Baixar PDF', 'sequencia-ilustrada.pdf'), 1)
+})
+test('exporta os modelos novos da coleção para revisão', async ({
+  page,
+}, info) => {
+  test.skip(
+    info.project.name !== 'chromium',
+    'O lote de arquivos é revisado uma vez.',
+  )
+  test.setTimeout(180000)
+  const written = [
+    'tecidos-da-janela',
+    'objetos-da-sala',
+    'sequencia-do-jardim',
+    'plano-texturas-janela',
+    'plano-roda-reconto',
+    'plano-investigar-jardim',
+    'registro-brincadeira-livre',
+    'registro-projeto-coletivo',
+    'sintese-para-familias',
+    'convocacao-encontro',
+    'recado-materiais-projeto',
+    'ficha-atendimento-familia',
+  ]
+  for (const id of [
+    ...written,
+    'painel-leitura',
+    'painel-ajudantes',
+    'painel-calendario',
+  ]) {
+    await page.goto('/app/colecao/' + id)
+    expect(
+      (
+        await PDFDocument.load(await save(page, 'Baixar PDF', id + '.pdf'))
+      ).getPageCount(),
+    ).toBeGreaterThan(0)
+    if (written.includes(id))
+      expect(
+        await docxXml(await save(page, 'Baixar Word', id + '.docx')),
+      ).toContain('<w:body>')
+  }
+  const photo = Buffer.from(
+    await page.evaluate(() => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 420
+      canvas.height = 280
+      const ctx = canvas.getContext('2d')!
+      ctx.fillStyle = '#e2eddb'
+      ctx.fillRect(0, 0, 420, 280)
+      ctx.fillStyle = '#38604d'
+      ctx.fillRect(40, 40, 340, 200)
+      return canvas.toDataURL('image/png').split(',')[1]
+    }),
+    'base64',
+  )
+  for (const id of [
+    'album-portifolio-individual',
+    'album-projeto',
+    'album-exposicao',
+  ]) {
+    await page.goto('/app/criar/fotos-em-pdf?colecao=' + id)
+    await page.getByLabel('Selecionar fotos').setInputFiles({
+      name: 'exemplo.png',
+      mimeType: 'image/png',
+      buffer: photo,
+    })
+    await page.getByRole('button', { name: 'Organizar folhas' }).click()
+    await page.getByRole('button', { name: 'Conferir PDF' }).click()
+    expect(
+      (
+        await PDFDocument.load(await save(page, 'Baixar PDF', id + '.pdf'))
+      ).getPageCount(),
+    ).toBe(1)
+  }
+  for (const id of [
+    'arte-agenda-semana',
+    'arte-convite-mostra',
+    'arte-agradecimento',
+  ]) {
+    await page.goto('/app/criar/postagem?colecao=' + id)
+    await expect(
+      page.getByRole('img', { name: /Prévia do modelo/ }),
+    ).toBeVisible()
+    await page
+      .getByRole('button', { name: 'Personalizar', exact: true })
+      .click()
+    await page.getByRole('button', { name: 'Conferir arte' }).click()
+    expect(
+      (await save(page, 'Baixar PNG', id + '.png')).subarray(1, 4).toString(),
+    ).toBe('PNG')
+  }
+})
+test('responde no Word escolhido e na posição da página do PDF', async ({
+  page,
+}) => {
+  const { Document, Packer, Paragraph } = await import('docx')
+  const doc = await Packer.toBuffer(
+    new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph('Qual é sua fruta preferida?'),
+            new Paragraph('Segunda pergunta'),
+          ],
+        },
+      ],
+    }),
+  )
+  await page.goto('/app/colecao?ferramenta=documento')
+  await page
+    .getByRole('link', { name: 'Responder no documento visualizado' })
+    .click()
+  const upload = page.getByLabel('Selecionar arquivo para responder')
+  await upload.setInputFiles({
+    name: 'questoes.docx',
+    mimeType:
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: doc,
+  })
+  await page
+    .getByRole('button', { name: 'Qual é sua fruta preferida?' })
+    .click()
+  await page
+    .getByRole('textbox', { name: 'Texto da resposta' })
+    .fill('Minha fruta é maçã.')
+  await page.getByRole('button', { name: 'Inserir resposta' }).click()
+  const word = await docxXml(
+    await save(page, 'Baixar cópia respondida', 'questoes-respondido.docx'),
+  )
+  expect(word.indexOf('Minha fruta é maçã.')).toBeGreaterThan(
+    word.indexOf('Qual é sua fruta preferida?'),
+  )
+  expect(word.indexOf('Segunda pergunta')).toBeGreaterThan(
+    word.indexOf('Minha fruta é maçã.'),
+  )
+
+  const source = await PDFDocument.create()
+  source
+    .addPage([595.28, 841.89])
+    .drawText('Escreva sua resposta:', { x: 36, y: 750, size: 14 })
+  await upload.setInputFiles({
+    name: 'questoes.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from(await source.save()),
+  })
+  await page
+    .getByRole('button', { name: 'Escolher posição na folha 1' })
+    .focus()
+  await page.keyboard.press('Enter')
+  await page
+    .getByRole('spinbutton', { name: 'Posição vertical (%)' })
+    .fill('16')
+  await page
+    .getByRole('textbox', { name: 'Texto da resposta' })
+    .fill('Resposta no espaço da pergunta.')
+  await page.getByRole('button', { name: 'Inserir resposta' }).click()
+  await expect(
+    page.getByRole('button', {
+      name: 'Selecionar resposta: Resposta no espaço da pergunta.',
+    }),
+  ).toBeVisible()
+  await verifyA4(
+    await save(page, 'Baixar cópia respondida', 'questoes-respondido.pdf'),
+    1,
+  )
 })

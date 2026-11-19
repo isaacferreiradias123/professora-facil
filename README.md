@@ -73,7 +73,7 @@ O Playwright serve o build de produção e gera um relatório HTML em `playwrigh
 - Para integrar serviços no futuro, preserve o catálogo e os tipos de materiais. Introduza uma implementação de serviço atrás de uma interface por capacidade, com uma ação de envio explícita, permissões reais, consentimento adequado e chaves no servidor. Mantenha os geradores locais disponíveis. A disponibilidade atual de ferramentas é definida pelas rotas locais em `src/pages.tsx` e pela lista de recursos futuros em `src/catalog.ts`.
 ## Coleção de sala de aula
 
-A [vitrine nova](https://isaacferreiradias123.github.io/professora-facil/#/app/colecao) tem 46 materiais. Inclui 16 atividades próprias, seis recados, quatro painéis, oito planos, dois registros, três documentos escolares, três artes, três álbuns e uma folha pronta de origem externa. Filtros por nome de turma usam os grupos etários da BNCC como referência, conforme as práticas de cada rede.
+A [vitrine nova](https://isaacferreiradias123.github.io/professora-facil/#/app/colecao) tem 67 materiais, distribuídos entre as sete ferramentas, incluindo uma prancha pronta de origem externa. Filtros por nome de turma usam os grupos etários da BNCC como referência, conforme as práticas de cada rede.
 
 - Em **Criar atividade**, escolha a turma ou monte uma ficha de contagem com frutas, animais ou materiais escolares. O PDF da pré-escola inclui só a folha da criança por padrão. O roteiro pode ser incluído separadamente no mesmo arquivo. Os planos têm objetivo, preparação, três momentos editáveis, duração total e observação.
 - Os recados podem sair em uma folha inteira ou em duas vias recortáveis. O passeio inclui canhoto. A prévia e o PDF A4 compartilham a composição de página. O Word mantém títulos, tabelas e campos editáveis e pode variar conforme a fonte e a versão do editor.
@@ -95,6 +95,16 @@ Os materiais e as ilustrações da atualização foram produzidos para o projeto
 - [Títulos e tabelas acessíveis no Microsoft Word](https://support.microsoft.com/en-us/accessibility/word/make-your-word-documents-accessible-to-people-with-disabilities)
 - [Legendas e numeração de folhas no Lightroom Classic](https://helpx.adobe.com/lightroom-classic/desktop/print-photos/print-module-layouts-templates.html)
 - [Sobreposição, identificação e marcas de corte no Adobe Acrobat](https://helpx.adobe.com/au/acrobat/desktop/print-documents/booklets-posters-banners/posters-banners.html)
+
+## Edição e revisão do modelo
+
+Em **Criar atividade**, use **Folhas para os alunos** para fichas com espaço de resposta ou **Para fazer com os alunos** para roteiros e cartões de uso coletivo. Nos editores da coleção, abra **Ver o modelo original** para comparar com a edição e **Ampliar folha** na prévia quando precisar conferir detalhes. Word, impressão e rascunho ficam em **Mais ações**.
+
+A coleção recebeu 21 modelos, três por ferramenta. As 24 figuras de impressão e as oito novas ilustrações editoriais foram produzidas para o projeto e são servidas localmente. Para a estrutura dos novos registros, consulte a [orientação de registros da SME de São Paulo](https://acervodigital.sme.prefeitura.sp.gov.br/acervo/orientacao-normativa-de-registros-na-educacao-infantil/).
+
+### Responder no documento
+
+Em **Documentos Word e PDF**, abra **Responder no documento visualizado**. No PDF, selecione a folha, toque no espaço da pergunta e ajuste a posição se necessário. Digite a resposta, confirme a inserção e baixe uma cópia. PDFs digitalizados podem ser usados como imagem de fundo. No Word, escolha o parágrafo pela leitura simplificada. A resposta é inserida logo abaixo no DOCX editável. A prévia de texto pode diferir da paginação no Word. A edição é local e precisa ser baixada antes de encerrar a sessão. O arquivo de origem permanece no dispositivo.
 
 ## Modelos anteriores
 

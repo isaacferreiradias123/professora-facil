@@ -9,20 +9,20 @@ import {
 } from '../../src/classroom-layout'
 
 describe('coleção de sala de aula', () => {
-  it('tem IDs únicos, quatro atividades por turma e duas opções de plano por turma', () => {
-    expect(classroom).toHaveLength(46)
+  it('tem IDs únicos, 21 novos modelos e cobertura das quatro turmas', () => {
+    expect(classroom).toHaveLength(67)
     expect(new Set(classroom.map((item) => item.id)).size).toBe(
       classroom.length,
     )
     for (const age of ageBands) {
       expect(
         classroom.filter((item) => item.age === age && item.task),
-      ).toHaveLength(4)
+      ).toHaveLength(age === 'Pré I' ? 4 : 5)
       expect(
         classroom.filter(
           (item) => item.age === age && item.tool === 'plano-de-aula',
         ),
-      ).toHaveLength(2)
+      ).toHaveLength(age === 'Maternal' ? 2 : 3)
     }
   })
   it('compõe páginas com conteúdo, dimensões válidas e texto padrão que cabe', () => {

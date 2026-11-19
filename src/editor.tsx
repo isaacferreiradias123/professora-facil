@@ -310,6 +310,9 @@ export default function Editor(props: EditorProps) {
                 O arquivo é lido neste dispositivo. Você poderá consultar o
                 texto e criar um novo documento a partir dele.
               </p>
+              <Link to="/app/responder" className="button secondary">
+                Responder no documento visualizado
+              </Link>
               <FileDrop
                 label="Selecionar documento"
                 instructions="DOCX ou PDF de até 12 MB. O arquivo fica no navegador."
@@ -346,6 +349,10 @@ export default function Editor(props: EditorProps) {
                   onSelect={selectPreset}
                 />
               </div>
+              <p className="model-selected-note">
+                Modelo selecionado: <strong>{values.title}</strong>. Avance para
+                editar e conferir a folha.
+              </p>
               {(tool === 'atividade' || tool === 'plano-de-aula') && (
                 <p>
                   <a href={bncc}>Consultar a BNCC do MEC</a>. Os objetivos
