@@ -222,12 +222,43 @@ const picture: Record<string, string> = {
   'Plantar a semente': 'seed.png',
   'Servir à mesa': 'plate.png',
   'Lavar a fruta': 'watering.png',
+  Gatos: 'cat.png',
+  Patos: 'duck.png',
+  Cães: 'dog.png',
+  Livros: 'book.png',
+  Pincéis: 'brush.png',
   Maçãs: 'fruit-apple.png',
   Bananas: 'fruit-banana.png',
   Peras: 'fruit-pear.png',
 }
+export function worksheetGroups(item: ClassroomItem, values: Values) {
+  if (item.id === 'criar-contagem') {
+    if (values.group === 'animals') return ['Gatos', 'Patos', 'Cães']
+    if (values.group === 'school') return ['Lápis', 'Livros', 'Pincéis']
+  }
+  return item.task?.prompts ?? []
+}
+
 function iconFor(label: string) {
   return picture[label.split(' · ')[0]] ?? 'book.png'
+}
+
+export function worksheetQuantity(values: Values, index: number) {
+  const fallback = [3, 5, 4][index]
+  const quantity = Number(values['quantity' + index] ?? fallback)
+  return Number.isFinite(quantity)
+    ? Math.max(1, Math.min(5, Math.trunc(quantity)))
+    : fallback
+}
+
+export function activityObservation(item: ClassroomItem, values: Values) {
+  const task = item.task!
+  if (task.mode !== 'count' && task.mode !== 'table') return task.guide
+  return (
+    worksheetGroups(item, values)
+      .map((label, index) => label + ': ' + worksheetQuantity(values, index))
+      .join(' · ') + '. Observe como as crianças contam e comparam os grupos.'
+  )
 }
 
 function guidePage(item: ClassroomItem, values: Values) {
@@ -244,7 +275,9 @@ function guidePage(item: ClassroomItem, values: Values) {
       task.steps.map((step, index) => index + 1 + '. ' + step).join('\n\n'),
     ],
     ['Como adaptar', task.adaptation],
-    ...(task.guide ? [['O que observar', task.guide]] : []),
+    ...(activityObservation(item, values)
+      ? [['O que observar', activityObservation(item, values)!]]
+      : []),
   ]) {
     page.text(label, 16, y, 5, { bold: true, color: darkGreen })
     y = textRows(page, lineWrap(content, 175, 3.8), 16, y + 9, 178, 3.8) + 8
@@ -274,13 +307,28 @@ function card(
   page.text(label, x + 4, y + height - 9, 3.7, { bold: true, width: width - 8 })
 }
 
+export function activityCommand(item: ClassroomItem, values: Values) {
+  const task = item.task!
+  const command =
+    item.id === 'criar-contagem'
+      ? 'Conte as figuras de cada grupo e anote a quantidade.'
+      : task.mode === 'story'
+        ? 'Escreva os números das cenas na ordem em que aconteceram.'
+        : task.mode === 'sort'
+          ? 'Escolha o grupo de cada figura. Desenhe ou cole nos quadros.'
+          : task.mode === 'table' || task.mode === 'count'
+            ? 'Conte as frutas de cada grupo e anote a quantidade.'
+            : task.steps[1]
+  return (values.command ?? command).replace(/\s+/g, ' ').trim()
+}
+
 function worksheet(item: ClassroomItem, values: Values) {
   const task = item.task!
   const result = sheet(
     task.mode === 'cards' ? 'Cartões de uso coletivo' : 'Folha da criança',
   )
   const page = draw(result)
-  const prompts = task.prompts ?? []
+  const prompts = worksheetGroups(item, values)
   heading(
     page,
     item,
@@ -298,7 +346,7 @@ function worksheet(item: ClassroomItem, values: Values) {
     lineWrap(
       task.mode === 'cards'
         ? 'Recorte nas linhas tracejadas. Apresente os cartões um por vez.'
-        : task.steps[1],
+        : activityCommand(item, values),
       175,
       4,
     ),
@@ -321,6 +369,16 @@ function worksheet(item: ClassroomItem, values: Values) {
       ),
     )
     if (task.mode === 'story') {
+      prompts.forEach((_, index) => {
+        const x = 16 + (index % 2) * 91
+        const y = top + Math.floor(index / 2) * 62
+        page.box(x + 5, y + 4, 9, 9, darkGreen)
+        page.text(String(index + 1), x + 7.8, y + 6, 4, {
+          bold: true,
+          color: '#ffffff',
+          width: 5,
+        })
+      })
       page.text('Minha ordem:', 16, 224, 4, { bold: true })
       for (let i = 0; i < prompts.length; i++)
         page.box(16 + i * 44, 236, 35, 22, undefined, rule)
@@ -349,7 +407,10 @@ function worksheet(item: ClassroomItem, values: Values) {
     })
   } else if (task.mode === 'table' || task.mode === 'count') {
     page.box(16, 94, 178, 16, darkGreen)
-    page.text('FRUTA', 21, 99, 3.5, { color: '#ffffff', bold: true })
+    page.text(item.id === 'criar-contagem' ? 'GRUPO' : 'FRUTA', 21, 99, 3.5, {
+      color: '#ffffff',
+      bold: true,
+    })
     page.text('GRUPO DE FIGURAS', 60, 99, 3.5, { color: '#ffffff', bold: true })
     page.text('QUANTIDADE', 161, 99, 3.5, {
       color: '#ffffff',
@@ -360,12 +421,14 @@ function worksheet(item: ClassroomItem, values: Values) {
       const y = 110 + i * 39
       page.box(16, y, 178, 39, i % 2 ? cream : '#ffffff', rule)
       page.text(label, 21, y + 14, 4, { bold: true })
-      for (let j = 0; j < [3, 5, 4][i]; j++)
-        page.image(iconFor(label), 58 + j * 18, y + 8, 16, 20, label)
+      for (let j = 0; j < worksheetQuantity(values, i); j++)
+        page.image(iconFor(label), 58 + j * 18, y + 10, 16, 16, label)
       page.box(164, y + 7, 22, 23, undefined, rule)
     })
     page.text(
-      'Onde há mais frutas? Explique com palavras ou desenho.',
+      item.id === 'criar-contagem'
+        ? 'Qual grupo tem mais figuras? Escreva ou desenhe.'
+        : 'Onde há mais frutas? Explique com palavras ou desenho.',
       16,
       239,
       4,
@@ -398,7 +461,7 @@ function worksheet(item: ClassroomItem, values: Values) {
           rule,
         )
         if (sequence[j])
-          page.image(iconFor(sequence[j]), x + 4, y + 15, 18, 20, sequence[j])
+          page.image(iconFor(sequence[j]), x + 4, y + 17, 18, 18, sequence[j])
       }
     })
   }
@@ -693,12 +756,36 @@ function cutoutPanel(item: ClassroomItem, values: Values) {
   return [panelGuide(item, values, count), ...result]
 }
 
+const planLabels = ['Acolhida', 'Proposta principal', 'Fechamento']
+export function planMoments(values: Values) {
+  const saved = (values.conduct ?? '').split(/\r?\n/)
+  return planLabels.map((label, index) => {
+    const original = saved[index]?.match(/^(\d+)\s*min\s*·\s*(.*)$/)
+    const minutes = Number(values['minute' + index] ?? original?.[1] ?? 0)
+    return {
+      label,
+      minutes: Number.isFinite(minutes)
+        ? Math.max(0, Math.min(180, Math.trunc(minutes)))
+        : 0,
+      action: values['moment' + index] ?? original?.[2] ?? saved[index] ?? '',
+    }
+  })
+}
+export function planMinutes(values: Values) {
+  return planMoments(values).reduce(
+    (total, moment) => total + moment.minutes,
+    0,
+  )
+}
+
 export function buildSheets(item: ClassroomItem, values: Values): Sheet[] {
   if (item.task) {
     const guide = guidePage(item, values)
     if (item.task.mode === 'experience') return [guide]
     const work = worksheet(item, values)
-    return item.task.mode === 'cards' ? [guide, work] : [work, guide]
+    return item.task.mode === 'cards' || values.guide === 'yes'
+      ? [work, guide]
+      : [work]
   }
   if (item.category === 'Recados') return [noticeSheet(item, values)]
   if (item.category === 'Painéis')
@@ -716,7 +803,35 @@ export function buildSheets(item: ClassroomItem, values: Values): Sheet[] {
     y = 66
   }
   nextPage()
+  const isPlan = item.tool === 'plano-de-aula'
+  if (isPlan) {
+    page!.box(16, 64, 178, 13, cream, rule)
+    page!.text('Duração total · ' + planMinutes(values) + ' min', 21, 68, 4.2, {
+      bold: true,
+    })
+    y = 86
+  }
   for (const field of item.fields ?? []) {
+    if (isPlan && field.key === 'conduct') {
+      for (const moment of planMoments(values)) {
+        const rows = lineWrap(
+          moment.action.trim().replace(/\s+/g, ' '),
+          157,
+          4.1,
+        )
+        const height = 18 + rows.length * 6.36
+        if (y + height > 276) nextPage()
+        page!.box(16, y, 178, height, sage, rule)
+        page!.text(moment.label, 22, y + 5, 4.3, { bold: true, width: 115 })
+        page!.text(moment.minutes + ' min', 160, y + 5, 3.9, {
+          bold: true,
+          width: 28,
+        })
+        textRows(page!, rows, 22, y + 14, 158, 4.1)
+        y += height + 5
+      }
+      continue
+    }
     const content =
       values[field.key] ||
       '______________________________________________________'

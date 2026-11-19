@@ -59,6 +59,9 @@ test('ficha de Pré II tem contagem ilustrada, tabela editável e roteiro', asyn
   await expect(
     page.getByRole('heading', { name: 'A feira da turma' }),
   ).toBeVisible()
+  await page
+    .getByRole('combobox', { name: 'Folhas do arquivo' })
+    .selectOption('yes')
   await showPreview(page)
   await expect(page.locator('.school-preview img').first()).toBeVisible()
   await verifyA4(await save(page, 'Baixar PDF', 'ficha-pre-ii.pdf'), 2)
@@ -182,4 +185,59 @@ test('coleção é navegável por teclado e turma, com PDF pronto e rascunho rea
   await expect(page.getByLabel('Título')).toHaveValue(
     'Reunião da turma Girassol',
   )
+})
+test('cria uma folha infantil com figuras escolhidas e plano com tempos editados', async ({
+  page,
+}) => {
+  await page.goto('/app/criar')
+  await page
+    .getByRole('link', { name: 'Criar atividade', exact: true })
+    .first()
+    .click()
+  await page.getByRole('link', { name: 'Montar ficha de contagem' }).click()
+  await page
+    .getByRole('combobox', { name: 'Figuras', exact: true })
+    .selectOption('animals')
+  await page
+    .getByRole('combobox', { name: 'Gatos', exact: true })
+    .selectOption('2')
+  await page
+    .getByRole('textbox', { name: 'Comando para a criança', exact: true })
+    .fill('Conte e escreva o total.')
+  await showPreview(page)
+  await expect(
+    page
+      .locator('.school-preview')
+      .getByRole('img', { name: 'Gatos', exact: true }),
+  ).toHaveCount(2)
+  await expect(page.locator('.school-preview')).toContainText(
+    'Conte e escreva o total.',
+  )
+  await verifyA4(await save(page, 'Baixar PDF', 'contagem-animais.pdf'), 1)
+  const xml = await docxXml(
+    await save(page, 'Baixar Word', 'contagem-animais.docx'),
+  )
+  expect(xml).toContain('Conte e escreva o total.')
+  expect(xml).toContain('Gatos')
+  expect(xml).not.toContain('Roteiro da professora')
+  await page.goto('/app/colecao/plano-feira')
+  await page
+    .getByRole('spinbutton', { name: 'Duração em minutos' })
+    .first()
+    .fill('9')
+  await page
+    .getByRole('textbox', { name: 'O que fazer' })
+    .first()
+    .fill('Contar os cartões em roda.')
+  await showPreview(page)
+  await expect(page.locator('.school-preview')).toContainText('31 min')
+  await expect(page.locator('.school-preview')).toContainText(
+    'Contar os cartões em roda.',
+  )
+  const plan = await docxXml(
+    await save(page, 'Baixar Word', 'plano-momentos.docx'),
+  )
+  expect(plan).toContain('<w:tbl>')
+  expect(plan).toContain('31 min')
+  expect(plan).toContain('Contar os cartões em roda.')
 })

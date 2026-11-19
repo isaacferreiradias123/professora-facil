@@ -512,7 +512,17 @@ function ToolGrid({
           const i = Object.keys(tools).indexOf(k)
           const Icon = icons[k]
           return (
-            <Link className="tool card" to={'/app/criar/' + k} key={k}>
+            <Link
+              className="tool card"
+              to={
+                k === 'atividade'
+                  ? '/app/colecao?ferramenta=atividade'
+                  : k === 'plano-de-aula'
+                    ? '/app/colecao?ferramenta=plano-de-aula'
+                    : '/app/criar/' + k
+              }
+              key={k}
+            >
               <span className={'tool-icon tone-' + i}>
                 <Icon size={25} aria-hidden="true" />
               </span>
@@ -573,6 +583,20 @@ function Dashboard({ create = false }: { create?: boolean }) {
           </ul>
         </section>
       )}
+      <nav
+        className="actions school-create-shortcuts"
+        aria-label="Criar para a sala"
+      >
+        <Link className="button" to="/app/colecao?ferramenta=atividade">
+          Criar atividade
+        </Link>
+        <Link
+          className="button secondary"
+          to="/app/colecao?ferramenta=plano-de-aula"
+        >
+          Criar plano de aula
+        </Link>
+      </nav>
       <section className="school-dashboard">
         <div className="school-section-head">
           <div>
