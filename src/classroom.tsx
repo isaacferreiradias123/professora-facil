@@ -280,6 +280,8 @@ function AlbumThumb({ options }: { options: Values }) {
     margin: Number(options.margin),
     crop: false,
     quality: 'standard',
+    header: options.printedHeader === 'yes' ? options.title : undefined,
+    numbering: options.printedNumbering === 'yes',
   })
   return (
     <div
@@ -288,6 +290,12 @@ function AlbumThumb({ options }: { options: Values }) {
       role="img"
       aria-label="Exemplo de distribuição das fotografias"
     >
+      {options.printedHeader === 'yes' && (
+        <strong className="album-example-title">{options.title}</strong>
+      )}
+      {options.printedNumbering === 'yes' && (
+        <small className="album-example-page">Folha 1</small>
+      )}
       {Array.from({ length: perPage }, (_, index) => (
         <div
           key={index}
@@ -339,6 +347,11 @@ function ClassroomCard({ item }: { item: ClassroomItem }) {
         <div className="school-card-body">
           <p className="school-card-meta">
             {item.age ?? item.category}
+            {item.task
+              ? activityUse(item) === 'guided'
+                ? ' · Vivência guiada'
+                : ' · Folha do aluno'
+              : ''}
             {count ? ' · ' + count + (count === 1 ? ' folha' : ' folhas') : ''}
           </p>
           <h3>{item.title}</h3>
@@ -363,6 +376,12 @@ export function CollectionShowcase() {
   )
 }
 
+function activityUse(item: ClassroomItem) {
+  return item.task?.mode === 'cards' || item.task?.mode === 'experience'
+    ? 'guided'
+    : 'student'
+}
+
 const normalized = (value: string) =>
   value
     .normalize('NFD')
@@ -377,13 +396,16 @@ export function ClassroomLibrary() {
       ? (requestedTool as Tool)
       : null
   const creating = Boolean(tool)
+  const activityLibrary = tool === 'atividade' || category === 'Atividades'
+  const purpose = params.get('uso') ?? ''
   const [age, setAge] = useState('')
   const [mode, setMode] = useState('')
   const [query, setQuery] = useState('')
   const search = normalized(query.trim())
   const results = classroom.filter(
     (item) =>
-      (!creating || (item.tool === tool && !item.ready)) &&
+      (!creating || item.tool === tool) &&
+      (!activityLibrary || !purpose || activityUse(item) === purpose) &&
       (!category || item.category === category) &&
       (!age || item.age === age || (!item.age && item.tool !== 'atividade')) &&
       (!mode || (mode === 'pronto' ? !!item.ready : !item.ready)) &&
@@ -394,7 +416,11 @@ export function ClassroomLibrary() {
       ).includes(search),
   )
   function setCategory(next: string) {
-    setParams(next ? { categoria: next } : {})
+    const filters = new URLSearchParams(params)
+    filters.delete('uso')
+    if (next) filters.set('categoria', next)
+    else filters.delete('categoria')
+    setParams(filters)
   }
   return (
     <div className="school-library">
@@ -411,7 +437,7 @@ export function ClassroomLibrary() {
           </h1>
           <p>
             {tool === 'atividade'
-              ? 'Escolha a turma e abra uma folha ilustrada ou uma proposta para conduzir com as crianças.'
+              ? 'Escolha uma folha para a criança preencher ou um roteiro para conduzir com a turma.'
               : tool === 'plano-de-aula'
                 ? 'Escolha a turma e abra um plano para ajustar os momentos e a duração.'
                 : tool === 'documento'
@@ -423,7 +449,44 @@ export function ClassroomLibrary() {
         </div>
         <Link to="/app/modelos">Modelos anteriores</Link>
       </div>
-      {tool === 'atividade' && (
+      {activityLibrary && (
+        <div
+          className="activity-purpose"
+          role="group"
+          aria-label="Como a atividade será usada"
+        >
+          {[
+            ['', 'Todas', 'Mostra fichas, roteiros e cartões.'],
+            [
+              'student',
+              'Folhas para os alunos',
+              'A criança recebe uma folha com espaço para responder.',
+            ],
+            [
+              'guided',
+              'Para fazer com os alunos',
+              'A professora conduz a vivência, com roteiro ou cartões.',
+            ],
+          ].map(([id, label, description]) => (
+            <button
+              type="button"
+              key={label}
+              className="secondary"
+              aria-pressed={purpose === id}
+              onClick={() => {
+                const next = new URLSearchParams(params)
+                if (id) next.set('uso', id)
+                else next.delete('uso')
+                setParams(next)
+              }}
+            >
+              <strong>{label}</strong>
+              <span>{description}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {tool === 'atividade' && purpose !== 'guided' && (
         <div className="actions">
           <Link className="button" to="/app/colecao/criar-contagem">
             Montar ficha de contagem
@@ -432,6 +495,11 @@ export function ClassroomLibrary() {
             Montar ficha de pareamento
           </Link>
         </div>
+      )}
+      {tool === 'documento' && (
+        <Link className="button" to="/app/responder">
+          Responder no documento visualizado
+        </Link>
       )}
       {tool &&
         ['documento', 'postagem', 'painel', 'fotos-em-pdf'].includes(tool) && (
@@ -481,11 +549,28 @@ export function ClassroomLibrary() {
         {results.length}{' '}
         {results.length === 1 ? 'material encontrado' : 'materiais encontrados'}
       </p>
-      <div className="school-showcase">
-        {results.map((item) => (
-          <ClassroomCard key={item.id} item={item} />
-        ))}
-      </div>
+      {(activityLibrary
+        ? [
+            ['student', 'Folhas para os alunos'],
+            ['guided', 'Para fazer com os alunos'],
+          ]
+        : [['', '']]
+      ).map(([kind, label]) => {
+        const items = kind
+          ? results.filter((item) => activityUse(item) === kind)
+          : results
+        if (!items.length) return null
+        return (
+          <section className="school-results-group" key={kind}>
+            {label && <h2>{label}</h2>}
+            <div className="school-showcase">
+              {items.map((item) => (
+                <ClassroomCard key={item.id} item={item} />
+              ))}
+            </div>
+          </section>
+        )
+      })}
       {!results.length && (
         <button
           className="secondary"
@@ -513,12 +598,30 @@ function PagePreview({
   sheets: ReturnType<typeof buildSheets>
 }) {
   const [selected, setSelected] = useState(item.id === 'boas-vindas' ? -1 : 0)
+  const [wide, setWide] = useState(false)
   const active = Math.min(sheets.length - 1, selected)
   const assembledPreview = active < 0
   const title = assembledPreview ? 'Como fica montado' : sheets[active].name
   return (
     <div className="school-preview">
-      <h2>{title}</h2>
+      <div className="school-preview-heading">
+        <div>
+          <h2>{title}</h2>
+          <p>
+            {assembledPreview
+              ? 'Visualização da arte inteira'
+              : 'Folha ' + (active + 1) + ' de ' + sheets.length}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="secondary"
+          aria-pressed={wide}
+          onClick={() => setWide(!wide)}
+        >
+          {wide ? 'Ajustar à tela' : 'Ampliar folha'}
+        </button>
+      </div>
       <div className="school-page-picker" aria-label="Páginas da prévia">
         {item.id === 'boas-vindas' && (
           <button
@@ -543,15 +646,23 @@ function PagePreview({
           </button>
         ))}
       </div>
-      {assembledPreview ? (
-        <Paper
-          marks={panelArtwork(values)}
-          width={assembled.width}
-          height={assembled.height}
-        />
-      ) : (
-        <Paper marks={sheets[active].marks} />
-      )}
+      <div
+        className={'school-paper-stage' + (wide ? ' school-paper-zoom' : '')}
+        tabIndex={wide ? 0 : undefined}
+        aria-label={
+          wide ? 'Prévia ampliada, role para ver a folha inteira' : undefined
+        }
+      >
+        {assembledPreview ? (
+          <Paper
+            marks={panelArtwork(values)}
+            width={assembled.width}
+            height={assembled.height}
+          />
+        ) : (
+          <Paper marks={sheets[active].marks} />
+        )}
+      </div>
       <p className="school-page-note">
         {item.tool === 'painel'
           ? 'A4 retrato · imprima em escala de 100%'
@@ -865,8 +976,15 @@ function SchoolEditor({
   )
   return (
     <div className="school-editor">
-      <Link className="school-back" to="/app/colecao">
-        <ArrowLeft size={18} /> Coleção
+      <Link
+        className="school-back"
+        to={
+          '/app/colecao?ferramenta=' +
+          item.tool +
+          (item.task ? '&uso=' + activityUse(item) : '')
+        }
+      >
+        <ArrowLeft size={18} /> Escolher outro modelo
       </Link>
       <div className="school-section-head">
         <div>
@@ -877,6 +995,11 @@ function SchoolEditor({
           <p>{item.description}</p>
         </div>
       </div>
+      <details className="school-template-reference">
+        <summary>Ver o modelo original</summary>
+        <p>Compare com a prévia atual antes de baixar.</p>
+        <PreviewThumb item={item} />
+      </details>
       <AdjustLayout
         form={form}
         preview={<PagePreview item={item} values={values} sheets={sheets} />}
@@ -891,32 +1014,46 @@ function SchoolEditor({
         >
           <Download size={17} aria-hidden="true" /> Baixar PDF
         </button>
-        {!isPanel && (
-          <button
-            type="button"
-            className="secondary"
-            disabled={!fits || busy || !values.title.trim()}
-            onClick={() => void output('docx')}
-          >
-            <FileText size={17} aria-hidden="true" /> Baixar Word
-          </button>
-        )}
-        <button
-          type="button"
-          className="secondary"
-          disabled={!fits || busy || !values.title.trim()}
-          onClick={() => void output('print')}
+        <details
+          className="school-export-menu"
+          onClick={(event) => {
+            if (
+              event.target instanceof Element &&
+              event.target.closest('button')
+            )
+              event.currentTarget.open = false
+          }}
         >
-          <Printer size={17} aria-hidden="true" /> Imprimir
-        </button>
-        <button
-          type="button"
-          className="secondary"
-          disabled={busy}
-          onClick={() => void flow.save()}
-        >
-          Salvar rascunho
-        </button>
+          <summary className="button secondary">Mais ações</summary>
+          <div className="school-export-menu-body">
+            {!isPanel && (
+              <button
+                type="button"
+                className="secondary"
+                disabled={!fits || busy || !values.title.trim()}
+                onClick={() => void output('docx')}
+              >
+                <FileText size={17} aria-hidden="true" /> Baixar Word
+              </button>
+            )}
+            <button
+              type="button"
+              className="secondary"
+              disabled={!fits || busy || !values.title.trim()}
+              onClick={() => void output('print')}
+            >
+              <Printer size={17} aria-hidden="true" /> Imprimir
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => void flow.save()}
+            >
+              Salvar rascunho
+            </button>
+          </div>
+        </details>
       </div>
     </div>
   )
@@ -949,7 +1086,9 @@ export function ClassroomRoute() {
         </Link>
         <h1>{item.title}</h1>
         <p>{item.description}</p>
-        <PreviewThumb item={item} />
+        <div className="school-selected-model">
+          <PreviewThumb item={item} />
+        </div>
         <Link
           className="button"
           to={'/app/criar/' + item.tool + '?colecao=' + item.id}

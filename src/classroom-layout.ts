@@ -192,44 +192,45 @@ function textRows(
 }
 
 const picture: Record<string, string> = {
-  Maçã: 'fruit-apple.png',
-  Banana: 'fruit-banana.png',
-  Pera: 'fruit-pear.png',
-  Morango: 'fruit-berry.png',
-  Bola: 'ball.png',
-  Livro: 'book.png',
-  Copo: 'cup.png',
-  Pano: 'cloth.png',
-  Gato: 'cat.png',
-  Pato: 'duck.png',
-  Cão: 'dog.png',
-  Pássaro: 'bird.png',
-  Chegada: 'door.png',
-  Roda: 'circle.png',
-  Lanche: 'fruit-apple.png',
-  Brincadeira: 'ball.png',
-  História: 'book.png',
-  Higiene: 'cup.png',
-  Descanso: 'moon.png',
-  Despedida: 'door.png',
-  Lápis: 'pencil.png',
-  Blocos: 'blocks.png',
-  Pincel: 'brush.png',
-  'Broto apareceu': 'sprout.png',
-  'Semente na terra': 'seed.png',
-  'Regamos a terra': 'watering.png',
-  'Colher a fruta': 'fruit-pear.png',
-  'Plantar a semente': 'seed.png',
-  'Servir à mesa': 'plate.png',
-  'Lavar a fruta': 'watering.png',
-  Gatos: 'cat.png',
-  Patos: 'duck.png',
-  Cães: 'dog.png',
-  Livros: 'book.png',
-  Pincéis: 'brush.png',
-  Maçãs: 'fruit-apple.png',
-  Bananas: 'fruit-banana.png',
-  Peras: 'fruit-pear.png',
+  'Flor do dia': 'il-flower.png',
+  Maçã: 'il-fruit-apple.png',
+  Banana: 'il-fruit-banana.png',
+  Pera: 'il-fruit-pear.png',
+  Morango: 'il-fruit-berry.png',
+  Bola: 'il-ball.png',
+  Livro: 'il-book.png',
+  Copo: 'il-cup.png',
+  Pano: 'il-cloth.png',
+  Gato: 'il-cat.png',
+  Pato: 'il-duck.png',
+  Cão: 'il-dog.png',
+  Pássaro: 'il-bird.png',
+  Chegada: 'il-door.png',
+  Roda: 'il-circle.png',
+  Lanche: 'il-fruit-apple.png',
+  Brincadeira: 'il-ball.png',
+  História: 'il-story.png',
+  Higiene: 'il-cup.png',
+  Descanso: 'il-moon.png',
+  Despedida: 'il-door.png',
+  Lápis: 'il-pencil.png',
+  Blocos: 'il-blocks.png',
+  Pincel: 'il-brush.png',
+  'Broto apareceu': 'il-sprout.png',
+  'Semente na terra': 'il-seed.png',
+  'Regamos a terra': 'il-watering.png',
+  'Colher a fruta': 'il-fruit-pear.png',
+  'Plantar a semente': 'il-seed.png',
+  'Servir à mesa': 'il-plate.png',
+  'Lavar a fruta': 'il-watering.png',
+  Gatos: 'il-cat.png',
+  Patos: 'il-duck.png',
+  Cães: 'il-dog.png',
+  Livros: 'il-book.png',
+  Pincéis: 'il-brush.png',
+  Maçãs: 'il-fruit-apple.png',
+  Bananas: 'il-fruit-banana.png',
+  Peras: 'il-fruit-pear.png',
 }
 export function worksheetGroups(item: ClassroomItem, values: Values) {
   if (item.id === 'criar-pares') {
@@ -383,9 +384,16 @@ function worksheet(item: ClassroomItem, values: Values) {
           width: 5,
         })
       })
+      const drawNext = item.id === 'sequencia-do-jardim'
       page.text('Minha ordem:', 16, 224, 4, { bold: true })
       for (let i = 0; i < prompts.length; i++)
-        page.box(16 + i * 44, 236, 35, 22, undefined, rule)
+        page.box(16 + i * 44, 234, 35, drawNext ? 13 : 22, undefined, rule)
+      if (drawNext) {
+        page.text('Desenhe o que pode acontecer depois.', 16, 251, 3.9, {
+          bold: true,
+        })
+        page.box(16, 259, 177, 17, undefined, rule)
+      }
     }
     if (task.mode === 'sort') {
       page.text('Desenhe ou cole um exemplo em cada espaço.', 16, 219, 3.8)

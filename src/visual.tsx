@@ -493,6 +493,12 @@ function Photos(props: EditorProps) {
             disabled={Boolean(busy)}
             onFiles={(files) => void add(files)}
           />
+          {values.collectionId && (
+            <p className="model-selected-note">
+              Modelo selecionado: <strong>{values.title}</strong>. Envie as
+              fotos para preencher o álbum.
+            </p>
+          )}
           <PackPicker
             tool="fotos-em-pdf"
             selected={values.templateId}
@@ -805,7 +811,7 @@ function Art(props: EditorProps) {
     if (!ref.current) return
     const target = ref.current
     const scale =
-      panel && step === 1
+      panel && step !== 2
         ? Math.min(1, 900 / Math.max(geometry.width, geometry.height))
         : 1
     const width = panel ? Math.round(geometry.width * scale) : dimensions[0],
@@ -1014,6 +1020,17 @@ function Art(props: EditorProps) {
               ))}
             </select>
           </label>
+          <div className="wide">
+            <p className="model-selected-note">
+              Prévia do modelo: <strong>{values.title}</strong>
+            </p>
+            <canvas
+              ref={ref}
+              className="art-preview"
+              role="img"
+              aria-label={'Prévia do modelo ' + values.title}
+            />
+          </div>
           <PackPicker
             tool={props.tool}
             selected={values.templateId}

@@ -14,7 +14,7 @@ export function Stages({
 }) {
   return (
     <ol className="editor-stages" aria-label="Etapas do material">
-      {['Escolher', 'Ajustar', 'Baixar'].map((label, index) => (
+      {['Escolher', 'Editar', 'Baixar'].map((label, index) => (
         <li key={label} aria-current={step === index ? 'step' : undefined}>
           <button
             type="button"

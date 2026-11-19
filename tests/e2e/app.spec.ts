@@ -601,7 +601,7 @@ test('ficha licenciada, navegação móvel e exportação de Word e PDF', async 
   expect(
     Object.keys(zip.files).some((name) => /^word\/media\/.+\.png$/.test(name)),
   ).toBe(true)
-  await page.getByRole('button', { name: '2. Ajustar', exact: true }).click()
+  await page.getByRole('button', { name: '2. Editar', exact: true }).click()
   await expect(
     page.getByRole('textbox', { name: 'Título', exact: true }),
   ).toHaveValue(/Ligue formas iguais/)
@@ -647,7 +647,7 @@ test('adiciona e remove uma figura do pacote em uma postagem', async ({
   ).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('button', { name: 'Conferir arte' }).click()
   const illustrated = await download(page, 'Baixar PNG')
-  await page.getByRole('button', { name: '2. Ajustar', exact: true }).click()
+  await page.getByRole('button', { name: '2. Editar', exact: true }).click()
   await page.getByText('Figuras decorativas · 1 escolhida').click()
   await page.getByRole('button', { name: 'Sem figura', exact: true }).click()
   await page.getByRole('button', { name: 'Conferir arte' }).click()

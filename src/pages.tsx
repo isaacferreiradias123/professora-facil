@@ -48,35 +48,36 @@ import { assetUrl } from './classroom-layout'
 
 const Editor = lazy(() => import('./editor'))
 const Visual = lazy(() => import('./visual'))
+const DocumentResponse = lazy(() => import('./document-response-view'))
 const Preference = createContext({ easy: true, toggle: () => {} })
 export const useEasy = () => useContext(Preference).easy
 const toolCards: Record<Tool, { image: string; output: string }> = {
   atividade: {
-    image: 'atividades.webp',
+    image: 'editorial-atividade.webp',
     output: 'Monte uma ficha da criança ou organize uma vivência.',
   },
   'plano-de-aula': {
-    image: 'organizacao.webp',
+    image: 'editorial-plano.webp',
     output: 'Planeje o objetivo, os momentos e o tempo da aula.',
   },
   relatorio: {
-    image: 'bilhete-materiais.webp',
+    image: 'editorial-relatorio.webp',
     output: 'Registre observações individuais ou da turma.',
   },
   documento: {
-    image: 'bilhete-reuniao.webp',
+    image: 'editorial-documento.webp',
     output: 'Crie um recado, ata ou declaração em Word e PDF.',
   },
   'fotos-em-pdf': {
-    image: 'bilhete-passeio.webp',
+    image: 'editorial-fotos.webp',
     output: 'Organize fotos e legendas em folhas A4.',
   },
   postagem: {
-    image: 'bilhete-evento.webp',
+    image: 'editorial-postagem.webp',
     output: 'Prepare um convite, aviso ou registro em PNG.',
   },
   painel: {
-    image: 'paineis.webp',
+    image: 'editorial-painel.webp',
     output: 'Imprima um kit recortável ou divida uma imagem em A4.',
   },
 }
@@ -378,9 +379,9 @@ function Landing() {
           </div>
         </div>
         <img
-          src={assetUrl('paineis.webp')}
-          width="768"
-          height="512"
+          src={assetUrl('editorial-vitrine.webp')}
+          width="435"
+          height="435"
           alt="Materiais ilustrados para a sala de aula"
           fetchPriority="high"
         />
@@ -1256,6 +1257,14 @@ export function App() {
           <Route index element={<Dashboard />} />
           <Route path="criar" element={<Dashboard create />} />
           <Route path="criar/:tool" element={<CreateRoute />} />
+          <Route
+            path="responder"
+            element={
+              <Suspense fallback={<p role="status">Abrindo editor…</p>}>
+                <DocumentResponse />
+              </Suspense>
+            }
+          />
           <Route path="modelos" element={<Library />} />
           <Route path="colecao" element={<ClassroomLibrary />} />
           <Route path="colecao/:id" element={<ClassroomRoute />} />
