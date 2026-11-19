@@ -13,6 +13,8 @@ test('encontra o acervo em português e baixa os PDFs A4 dos oito links existent
     await expect(page.getByRole('heading', { name: item.title })).toBeVisible()
     await expect(page.getByRole('img', { name: item.title })).toBeVisible()
     await expect(page.getByRole('link', { name: /Abby the Pup/ })).toBeVisible()
+    await expect(page.getByText(/Página original:/)).toBeVisible()
+    await expect(page.getByText(item.ready!.originalPage!, { exact: false })).toHaveCount(0)
     const pending = page.waitForEvent('download')
     await page.getByRole('link', { name: 'Baixar PDF' }).click()
     const file = await pending

@@ -179,7 +179,9 @@ function ReadyMaterial({
       <img src={assetUrl(item.ready.image)} alt={item.title} />
       <p>
         <a href={item.ready.source}>{item.ready.author}</a>
-        {item.ready.originalPage && <> · {item.ready.originalPage}</>}
+        {item.ready.originalPage && (
+          <> · {item.ready.presentation ? '11 páginas no material de origem' : item.ready.originalPage.replace(/^.*?, p\. /, 'Página original: ')}</>
+        )}
       </p>
       <div className="actions">
         {item.ready.presentation ? (
