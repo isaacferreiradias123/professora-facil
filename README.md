@@ -73,14 +73,14 @@ O Playwright serve o build de produção e gera um relatório HTML em `playwrigh
 - Para integrar serviços no futuro, preserve o catálogo e os tipos de materiais. Introduza uma implementação de serviço atrás de uma interface por capacidade, com uma ação de envio explícita, permissões reais, consentimento adequado e chaves no servidor. Mantenha os geradores locais disponíveis. A disponibilidade atual de ferramentas é definida pelas rotas locais em `src/pages.tsx` e pela lista de recursos futuros em `src/catalog.ts`.
 ## Coleção de sala de aula
 
-A [vitrine nova](https://isaacferreiradias123.github.io/professora-facil/#/app/colecao) tem 67 materiais, distribuídos entre as sete ferramentas, incluindo uma prancha pronta de origem externa. Filtros por nome de turma usam os grupos etários da BNCC como referência, conforme as práticas de cada rede.
+A [vitrine nova](https://isaacferreiradias123.github.io/professora-facil/#/app/colecao) tem pelo menos 20 materiais em cada uma das 11 seções, distribuídas entre as sete ferramentas. Os modelos antigos continuam na seção **Modelos anteriores**. Filtros por nome de turma usam os grupos etários da BNCC como referência, conforme as práticas de cada rede.
 
 - Em **Criar atividade**, escolha a turma ou monte uma ficha de contagem com frutas, animais ou materiais escolares. O PDF da pré-escola inclui só a folha da criança por padrão. O roteiro pode ser incluído separadamente no mesmo arquivo. Os planos têm objetivo, preparação, três momentos editáveis, duração total e observação.
 - Os recados podem sair em uma folha inteira ou em duas vias recortáveis. O passeio inclui canhoto. A prévia e o PDF A4 compartilham a composição de página. O Word mantém títulos, tabelas e campos editáveis e pode variar conforme a fonte e a versão do editor.
 - O painel de boas-vindas é um mosaico de quatro folhas, mais um guia com mapa. Imprima a 100%, com sobreposição de 5 mm. Os outros painéis têm cabeçalho e cartões individuais para recortar.
 - Os dados estão em `src/classroom-catalog.ts`. A geometria de prévia e PDF está em `src/classroom-layout.ts`. As ilustrações locais estão em `public/colecao/`. As artes editoriais e do mural foram produzidas para este projeto com geração de imagem durante o desenvolvimento. As figuras PNG foram desenhadas para o projeto ou recortadas dessas artes. O aplicativo funciona localmente.
 
-A folha [Fruits Lineart](https://openclipart.org/detail/244989/fruits-lineart), de **frankes**, é distribuída sob [CC0 segundo a política do Openclipart](https://openclipart.org/share). O PDF original e a imagem de prévia são redistribuídos sem mudanças no arquivo. As orientações de uso em português são do projeto. O [caderno de uma turma Pré II do eduCAPES](https://educapes.capes.gov.br/handle/capes/722502), os [Percursos Curriculares de Belo Horizonte](https://wiki.pbh.gov.br/educacao/percursos-curriculares/doku.php/5_acoes_mediacoes_e_estimulacoes_para_o_desenvolvimento_e_a_aquisicao_de_aprendizagens_das_criancas_de_0_a_3_anos) e a [proposta curricular de Marília](https://educacao.marilia.sp.gov.br/arquivos/proposta_curricular_para_a_educacao_infantil_-_marilia_15110632_17125235.pdf) orientaram conteúdos e formatos próprios.
+A folha [Fruits Lineart](https://openclipart.org/detail/244989/fruits-lineart), de **frankes**, é distribuída sob [CC0 segundo a política do Openclipart](https://openclipart.org/share). O PDF original e a imagem de prévia são redistribuídos sem mudanças no arquivo. A [prancha Watering Can](https://openclipart.org/detail/196248/watering-can), de **Viscious-Speed**, também está disponível em PDF original com prévia PNG, ambos sem adaptações, sob [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). As orientações de uso em português são do projeto. O [caderno de uma turma Pré II do eduCAPES](https://educapes.capes.gov.br/handle/capes/722502), os [Percursos Curriculares de Belo Horizonte](https://wiki.pbh.gov.br/educacao/percursos-curriculares/doku.php/5_acoes_mediacoes_e_estimulacoes_para_o_desenvolvimento_e_a_aquisicao_de_aprendizagens_das_criancas_de_0_a_3_anos) e a [proposta curricular de Marília](https://educacao.marilia.sp.gov.br/arquivos/proposta_curricular_para_a_educacao_infantil_-_marilia_15110632_17125235.pdf) orientaram conteúdos e formatos próprios.
 
 ## Ferramentas e formatos escolares
 
@@ -102,9 +102,14 @@ Em **Criar atividade**, use **Folhas para os alunos** para fichas com espaço de
 
 A coleção recebeu 21 modelos, três por ferramenta. As 24 figuras de impressão e as oito novas ilustrações editoriais foram produzidas para o projeto e são servidas localmente. Para a estrutura dos novos registros, consulte a [orientação de registros da SME de São Paulo](https://acervodigital.sme.prefeitura.sp.gov.br/acervo/orientacao-normativa-de-registros-na-educacao-infantil/).
 
-### Responder no documento
+### Editar Word e responder no PDF
 
-Em **Documentos Word e PDF**, abra **Responder no documento visualizado**. No PDF, selecione a folha, toque no espaço da pergunta e ajuste a posição se necessário. Digite a resposta, confirme a inserção e baixe uma cópia. PDFs digitalizados podem ser usados como imagem de fundo. No Word, escolha o parágrafo pela leitura simplificada. A resposta é inserida logo abaixo no DOCX editável. A prévia de texto pode diferir da paginação no Word. A edição é local e precisa ser baixada antes de encerrar a sessão. O arquivo de origem permanece no dispositivo.
+Em **Documentos Word e PDF**, escolha **Criar um documento**, **Editar um Word existente** ou **Responder no PDF**.
+
+- No Word, selecione um parágrafo ou célula, edite na página e aplique o trecho. Também é possível inserir um parágrafo ou resposta, desfazer, refazer e baixar o DOCX. Os ajustes avançados permitem alterar as margens de documentos de uma seção, redimensionar imagens em linha, editar texto simples de cabeçalhos e rodapés e alterar linhas em tabelas simples. A paginação é aproximada. Confira fontes, objetos especiais, seções e paginação final no Microsoft Word.
+- No PDF, escolha a folha, ajuste o zoom e marque o início da resposta. Ajuste a posição e a largura, insira o texto e baixe uma cópia com as páginas originais. A ferramenta aceita PDFs digitalizados como fundo e avisa antes de inserir texto que ultrapasse a área disponível.
+
+Os arquivos e as alterações dos editores ficam na sessão do navegador. Baixe uma cópia antes de fechar a aba.
 
 ## Modelos anteriores
 

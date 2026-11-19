@@ -1,3 +1,6 @@
+import { practiceModels } from './catalog-practice'
+import { communicationModels } from './catalog-communication'
+import { panelModels } from './catalog-panels'
 import type { Tool } from './catalog'
 import type { Values } from './store'
 
@@ -37,12 +40,14 @@ export type Task = {
     | 'story'
     | 'count'
     | 'names'
+    | 'answer'
     | 'table'
     | 'pattern'
   supplies: string
   steps: string[]
   adaptation: string
   prompts?: string[]
+  illustrations?: string[]
   guide?: string
 }
 export type ClassroomItem = {
@@ -56,6 +61,8 @@ export type ClassroomItem = {
   fields?: Field[]
   body?: string
   poster?: string[]
+  mosaicLabels?: string[]
+  scope?: 'individual' | 'collective'
   form?: 'ata' | 'declaracao' | 'entrega'
   style?: 'meadow' | 'night' | 'peach'
   ready?: { file: string; image: string; author: string; source: string }
@@ -1113,6 +1120,22 @@ classroom.push(
     ],
   },
 )
+classroom.push(...practiceModels, ...communicationModels, ...panelModels, {
+  id: 'prancha-regador-cc0',
+  title: 'Prancha do regador',
+  tool: 'atividade',
+  category: 'Atividades',
+  age: 'Pré I',
+  description:
+    'Prancha original do Openclipart para observar o regador e conversar sobre o cuidado com as plantas.',
+  ready: {
+    file: 'openclipart-regador.pdf',
+    image: 'openclipart-regador.png',
+    author: 'Viscious-Speed · CC0 1.0',
+    source: 'https://openclipart.org/detail/196248/watering-can',
+  },
+})
+
 const fruitWorksheet = classroom.find((item) => item.id === 'tabela-de-frutas')!
 const customWorksheet: ClassroomItem = {
   ...fruitWorksheet,

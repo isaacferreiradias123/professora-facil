@@ -1,7 +1,7 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { documentLimit, validateZip } from './import-document'
 
-export type Position = { page: number; x: number; y: number }
+export type Position = { page: number; x: number; y: number; width?: number }
 export type Answer = Position & { text: string }
 const wordNs = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 
@@ -120,7 +120,10 @@ export async function respondedPdf(
     const viewport = original.getViewport({ scale: 1 })
     const left = viewport.width * answer.x
     const top = viewport.height * answer.y
-    const max = viewport.width - left - 12
+    const max = Math.min(
+      viewport.width - left - 12,
+      viewport.width * (answer.width ?? 1),
+    )
     const size = 11
     if (max < 45)
       throw Error('Escolha um ponto mais à esquerda para a resposta.')
@@ -135,19 +138,45 @@ export async function respondedPdf(
       )
     for (const [index, line] of lines.entries()) {
       const [x, y] = viewport.convertToPdfPoint(left, top + size + index * 14)
-      document
-        .getPage(answer.page - 1)
-        .drawText(line, {
-          x,
-          y,
-          font: regular,
-          size,
-          rotate: degrees(viewport.rotation),
-          color: rgb(0.08, 0.21, 0.16),
-        })
+      document.getPage(answer.page - 1).drawText(line, {
+        x,
+        y,
+        font: regular,
+        size,
+        rotate: degrees(viewport.rotation),
+        color: rgb(0.08, 0.21, 0.16),
+      })
     }
   }
   return new Blob([new Uint8Array(await document.save())], {
     type: 'application/pdf',
   })
+}
+let answerMetrics:
+  Promise<(text: string, width: number) => string[]> | undefined
+export async function checkPdfAnswer(source: PDFDocumentProxy, answer: Answer) {
+  answerMetrics ??= Promise.all([import('pdf-lib'), import('./pdf')])
+    .then(async ([{ PDFDocument }, { fonts, printable, wrapText }]) => {
+      const { regular } = await fonts(await PDFDocument.create())
+      return (text: string, width: number) =>
+        wrapText(printable(text.trim(), regular), width, (line) =>
+          regular.widthOfTextAtSize(line, 11),
+        )
+    })
+    .catch((error) => {
+      answerMetrics = undefined
+      throw error
+    })
+  const viewport = (await source.getPage(answer.page)).getViewport({ scale: 1 })
+  const width = Math.min(
+    viewport.width * (1 - answer.x) - 12,
+    viewport.width * (answer.width ?? 1),
+  )
+  if (width < 45)
+    throw Error('Mova a resposta para a esquerda ou aumente a largura.')
+  const lines = (await answerMetrics)(answer.text, width)
+  if (viewport.height * answer.y + lines.length * 14 + 10 > viewport.height)
+    throw Error(
+      'A resposta não cabe nesse espaço. Mova para cima, aumente a largura ou encurte o texto.',
+    )
 }

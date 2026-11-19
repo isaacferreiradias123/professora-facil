@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useBlocker } from 'react-router-dom'
+import { Link, useBlocker, useSearchParams } from 'react-router-dom'
 import { FileDrop } from './editor-ui'
 import { download, filename } from './workflow'
 import {
   openResponse,
+  checkPdfAnswer,
   respondedPdf,
   respondedWord,
   type Answer,
@@ -16,6 +17,7 @@ function PdfAnswerSheet({
   source,
   page,
   point,
+  zoom,
   answers,
   select,
   onError,
@@ -23,6 +25,7 @@ function PdfAnswerSheet({
   source: PdfSource
   page: number
   point: Position | null
+  zoom: number
   answers: Answer[]
   select: (point: Position) => void
   onError: (message: string) => void
@@ -59,58 +62,88 @@ function PdfAnswerSheet({
   const positions = answers.filter((answer) => answer.page === page)
   return (
     <div
-      className="answer-pdf-sheet"
-      style={{ aspectRatio: layout.width + '/' + layout.height }}
+      className="answer-pdf-scroll"
+      tabIndex={zoom > 100 ? 0 : undefined}
+      aria-label={zoom > 100 ? 'Página ampliada' : ''}
     >
-      <canvas ref={canvas} aria-label={'Imagem da folha ' + page} role="img" />
-      <button
-        className="answer-pick-page"
-        type="button"
-        aria-label={'Escolher posição na folha ' + page}
-        onClick={(event) => {
-          const bounds = event.currentTarget.getBoundingClientRect()
-          select({
-            page,
-            x: event.detail
-              ? (event.clientX - bounds.left) / bounds.width
-              : 0.12,
-            y: event.detail
-              ? (event.clientY - bounds.top) / bounds.height
-              : 0.25,
-          })
+      <div
+        className="answer-pdf-sheet"
+        style={{
+          aspectRatio: layout.width + '/' + layout.height,
+          width: zoom + '%',
+          maxWidth: zoom === 100 ? undefined : 'none',
         }}
-      />
-      {positions.map((answer, index) => (
-        <button
-          className="answer-pdf-text"
-          key={index}
-          type="button"
-          style={{
-            left: answer.x * 100 + '%',
-            top: answer.y * 100 + '%',
-            fontSize: 1100 / layout.width + 'cqw',
-          }}
-          aria-label={'Selecionar resposta: ' + answer.text}
-          onClick={() => select(answer)}
-        >
-          {answer.text}
-        </button>
-      ))}
-      {point?.page === page && (
-        <span
-          className="answer-marker"
-          aria-hidden="true"
-          style={{ left: point.x * 100 + '%', top: point.y * 100 + '%' }}
+      >
+        <canvas
+          ref={canvas}
+          aria-label={'Imagem da folha ' + page}
+          role="img"
         />
-      )}
+        <button
+          className="answer-pick-page"
+          type="button"
+          aria-label={'Escolher posição na folha ' + page}
+          onClick={(event) => {
+            const bounds = event.currentTarget.getBoundingClientRect()
+            select({
+              page,
+              x: event.detail
+                ? (event.clientX - bounds.left) / bounds.width
+                : 0.12,
+              y: event.detail
+                ? (event.clientY - bounds.top) / bounds.height
+                : 0.25,
+            })
+          }}
+        />
+        {positions.map((answer, index) => (
+          <button
+            className="answer-pdf-text"
+            key={index}
+            type="button"
+            style={{
+              left: answer.x * 100 + '%',
+              top: answer.y * 100 + '%',
+              width:
+                Math.min(
+                  (answer.width ?? 1) * 100,
+                  100 - answer.x * 100 - 1200 / layout.width,
+                ) + '%',
+              fontSize: 1100 / layout.width + 'cqw',
+            }}
+            aria-label={'Selecionar resposta: ' + answer.text}
+            onClick={() => select(answer)}
+          >
+            {answer.text}
+          </button>
+        ))}
+        {point?.page === page && (
+          <span
+            className="answer-marker"
+            aria-hidden="true"
+            style={{
+              left: point.x * 100 + '%',
+              top: point.y * 100 + '%',
+              width:
+                Math.min(
+                  (point.width ?? 1) * 100,
+                  100 - point.x * 100 - 1200 / layout.width,
+                ) + '%',
+            }}
+          />
+        )}
+      </div>
     </div>
   )
 }
 
 export default function DocumentResponse() {
+  const [params] = useSearchParams()
+  const pdfOnly = params.get('tipo') === 'pdf'
   const [source, setSource] = useState<ResponseDocument | null>(null)
   const [fileName, setFileName] = useState('')
   const [page, setPage] = useState(1)
+  const [zoom, setZoom] = useState(100)
   const [point, setPoint] = useState<Position | null>(null)
   const [anchor, setAnchor] = useState<Position | null>(null)
   const [dirty, setDirty] = useState(false)
@@ -165,6 +198,10 @@ export default function DocumentResponse() {
   }
   async function read(file?: File) {
     if (!file || busy) return
+    if (pdfOnly && !/\.pdf$/i.test(file.name)) {
+      setError('Escolha um arquivo PDF para responder na página.')
+      return
+    }
     if (
       dirty &&
       !window.confirm(
@@ -199,12 +236,25 @@ export default function DocumentResponse() {
       setBusy(false)
     }
   }
-  function apply() {
+  async function apply() {
     setError('')
     if (!text.trim()) return
     if (source?.kind === 'word' && paragraph !== null)
       setWordAnswers({ ...wordAnswers, [paragraph]: text.trim() })
-    else if (point) {
+    else if (point && source?.kind === 'pdf') {
+      setBusy(true)
+      try {
+        await checkPdfAnswer(source.document, { ...point, text })
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível medir a resposta.',
+        )
+        return
+      } finally {
+        setBusy(false)
+      }
       setPdfAnswers([
         ...pdfAnswers.filter((answer) => !samePoint(answer, anchor ?? point)),
         { ...point, text: text.trim() },
@@ -240,7 +290,11 @@ export default function DocumentResponse() {
   const pending =
     (source?.kind === 'pdf' ? Boolean(point) : paragraph !== null) &&
     (text.trim() !== (current ?? '') ||
-      Boolean(anchor && point && !samePoint(anchor, point))) &&
+      Boolean(
+        anchor &&
+        point &&
+        (!samePoint(anchor, point) || anchor.width !== point.width),
+      )) &&
     Boolean(text.trim())
   async function save() {
     if (!source || !saved || pending || busy) return
@@ -270,12 +324,19 @@ export default function DocumentResponse() {
   return (
     <div className="response-editor">
       <Link to="/app/colecao?ferramenta=documento">Voltar aos documentos</Link>
-      <h1>Responder no documento</h1>
-      <p>Abra um PDF ou Word para inserir respostas em uma cópia.</p>
+      <h1>{pdfOnly ? 'Responder no PDF' : 'Responder no documento'}</h1>
+      <p>
+        {pdfOnly
+          ? 'Abra um PDF e marque o ponto da página onde cada resposta começa.'
+          : 'Abra um PDF ou Word para inserir respostas em uma cópia.'}
+      </p>
       <FileDrop
         label="Selecionar arquivo para responder"
-        instructions="PDF ou DOCX desbloqueado, até 12 MB. O arquivo fica no navegador."
-        accept=".pdf,.docx"
+        instructions={
+          (pdfOnly ? 'PDF' : 'PDF ou DOCX') +
+          ' desbloqueado, até 12 MB. O arquivo fica no navegador.'
+        }
+        accept={pdfOnly ? '.pdf' : '.pdf,.docx'}
         disabled={busy}
         onFiles={([file]) => void read(file)}
       />
@@ -323,7 +384,19 @@ export default function DocumentResponse() {
                     )}
                   </select>
                 </label>
+                <label>
+                  Zoom da página
+                  <select
+                    value={zoom}
+                    onChange={(event) => setZoom(Number(event.target.value))}
+                  >
+                    <option value="100">Ajustar à tela</option>
+                    <option value="150">150%</option>
+                    <option value="200">200%</option>
+                  </select>
+                </label>
                 <PdfAnswerSheet
+                  zoom={zoom}
                   source={source}
                   page={page}
                   point={point}
@@ -403,6 +476,26 @@ export default function DocumentResponse() {
                 ))}
               </div>
             )}
+            {source.kind === 'pdf' && point && (
+              <label>
+                Largura da resposta (% da folha)
+                <input
+                  type="number"
+                  min="10"
+                  max="100"
+                  value={Math.round((point.width ?? 1) * 100)}
+                  onChange={(event) =>
+                    setPoint({
+                      ...point,
+                      width: Math.max(
+                        0.1,
+                        Math.min(1, Number(event.target.value) / 100),
+                      ),
+                    })
+                  }
+                />
+              </label>
+            )}
             <label>
               Texto da resposta
               <textarea
@@ -418,7 +511,11 @@ export default function DocumentResponse() {
               />
             </label>
             <div className="actions">
-              <button type="button" disabled={!pending} onClick={apply}>
+              <button
+                type="button"
+                disabled={!pending || busy}
+                onClick={() => void apply()}
+              >
                 Inserir resposta
               </button>
               {current && (
