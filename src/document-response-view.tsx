@@ -1,22 +1,32 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useBlocker, useSearchParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { FileDrop } from './editor-ui'
 import { download, filename } from './workflow'
 import {
-  openResponse,
   checkPdfAnswer,
+  openResponse,
   respondedPdf,
   respondedWord,
   type Answer,
+  type AnswerColor,
   type Position,
   type ResponseDocument,
 } from './document-response'
 
+const colorCss: Record<AnswerColor, string> = {
+  ink: '#1B2A24',
+  blue: '#19408F',
+  green: '#1E5643',
+}
+
 type PdfSource = Extract<ResponseDocument, { kind: 'pdf' }>
+
 function PdfAnswerSheet({
   source,
   page,
   point,
+  draftText,
   zoom,
   answers,
   select,
@@ -25,6 +35,7 @@ function PdfAnswerSheet({
   source: PdfSource
   page: number
   point: Position | null
+  draftText: string
   zoom: number
   answers: Answer[]
   select: (point: Position) => void
@@ -59,6 +70,7 @@ function PdfAnswerSheet({
       cancel?.()
     }
   }, [source, page, onError])
+
   const positions = answers.filter((answer) => answer.page === page)
   return (
     <div
@@ -109,7 +121,8 @@ function PdfAnswerSheet({
                   (answer.width ?? 1) * 100,
                   100 - answer.x * 100 - 1200 / layout.width,
                 ) + '%',
-              fontSize: 1100 / layout.width + 'cqw',
+              fontSize: ((answer.size ?? 11) * 100) / layout.width + 'cqw',
+              color: colorCss[answer.color ?? 'ink'],
             }}
             aria-label={'Selecionar resposta: ' + answer.text}
             onClick={() => select(answer)}
@@ -118,19 +131,40 @@ function PdfAnswerSheet({
           </button>
         ))}
         {point?.page === page && (
-          <span
-            className="answer-marker"
-            aria-hidden="true"
-            style={{
-              left: point.x * 100 + '%',
-              top: point.y * 100 + '%',
-              width:
-                Math.min(
-                  (point.width ?? 1) * 100,
-                  100 - point.x * 100 - 1200 / layout.width,
-                ) + '%',
-            }}
-          />
+          <>
+            <span
+              className="answer-marker"
+              aria-hidden="true"
+              style={{
+                left: point.x * 100 + '%',
+                top: point.y * 100 + '%',
+                width:
+                  Math.min(
+                    (point.width ?? 1) * 100,
+                    100 - point.x * 100 - 1200 / layout.width,
+                  ) + '%',
+              }}
+            />
+            {draftText.trim() && (
+              <span
+                className="answer-pdf-text answer-pdf-draft"
+                aria-hidden="true"
+                style={{
+                  left: point.x * 100 + '%',
+                  top: point.y * 100 + '%',
+                  width:
+                    Math.min(
+                      (point.width ?? 1) * 100,
+                      100 - point.x * 100 - 1200 / layout.width,
+                    ) + '%',
+                  fontSize: ((point.size ?? 11) * 100) / layout.width + 'cqw',
+                  color: colorCss[point.color ?? 'ink'],
+                }}
+              >
+                {draftText}
+              </span>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -154,6 +188,7 @@ export default function DocumentResponse() {
       blocker.proceed()
     else blocker.reset()
   }, [blocker])
+
   const [paragraph, setParagraph] = useState<number | null>(null)
   const [text, setText] = useState('')
   const [pdfAnswers, setPdfAnswers] = useState<Answer[]>([])
@@ -162,6 +197,7 @@ export default function DocumentResponse() {
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
   const response = useRef<HTMLTextAreaElement>(null)
+
   useEffect(
     () => () => {
       if (source?.kind === 'pdf') void source.document.destroy()
@@ -177,6 +213,7 @@ export default function DocumentResponse() {
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
+
   function selectPoint(next: Position) {
     if (
       pending &&
@@ -185,17 +222,19 @@ export default function DocumentResponse() {
       )
     )
       return
-    setAnchor(
-      pdfAnswers.some((answer) => samePoint(answer, next)) ? next : null,
-    )
+    const existing = pdfAnswers.find((answer) => samePoint(answer, next))
+    setAnchor(existing ? next : null)
     setPoint({
       ...next,
       x: Math.max(0.02, Math.min(0.87, next.x)),
       y: Math.max(0.02, Math.min(0.93, next.y)),
+      size: existing?.size ?? point?.size ?? 11,
+      color: existing?.color ?? point?.color ?? 'ink',
     })
-    setText(pdfAnswers.find((answer) => samePoint(answer, next))?.text ?? '')
+    setText(existing?.text ?? '')
     setStatus('Posição selecionada na folha ' + next.page + '.')
   }
+
   async function read(file?: File) {
     if (!file || busy) return
     if (pdfOnly && !/\.pdf$/i.test(file.name)) {
@@ -236,6 +275,7 @@ export default function DocumentResponse() {
       setBusy(false)
     }
   }
+
   async function apply() {
     setError('')
     if (!text.trim()) return
@@ -264,6 +304,7 @@ export default function DocumentResponse() {
     setDirty(true)
     setStatus('Resposta inserida na prévia.')
   }
+
   function remove() {
     if (source?.kind === 'word' && paragraph !== null) {
       const next = { ...wordAnswers }
@@ -278,12 +319,17 @@ export default function DocumentResponse() {
     setDirty(true)
     setStatus('Resposta removida.')
   }
+
   const saved =
     source?.kind === 'pdf' ? pdfAnswers.length : Object.keys(wordAnswers).length
-  const current =
+  const currentAnswer =
     source?.kind === 'pdf'
       ? point &&
-        pdfAnswers.find((answer) => samePoint(answer, anchor ?? point))?.text
+        pdfAnswers.find((answer) => samePoint(answer, anchor ?? point))
+      : undefined
+  const current =
+    source?.kind === 'pdf'
+      ? currentAnswer?.text
       : paragraph === null
         ? ''
         : wordAnswers[paragraph]
@@ -293,9 +339,13 @@ export default function DocumentResponse() {
       Boolean(
         anchor &&
         point &&
-        (!samePoint(anchor, point) || anchor.width !== point.width),
+        (!samePoint(anchor, point) ||
+          anchor.width !== point.width ||
+          anchor.size !== point.size ||
+          anchor.color !== point.color),
       )) &&
     Boolean(text.trim())
+
   async function save() {
     if (!source || !saved || pending || busy) return
     setError('')
@@ -321,9 +371,12 @@ export default function DocumentResponse() {
       setBusy(false)
     }
   }
+
   return (
     <div className="response-editor">
-      <Link to="/app/colecao?ferramenta=documento">Voltar aos documentos</Link>
+      <Link className="school-back" to="/app/colecao?ferramenta=documento">
+        <ArrowLeft size={18} aria-hidden="true" /> Voltar aos documentos
+      </Link>
       <h1>{pdfOnly ? 'Responder no PDF' : 'Responder no documento'}</h1>
       <p>
         {pdfOnly
@@ -342,7 +395,7 @@ export default function DocumentResponse() {
       />
       <p role="status">{status}</p>
       {error && (
-        <p role="alert" className="notice">
+        <p role="alert" className="school-warning">
           {error}
         </p>
       )}
@@ -353,53 +406,55 @@ export default function DocumentResponse() {
             {source.kind === 'pdf' ? (
               <>
                 <p>
-                  Toque no espaço da pergunta para marcar onde a resposta
-                  começa.
+                  Toque no espaço da pergunta para marcar onde a resposta começa.
                 </p>
-                <label>
-                  Folha do PDF{' '}
-                  <select
-                    value={page}
-                    onChange={(event) => {
-                      if (
-                        pending &&
-                        !window.confirm(
-                          'Trocar de folha e descartar o texto ainda não inserido?',
+                <div className="school-form-grid">
+                  <label>
+                    Folha do PDF
+                    <select
+                      value={page}
+                      onChange={(event) => {
+                        if (
+                          pending &&
+                          !window.confirm(
+                            'Trocar de folha e descartar o texto ainda não inserido?',
+                          )
                         )
-                      )
-                        return
-                      setPage(Number(event.target.value))
-                      setPoint(null)
-                      setAnchor(null)
-                      setText('')
-                    }}
-                  >
-                    {Array.from(
-                      { length: source.document.numPages },
-                      (_, index) => (
-                        <option key={index} value={index + 1}>
-                          {index + 1}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </label>
-                <label>
-                  Zoom da página
-                  <select
-                    value={zoom}
-                    onChange={(event) => setZoom(Number(event.target.value))}
-                  >
-                    <option value="100">Ajustar à tela</option>
-                    <option value="150">150%</option>
-                    <option value="200">200%</option>
-                  </select>
-                </label>
+                          return
+                        setPage(Number(event.target.value))
+                        setPoint(null)
+                        setAnchor(null)
+                        setText('')
+                      }}
+                    >
+                      {Array.from(
+                        { length: source.document.numPages },
+                        (_, index) => (
+                          <option key={index} value={index + 1}>
+                            {index + 1}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                  <label>
+                    Zoom da página
+                    <select
+                      value={zoom}
+                      onChange={(event) => setZoom(Number(event.target.value))}
+                    >
+                      <option value="100">Ajustar à tela</option>
+                      <option value="150">150%</option>
+                      <option value="200">200%</option>
+                    </select>
+                  </label>
+                </div>
                 <PdfAnswerSheet
                   zoom={zoom}
                   source={source}
                   page={page}
                   point={point}
+                  draftText={pending ? text : ''}
                   answers={pdfAnswers}
                   select={selectPoint}
                   onError={setError}
@@ -409,7 +464,6 @@ export default function DocumentResponse() {
               <>
                 <p>
                   Escolha o parágrafo da pergunta. A resposta entra logo abaixo.
-                  Esta leitura simplificada mostra a ordem dos textos.
                 </p>
                 <div className="answer-word-page">
                   {source.paragraphs.map((item, index) => (
@@ -448,53 +502,87 @@ export default function DocumentResponse() {
           >
             <h2>Sua resposta</h2>
             {source.kind === 'pdf' && point && (
-              <div className="response-position">
-                {(['x', 'y'] as const).map((axis) => (
-                  <label key={axis}>
-                    {axis === 'x'
-                      ? 'Posição horizontal (%)'
-                      : 'Posição vertical (%)'}
-                    <input
-                      type="number"
-                      min="2"
-                      max={axis === 'x' ? 87 : 93}
-                      value={Math.round(point[axis] * 100)}
+              <>
+                <div className="response-position">
+                  {(['x', 'y'] as const).map((axis) => (
+                    <label key={axis}>
+                      {axis === 'x'
+                        ? 'Posição horizontal (%)'
+                        : 'Posição vertical (%)'}
+                      <input
+                        type="number"
+                        min="2"
+                        max={axis === 'x' ? 87 : 93}
+                        value={Math.round(point[axis] * 100)}
+                        onChange={(event) =>
+                          setPoint({
+                            ...point,
+                            [axis]: Math.max(
+                              0.02,
+                              Math.min(
+                                axis === 'x' ? 0.87 : 0.93,
+                                Number(event.target.value) / 100,
+                              ),
+                            ),
+                          })
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+                <div className="response-position">
+                  <label>
+                    Tamanho da letra
+                    <select
+                      value={point.size ?? 11}
                       onChange={(event) =>
                         setPoint({
                           ...point,
-                          [axis]: Math.max(
-                            0.02,
-                            Math.min(
-                              axis === 'x' ? 0.87 : 0.93,
-                              Number(event.target.value) / 100,
-                            ),
-                          ),
+                          size: Number(event.target.value),
                         })
                       }
-                    />
+                    >
+                      <option value="10">10 pt (compacta)</option>
+                      <option value="11">11 pt (padrão)</option>
+                      <option value="13">13 pt (grande)</option>
+                    </select>
                   </label>
-                ))}
-              </div>
-            )}
-            {source.kind === 'pdf' && point && (
-              <label>
-                Largura da resposta (% da folha)
-                <input
-                  type="number"
-                  min="10"
-                  max="100"
-                  value={Math.round((point.width ?? 1) * 100)}
-                  onChange={(event) =>
-                    setPoint({
-                      ...point,
-                      width: Math.max(
-                        0.1,
-                        Math.min(1, Number(event.target.value) / 100),
-                      ),
-                    })
-                  }
-                />
-              </label>
+                  <label>
+                    Cor da escrita
+                    <select
+                      value={point.color ?? 'ink'}
+                      onChange={(event) =>
+                        setPoint({
+                          ...point,
+                          color: event.target.value as AnswerColor,
+                        })
+                      }
+                    >
+                      <option value="ink">Tinta escura</option>
+                      <option value="blue">Azul caneta</option>
+                      <option value="green">Verde escola</option>
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  Largura da resposta (% da folha)
+                  <input
+                    type="number"
+                    min="10"
+                    max="100"
+                    value={Math.round((point.width ?? 1) * 100)}
+                    onChange={(event) =>
+                      setPoint({
+                        ...point,
+                        width: Math.max(
+                          0.1,
+                          Math.min(1, Number(event.target.value) / 100),
+                        ),
+                      })
+                    }
+                  />
+                </label>
+              </>
             )}
             <label>
               Texto da resposta

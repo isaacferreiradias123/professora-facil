@@ -1,11 +1,12 @@
 export type PanelSpec = {
-  layout: 'gallery' | 'timeline' | 'banner' | 'chart'
+  layout: 'gallery' | 'timeline' | 'banner' | 'chart' | 'birthday'
   landscape: boolean
   strip?: boolean
   art: string
 }
 
 export function panelLabelLimit(spec: PanelSpec) {
+  if (spec.layout === 'birthday') return 12
   return spec.layout === 'banner' ? 3 : spec.layout === 'timeline' ? 4 : 6
 }
 

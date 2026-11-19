@@ -8,9 +8,8 @@ import {
 import { Search } from 'lucide-react'
 import {
   ageBands,
-  categories,
-  categoryArt,
   classroom,
+  fallbackClassroomId,
   findClassroomItem,
   type ClassroomItem,
 } from './classroom-catalog'
@@ -18,14 +17,14 @@ import {
   assetUrl,
   buildSheets,
   initialValues,
+  kitSheetCount,
   mosaicGeometry,
   panelArtwork,
-  kitSheetCount,
   paper,
   type Mark,
 } from './classroom-layout'
 import { figureUrl } from './art-figures'
-import { drawArt, formats, openImage, photoLayout, photoCount } from './media'
+import { drawArt, formats, openImage, photoCount, photoLayout } from './media'
 import { tools, type Tool } from './catalog'
 import type { Draft, Values } from './store'
 import { collectionSections, sectionFor } from './catalog-sections'
@@ -35,7 +34,9 @@ export function draftLink(item: Draft) {
   const id = item.values.collectionId
   if (id && findClassroomItem(id)?.tool === item.tool)
     return '/app/colecao/' + id + '?rascunho=' + item.id
-  return '/app/criar/' + item.tool + '?rascunho=' + item.id
+  if (['postagem', 'painel', 'fotos-em-pdf'].includes(item.tool))
+    return '/app/criar/' + item.tool + '?rascunho=' + item.id
+  return '/app/colecao/' + fallbackClassroomId(item.tool) + '?rascunho=' + item.id
 }
 
 export function Paper({
@@ -47,19 +48,23 @@ export function Paper({
   width?: number
   height?: number
 }) {
-  function place(mark: Mark): CSSProperties {
+  function place(mark: Exclude<Mark, { kind: 'path' }>): CSSProperties {
     return {
       left: (100 * mark.x) / width + '%',
       top: (100 * mark.y) / height + '%',
       width: (100 * mark.width) / width + '%',
     }
   }
+  const paths = marks.filter(
+    (mark): mark is Extract<Mark, { kind: 'path' }> => mark.kind === 'path',
+  )
   return (
     <div
       className="print-paper"
       style={{ aspectRatio: width + ' / ' + height }}
     >
       {marks.map((mark, index) => {
+        if (mark.kind === 'path') return null
         const style = place(mark)
         if (mark.kind === 'text') {
           const text = mark.text.trim()
@@ -78,6 +83,7 @@ export function Paper({
                 color: mark.color,
                 fontSize: (100 * size) / width + 'cqw',
                 fontWeight: mark.bold ? 700 : 400,
+                textAlign: mark.align,
               }}
             >
               {text}
@@ -117,6 +123,7 @@ export function Paper({
               ...style,
               height: (100 * mark.height) / height + '%',
               background: mark.fill,
+              borderRadius: mark.radius ? mark.radius + 'px' : undefined,
               border: mark.stroke
                 ? '1px ' +
                   (mark.dashed ? 'dashed' : 'solid') +
@@ -127,6 +134,26 @@ export function Paper({
           />
         )
       })}
+      {paths.length > 0 && (
+        <svg
+          className="paper-svg"
+          viewBox={`0 0 ${width} ${height}`}
+          aria-hidden="true"
+        >
+          {paths.map((mark, index) => (
+            <polyline
+              key={index}
+              fill="none"
+              stroke={mark.color}
+              strokeWidth={mark.strokeWidth}
+              strokeDasharray={mark.dashed ? '2.4 2' : undefined}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              points={mark.points.map((p) => `${p.x},${p.y}`).join(' ')}
+            />
+          ))}
+        </svg>
+      )}
     </div>
   )
 }
@@ -136,37 +163,49 @@ export function ClassroomTabs({
   choose,
 }: {
   selected?: string
-  choose?: (category: string) => void
+  choose?: (tool: string) => void
 }) {
+  const entries = Object.entries(tools) as [Tool, (typeof tools)[Tool]][]
   return (
-    <div className="school-tabs" aria-label="Categorias da coleção">
-      {categories.map((category) => {
+    <div className="school-tabs" aria-label="Ferramentas da coleção">
+      {choose && (
+        <button
+          type="button"
+          className="school-tab"
+          aria-pressed={!selected}
+          onClick={() => choose('')}
+        >
+          <span>Todas ({classroom.length})</span>
+        </button>
+      )}
+      {entries.map(([key, info]) => {
         const content = (
           <>
             <img
-              src={assetUrl(categoryArt[category])}
+              src={assetUrl(info.image)}
               alt=""
-              width="62"
-              height="56"
+              width="42"
+              height="42"
+              loading="lazy"
             />
-            <span>{category}</span>
+            <span>{info.shortName}</span>
           </>
         )
         return choose ? (
           <button
             type="button"
             className="school-tab"
-            aria-pressed={selected === category}
-            key={category}
-            onClick={() => choose(selected === category ? '' : category)}
+            aria-pressed={selected === key}
+            key={key}
+            onClick={() => choose(selected === key ? '' : key)}
           >
             {content}
           </button>
         ) : (
           <Link
             className="school-tab"
-            key={category}
-            to={'/app/colecao?categoria=' + encodeURIComponent(category)}
+            key={key}
+            to={'/app/colecao?ferramenta=' + key}
           >
             {content}
           </Link>
@@ -176,8 +215,10 @@ export function ClassroomTabs({
   )
 }
 
-const picked = ['tabela-de-frutas', 'reuniao', 'boas-vindas']
-const featured = picked.map((id) => classroom.find((item) => item.id === id)!)
+const picked = ['tabela-de-frutas', 'reuniao', 'arte-mostra', 'boas-vindas']
+const featured = picked
+  .map((id) => classroom.find((item) => item.id === id)!)
+  .filter(Boolean)
 
 export function PreviewThumb({ item }: { item: ClassroomItem }) {
   if (item.ready)
@@ -206,12 +247,19 @@ export function PreviewThumb({ item }: { item: ClassroomItem }) {
     )
   }
   const sheets = buildSheets(item, values)
-  return <Paper marks={sheets[0].marks} />
+  return (
+    <Paper
+      marks={sheets[0].marks}
+      width={sheets[0].size?.width}
+      height={sheets[0].size?.height}
+    />
+  )
 }
 
 function ArtworkThumb({ title, options }: { title: string; options: Values }) {
   const canvas = useRef<HTMLCanvasElement>(null)
-  const dimensions = formats[options.format as keyof typeof formats]
+  const dimensions =
+    formats[options.format as keyof typeof formats] ?? formats['Quadrado 1:1']
   const width = 352
   const height = Math.round((width * dimensions[1]) / dimensions[0])
   useEffect(() => {
@@ -223,13 +271,12 @@ function ArtworkThumb({ title, options }: { title: string; options: Values }) {
       drawArt(
         target,
         {
-          title,
+          title: options.title || title,
           body: options.body,
           date: '',
           background: options.background,
           foreground: options.foreground,
           font: options.font,
-          model: Number(options.model),
           composition: options.composition,
           callout: options.callout,
         },
@@ -262,6 +309,7 @@ function ArtworkThumb({ title, options }: { title: string; options: Values }) {
 
 function AlbumThumb({ options }: { options: Values }) {
   const perPage = photoCount(options.perPage)
+  const polaroid = options.polaroid === 'yes'
   const layout = photoLayout({
     orientation:
       options.orientation === 'horizontal' ? 'horizontal' : 'vertical',
@@ -271,6 +319,7 @@ function AlbumThumb({ options }: { options: Values }) {
     quality: 'standard',
     header: options.printedHeader === 'yes' ? options.title : undefined,
     numbering: options.printedNumbering === 'yes',
+    polaroid,
   })
   return (
     <div
@@ -288,6 +337,7 @@ function AlbumThumb({ options }: { options: Values }) {
       {Array.from({ length: perPage }, (_, index) => (
         <div
           key={index}
+          className={polaroid ? 'polaroid-cell' : undefined}
           style={{
             left: (100 * layout.x(index)) / layout.pageWidth + '%',
             top: (100 * layout.y(index)) / layout.pageHeight + '%',
@@ -339,6 +389,7 @@ function ClassroomCard({
     observer.observe(frame)
     return () => observer.disconnect()
   }, [showThumb])
+
   const count = item.ready
     ? 1
     : item.visual
@@ -352,11 +403,16 @@ function ClassroomCard({
             ? 2
             : 1
           : undefined
+
+  const targetUrl = item.visual
+    ? '/app/criar/' + item.tool + '?colecao=' + item.id
+    : '/app/colecao/' + item.id
+
   return (
     <article className="school-card">
       <Link
         id={'modelo-' + item.id}
-        to={'/app/colecao/' + item.id}
+        to={targetUrl}
         className="school-card-link catalog-restore"
         state={catalogUrl ? { catalogUrl } : undefined}
         onClick={(event) => {
@@ -376,7 +432,9 @@ function ClassroomCard({
         <div
           className={
             'school-thumb' +
-            (item.tool === 'painel' ? ' school-thumb-panel' : '')
+            (item.tool === 'painel' || item.planLayout === 'weekly'
+              ? ' school-thumb-panel'
+              : '')
           }
           aria-hidden="true"
           ref={previewFrame}
@@ -385,7 +443,7 @@ function ClassroomCard({
         </div>
         <div className="school-card-body">
           <p className="school-card-meta">
-            {item.age ?? item.category}
+            {item.age ?? tools[item.tool].shortName}
             {item.task
               ? activityUse(item) === 'guided'
                 ? ' · Vivência guiada'
@@ -400,7 +458,7 @@ function ClassroomCard({
           <h3>{item.title}</h3>
           <p>{item.description}</p>
           <span className="school-card-action">
-            {item.ready ? 'Pronto para imprimir' : 'Personalizar'}{' '}
+            {item.ready ? 'Pronto para imprimir' : 'Abrir e personalizar'}
           </span>
         </div>
       </Link>
@@ -410,7 +468,7 @@ function ClassroomCard({
 
 export function CollectionShowcase() {
   return (
-    <div className="school-showcase">
+    <div className="school-showcase school-showcase-home">
       {featured.map((item) => (
         <ClassroomCard key={item.id} item={item} />
       ))}
@@ -429,47 +487,61 @@ const normalized = (value: string) =>
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
+
 export function ClassroomLibrary() {
   const [params, setParams] = useSearchParams()
-  const category = params.get('categoria') ?? ''
   const requestedTool = params.get('ferramenta')
   const tool =
     requestedTool && Object.hasOwn(tools, requestedTool)
       ? (requestedTool as Tool)
       : null
-  const creating = Boolean(tool)
-  const activityLibrary = tool === 'atividade' || category === 'Atividades'
+  const activityLibrary = tool === 'atividade'
   const purpose = params.get('uso') ?? ''
   const selectedSection = params.get('secao') ?? ''
   const choices = collectionSections.filter((section) => section.tool === tool)
   const location = useLocation()
   const navigation = useNavigationType()
   const pendingFilters = useRef(params)
+
   useEffect(() => {
     if (navigation === 'POP' || !location.state?.catalogFilter)
       pendingFilters.current = params
   }, [location.state, navigation, params])
+
   function setFilters(next: URLSearchParams, replace = false) {
     pendingFilters.current = next
     setParams(next, { replace, state: { catalogFilter: true } })
   }
+
   const catalogUrl = location.pathname + location.search
   const age = params.get('turma') ?? ''
   const mode = params.get('formato') ?? ''
   const query = params.get('q') ?? ''
+  const orientation = params.get('orientacao') ?? ''
   const searchInput = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     if (searchInput.current && document.activeElement !== searchInput.current)
       searchInput.current.value = query
   }, [query])
-  const orientation = params.get('orientacao') ?? ''
+
   function filter(name: string, value: string, replace = false) {
     const next = new URLSearchParams(pendingFilters.current)
     if (value) next.set(name, value)
     else next.delete(name)
-    if (name !== 'pagina') next.delete('pagina')
     setFilters(next, replace)
   }
+
+  function selectTool(nextTool: string) {
+    const next = new URLSearchParams(pendingFilters.current)
+    next.delete('secao')
+    next.delete('uso')
+    next.delete('orientacao')
+    if (nextTool) next.set('ferramenta', nextTool)
+    else next.delete('ferramenta')
+    setFilters(next)
+  }
+
   useEffect(() => {
     const saved = catalogPositions.get(catalogUrl)
     if (!saved) return
@@ -480,15 +552,15 @@ export function ClassroomLibrary() {
     })
     return () => cancelAnimationFrame(frame)
   }, [catalogUrl])
+
   const search = normalized(query.trim())
   const results = classroom.filter(
     (item) =>
-      (!creating || item.tool === tool) &&
+      (!tool || item.tool === tool) &&
       (!tool ||
         !choices.some((section) => section.id === selectedSection) ||
         sectionFor(item) === selectedSection) &&
       (!activityLibrary || !purpose || activityUse(item) === purpose) &&
-      (!category || item.category === category) &&
       (!age || item.age === age || (!item.age && item.tool !== 'atividade')) &&
       (!mode || (mode === 'pronto' ? !!item.ready : !item.ready)) &&
       (!orientation ||
@@ -497,53 +569,33 @@ export function ClassroomLibrary() {
           (item.panel?.landscape ? 'horizontal' : 'vertical') ===
             orientation)) &&
       normalized(
-        [item.title, item.category, item.age, item.description]
+        [
+          item.title,
+          item.category,
+          tools[item.tool].name,
+          item.age,
+          item.description,
+        ]
           .filter(Boolean)
           .join(' '),
       ).includes(search),
   )
-  const totalPages = Math.max(1, Math.ceil(results.length / 24))
-  const activePage = Math.min(
-    totalPages,
-    Math.max(1, Math.trunc(Number(params.get('pagina'))) || 1),
-  )
-  const visible = results.slice((activePage - 1) * 24, activePage * 24)
-  function setCategory(next: string) {
-    const filters = new URLSearchParams(pendingFilters.current)
-    filters.delete('uso')
-    filters.delete('pagina')
-    filters.delete('orientacao')
-    if (next) filters.set('categoria', next)
-    else filters.delete('categoria')
-    setFilters(filters)
-  }
+
   return (
     <div className="school-library">
       <div className="school-section-head">
         <div>
-          <h1>
-            {tool === 'atividade'
-              ? 'Criar atividade'
-              : tool === 'plano-de-aula'
-                ? 'Criar plano de aula'
-                : tool
-                  ? tools[tool].name
-                  : 'Coleção de sala de aula'}
-          </h1>
+          <h1>{tool ? tools[tool].name : 'Modelos da coleção'}</h1>
           <p>
-            {tool === 'atividade'
-              ? 'Escolha uma folha para a criança preencher ou um roteiro para conduzir com a turma.'
-              : tool === 'plano-de-aula'
-                ? 'Escolha a turma e abra um plano para ajustar os momentos e a duração.'
-                : tool === 'documento'
-                  ? 'Escolha um recado, uma ata, uma declaração ou um registro de entrega.'
-                  : tool === 'relatorio'
-                    ? 'Escolha entre o registro individual e o coletivo.'
-                    : 'Veja o material antes de personalizar ou imprimir.'}
+            {tool
+              ? tools[tool].description
+              : 'Escolha uma ferramenta abaixo ou filtre pela turma para personalizar e baixar.'}
           </p>
         </div>
-        <Link to="/app/modelos">Modelos anteriores</Link>
       </div>
+
+      <ClassroomTabs selected={tool ?? ''} choose={selectTool} />
+
       {tool && !activityLibrary && choices.length > 1 && (
         <label className="school-section-filter">
           Seção da ferramenta
@@ -551,7 +603,6 @@ export function ClassroomLibrary() {
             value={selectedSection}
             onChange={(event) => {
               const next = new URLSearchParams(pendingFilters.current)
-              next.delete('pagina')
               if (event.target.value === 'kits') next.delete('orientacao')
               if (event.target.value) next.set('secao', event.target.value)
               else next.delete('secao')
@@ -567,6 +618,7 @@ export function ClassroomLibrary() {
           </select>
         </label>
       )}
+
       {activityLibrary && (
         <div
           className="activity-purpose"
@@ -574,7 +626,7 @@ export function ClassroomLibrary() {
           aria-label="Como a atividade será usada"
         >
           {[
-            ['', 'Todas', 'Mostra fichas, roteiros e cartões.'],
+            ['', 'Todas', 'Mostra fichas, traçados e roteiros.'],
             [
               'student',
               'Folhas para os alunos',
@@ -583,7 +635,7 @@ export function ClassroomLibrary() {
             [
               'guided',
               'Para fazer com os alunos',
-              'A professora conduz a vivência, com roteiro ou cartões.',
+              'A professora conduz a vivência ou usa cartões na roda.',
             ],
           ].map(([id, label, description]) => (
             <button
@@ -591,13 +643,7 @@ export function ClassroomLibrary() {
               key={label}
               className="secondary"
               aria-pressed={purpose === id}
-              onClick={() => {
-                const next = new URLSearchParams(pendingFilters.current)
-                next.delete('pagina')
-                if (id) next.set('uso', id)
-                else next.delete('uso')
-                setFilters(next)
-              }}
+              onClick={() => filter('uso', id)}
             >
               <strong>{label}</strong>
               <span>{description}</span>
@@ -605,6 +651,7 @@ export function ClassroomLibrary() {
           ))}
         </div>
       )}
+
       {tool === 'atividade' && purpose !== 'guided' && (
         <div className="actions">
           <Link className="button" to="/app/colecao/criar-contagem">
@@ -613,39 +660,35 @@ export function ClassroomLibrary() {
           <Link className="button secondary" to="/app/colecao/criar-pares">
             Montar ficha de pareamento
           </Link>
+          <Link className="button secondary" to="/app/colecao/criar-tracado">
+            Montar ficha de traçado
+          </Link>
         </div>
       )}
+
       {tool === 'documento' && (
-        <nav className="actions" aria-label="Opções de documentos">
-          <button
-            type="button"
-            onClick={() =>
-              document.getElementById('modelos-da-ferramenta')?.focus()
-            }
-          >
-            Criar um documento
-          </button>
-          <Link className="button secondary" to="/app/editar-word">
-            Editar um Word existente
+        <nav className="actions" aria-label="Ferramentas de documentos">
+          <Link className="button" to="/app/editar-word">
+            Editar um Word existente (.docx)
           </Link>
           <Link className="button secondary" to="/app/responder?tipo=pdf">
             Responder no PDF
           </Link>
         </nav>
       )}
-      {tool &&
-        ['documento', 'postagem', 'painel', 'fotos-em-pdf'].includes(tool) && (
-          <Link className="button secondary" to={'/app/criar/' + tool}>
-            {tool === 'documento'
-              ? 'Abrir ou responder a um Word ou PDF'
-              : tool === 'painel'
-                ? 'Dividir minha imagem em folhas A4'
-                : tool === 'postagem'
-                  ? 'Montar uma arte com meu texto'
-                  : 'Organizar minhas fotos'}
+
+      {tool && ['postagem', 'painel', 'fotos-em-pdf'].includes(tool) && (
+        <div className="actions">
+          <Link className="button" to={'/app/criar/' + tool}>
+            {tool === 'painel'
+              ? 'Dividir minha imagem em folhas A4'
+              : tool === 'postagem'
+                ? 'Criar arte do zero'
+                : 'Abrir montador de fotos agora'}
           </Link>
-        )}
-      {!creating && <ClassroomTabs selected={category} choose={setCategory} />}
+        </div>
+      )}
+
       <div className="school-filters" id="modelos-da-ferramenta" tabIndex={-1}>
         <label>
           Buscar na coleção
@@ -653,7 +696,7 @@ export function ClassroomLibrary() {
             <Search size={18} aria-hidden="true" />
             <input
               type="search"
-              placeholder="Ex.: Pré II, recado ou chamadinha"
+              placeholder="Ex.: traçado, recado, semanal ou polaroid"
               ref={searchInput}
               defaultValue={query}
               onChange={(e) => filter('q', e.target.value, true)}
@@ -676,11 +719,11 @@ export function ClassroomLibrary() {
             onChange={(e) => filter('formato', e.target.value)}
           >
             <option value="">Todos</option>
-            <option value="pronto">Pronto para imprimir</option>
             <option value="editavel">Personalizável</option>
+            <option value="pronto">Pronto para imprimir</option>
           </select>
         </label>
-        {(tool === 'painel' || category === 'Painéis') && (
+        {tool === 'painel' && selectedSection !== 'kits' && (
           <label>
             Painel montado
             <select
@@ -694,10 +737,12 @@ export function ClassroomLibrary() {
           </label>
         )}
       </div>
+
       <p className="school-result" role="status">
         {results.length}{' '}
         {results.length === 1 ? 'material encontrado' : 'materiais encontrados'}
       </p>
+
       {(activityLibrary
         ? [
             ['student', 'Folhas para os alunos'],
@@ -706,8 +751,8 @@ export function ClassroomLibrary() {
         : [['', '']]
       ).map(([kind, label]) => {
         const items = kind
-          ? visible.filter((item) => activityUse(item) === kind)
-          : visible
+          ? results.filter((item) => activityUse(item) === kind)
+          : results
         if (!items.length) return null
         return (
           <section className="school-results-group" key={kind}>
@@ -724,31 +769,10 @@ export function ClassroomLibrary() {
           </section>
         )
       })}
-      {totalPages > 1 && (
-        <nav className="actions" aria-label="Páginas do catálogo">
-          <button
-            type="button"
-            className="secondary"
-            disabled={activePage === 1}
-            onClick={() => filter('pagina', String(activePage - 1))}
-          >
-            Anterior
-          </button>
-          <span>
-            Página {activePage} de {totalPages}
-          </span>
-          <button
-            type="button"
-            className="secondary"
-            disabled={activePage === totalPages}
-            onClick={() => filter('pagina', String(activePage + 1))}
-          >
-            Próxima
-          </button>
-        </nav>
-      )}
+
       {!results.length && (
         <button
+          type="button"
           className="secondary"
           onClick={() => {
             setFilters(new URLSearchParams(tool ? { ferramenta: tool } : {}))

@@ -1,8 +1,9 @@
 import { PDFDocument, rgb, type PDFImage } from 'pdf-lib'
-import { fonts, printable } from './pdf'
+import { fonts, printable } from './pdf-core'
 import { assetUrl, paper, type Sheet } from './classroom-layout'
 
 const point = (mm: number) => (mm * 72) / 25.4
+
 function color(hex: string) {
   return rgb(
     parseInt(hex.slice(1, 3), 16) / 255,
@@ -10,6 +11,7 @@ function color(hex: string) {
     parseInt(hex.slice(5, 7), 16) / 255,
   )
 }
+
 export async function imageBytes(asset: string): Promise<Uint8Array> {
   if (asset.endsWith('.png')) {
     const result = await fetch(assetUrl(asset))
@@ -45,20 +47,45 @@ export async function classroomPdf(title: string, sheets: Sheet[]) {
     const size = sheet.size ?? paper
     const page = document.addPage([point(size.width), point(size.height)])
     for (const mark of sheet.marks) {
+      if (mark.kind === 'path') {
+        const stroke = color(mark.color)
+        const thickness = point(mark.strokeWidth)
+        for (let i = 1; i < mark.points.length; i++) {
+          const a = mark.points[i - 1]
+          const b = mark.points[i]
+          page.drawLine({
+            start: { x: point(a.x), y: point(size.height - a.y) },
+            end: { x: point(b.x), y: point(size.height - b.y) },
+            color: stroke,
+            thickness,
+            dashArray: mark.dashed ? [4, 3] : undefined,
+          })
+        }
+        continue
+      }
+
       const x = point(mark.x)
       const y = point(size.height - mark.y)
       const width = point(mark.width)
       if (mark.kind === 'text') {
         if (!mark.text || width <= 0) continue
         const font = mark.bold ? face.bold : face.regular
-        const size = point(mark.size)
+        const fontSize = point(mark.size)
         const text = printable(mark.text.replace(/\s+/g, ' '), font)
+        const measured = font.widthOfTextAtSize(text, fontSize)
         const actualSize = Math.min(
-          size,
-          (size * width) / (font.widthOfTextAtSize(text, size) || width),
+          fontSize,
+          (fontSize * width) / (measured || width),
         )
+        const actualWidth = font.widthOfTextAtSize(text, actualSize)
+        const drawX =
+          mark.align === 'center'
+            ? x + Math.max(0, (width - actualWidth) / 2)
+            : mark.align === 'right'
+              ? x + Math.max(0, width - actualWidth)
+              : x
         page.drawText(text, {
-          x,
+          x: drawX,
           y: y - actualSize * 0.87,
           size: actualSize,
           font,

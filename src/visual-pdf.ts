@@ -1,5 +1,5 @@
 import { PDFDocument, rgb } from 'pdf-lib'
-import { a4, fonts, printable, wrapText } from './pdf'
+import { a4, fonts, printable, wrapText } from './pdf-core'
 import {
   blobOf,
   canvas,
@@ -11,6 +11,16 @@ import {
   type Photo,
   type PhotoOptions,
 } from './media'
+
+function hexRgb(hex?: string, fallback = rgb(0.12, 0.34, 0.26)) {
+  const clean = (hex || '').replace('#', '')
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return fallback
+  return rgb(
+    parseInt(clean.slice(0, 2), 16) / 255,
+    parseInt(clean.slice(2, 4), 16) / 255,
+    parseInt(clean.slice(4, 6), 16) / 255,
+  )
+}
 
 export async function photosPdf(
   items: Photo[],
@@ -24,8 +34,10 @@ export async function photosPdf(
   const { pageWidth: w, pageHeight: h, width, height } = layout
   let done = 0
   const sheets = photoPages(items, options.perPage)
-  const tint = rgb(0.15, 0.3, 0.24)
-  const rule = rgb(0.67, 0.75, 0.69)
+  const tint = hexRgb(options.headerColor)
+  const ink = rgb(0.11, 0.14, 0.12)
+  const rule = rgb(0.75, 0.8, 0.76)
+
   function within(
     text: string,
     size: number,
@@ -38,6 +50,7 @@ export async function photosPdf(
       (size * horizontal) / Math.max(1, font.widthOfTextAtSize(clean, size)),
     )
   }
+
   for (const [sheetIndex, sheet] of sheets.entries()) {
     const page = pdf.addPage([w, h])
     const header = options.header?.trim()
@@ -56,14 +69,14 @@ export async function photosPdf(
           x: layout.margin,
           y: y - 31,
           font: regular,
-          color: tint,
+          color: ink,
           size: within(options.subtitle, 9.5, max),
         })
       page.drawLine({
         start: { x: layout.margin, y: y - 37 },
         end: { x: w - layout.margin, y: y - 37 },
         color: rule,
-        thickness: 0.6,
+        thickness: 0.7,
       })
     }
     if (options.numbering) {
@@ -79,28 +92,57 @@ export async function photosPdf(
     for (const [i, photo] of sheet.entries()) {
       const x = layout.x(i)
       const top = h - layout.y(i)
-      const label = wrapText(printable(photo.caption, regular), width, (v) =>
-        regular.widthOfTextAtSize(v, 9),
-      ).slice(0, 4)
-      const note = photo.caption ? label.length * 12 + 5 : 0
+      const polaroid = Boolean(options.polaroid)
+      const pad = polaroid ? 8 : 0
+      const textWidth = Math.max(32, width - pad * 2)
+      const label = wrapText(
+        printable(photo.caption, regular),
+        textWidth,
+        (v) => regular.widthOfTextAtSize(v, 9),
+      ).slice(0, polaroid ? 3 : 4)
+      const note = polaroid
+        ? Math.max(26, label.length * 12 + 10)
+        : photo.caption
+          ? label.length * 12 + 5
+          : 0
+      const imgW = Math.max(24, width - pad * 2)
+      const imgH = Math.max(24, height - pad - note)
+      if (polaroid) {
+        page.drawRectangle({
+          x,
+          y: top - height,
+          width,
+          height,
+          color: rgb(1, 1, 1),
+          borderColor: rgb(0.83, 0.85, 0.81),
+          borderWidth: 0.85,
+        })
+      }
       const image = await pdf.embedJpg(
-        await photoCell(photo, width, height - note, options),
+        await photoCell(photo, imgW, imgH, options),
       )
       page.drawImage(image, {
-        x,
-        y: top - height + note,
-        width,
-        height: height - note,
+        x: x + pad,
+        y: top - pad - imgH,
+        width: imgW,
+        height: imgH,
       })
-      if (note)
+      if (photo.caption && note) {
         label.forEach((line, j) =>
           page.drawText(line, {
             x: x + (width - regular.widthOfTextAtSize(line, 9)) / 2,
-            y: top - height + note - 12 * (j + 1),
+            y:
+              top -
+              height +
+              note -
+              (polaroid ? 13 : 12) * (j + 1) +
+              (polaroid ? 3 : 0),
             font: regular,
+            color: ink,
             size: 9,
           }),
         )
+      }
       progress(++done)
       await new Promise<void>((resolve) => setTimeout(resolve, 0))
     }
@@ -128,7 +170,7 @@ export async function panelPdf(
   const baseY = (a4[1] - height) / 2
   if (includeMap) {
     const guide = pdf.addPage([...a4])
-    const green = rgb(0.15, 0.3, 0.24)
+    const green = rgb(0.12, 0.34, 0.26)
     const scale = Math.min(430 / source.width, 490 / source.height)
     const w = source.width * scale,
       h = source.height * scale

@@ -2,8 +2,13 @@ import { useEffect, useState } from 'react'
 import { useBeforeUnload, useBlocker, useNavigate } from 'react-router-dom'
 import { drafts, newId, type Values } from './store'
 import type { Tool } from './catalog'
-import type { PackTemplate } from './template-pack'
 import { clearRecovery, recover, recoveryPrefix } from './draft-transfer'
+
+export interface VisualPreset {
+  id: string
+  title: string
+  values: Values
+}
 
 export interface EditorProps {
   tool: Tool
@@ -11,8 +16,9 @@ export interface EditorProps {
   draftId: string | null
   recoveryId?: string
   age?: number
-  preset?: PackTemplate
+  preset?: VisualPreset
 }
+
 export function useWorkflow(
   { tool, draftId, model, age, preset, recoveryId }: EditorProps,
   initial: () => Values,
@@ -36,14 +42,17 @@ export function useWorkflow(
   )
   const [error, setError] = useState('')
   const navigate = useNavigate()
+
   const set = (key: string, value: string) => {
     setValues((v) => ({ ...v, [key]: value }))
     setDirty(true)
   }
+
   const replace = (next: Values) => {
     setValues(next)
     setDirty(true)
   }
+
   useEffect(() => {
     if (!draftId) return
     let active = true
@@ -72,6 +81,7 @@ export function useWorkflow(
       active = false
     }
   }, [draftId, tool, recovered])
+
   useEffect(() => {
     if (!dirty || loading || unavailable) return
     try {
@@ -80,18 +90,21 @@ export function useWorkflow(
       /* manual saving remains available */
     }
   }, [dirty, loading, unavailable, recoveryKey, values])
+
   useBeforeUnload((e) => {
     if (dirty) {
       e.preventDefault()
       e.returnValue = ''
     }
   })
+
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       dirty &&
       (currentLocation.pathname !== nextLocation.pathname ||
         currentLocation.search !== nextLocation.search),
   )
+
   useEffect(() => {
     if (blocker.state === 'blocked') {
       if (window.confirm('Sair sem salvar as alterações?')) {
@@ -100,6 +113,7 @@ export function useWorkflow(
       } else blocker.reset()
     }
   }, [blocker, recoveryKey])
+
   async function save(needsFiles = false) {
     setError('')
     setMessage('')
@@ -128,6 +142,7 @@ export function useWorkflow(
       )
     }
   }
+
   return {
     values,
     set,
@@ -140,9 +155,10 @@ export function useWorkflow(
     loading,
     unavailable,
     save,
-    exit: () => navigate('/app/criar'),
+    exit: () => navigate('/app'),
   }
 }
+
 export function download(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -153,6 +169,7 @@ export function download(blob: Blob, name: string) {
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 30000)
 }
+
 export function filename(title: string) {
   return (
     title
@@ -163,6 +180,7 @@ export function filename(title: string) {
       .slice(0, 90) || 'material'
   )
 }
+
 export function printBlob(blob: Blob) {
   const url = URL.createObjectURL(blob)
   const frame = document.createElement('iframe')

@@ -75,6 +75,28 @@ export default function WordEditor() {
   useEffect(() => {
     if (active !== null) edit.current?.focus()
   }, [active])
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (active !== null) {
+        if (event.key === 'Escape') setActive(null)
+        return
+      }
+      if (!source || !(event.ctrlKey || event.metaKey)) return
+      const key = event.key.toLowerCase()
+      if (key === 'z' && !event.shiftKey && index > 0) {
+        event.preventDefault()
+        setIndex(index - 1)
+      } else if (
+        (key === 'y' || (key === 'z' && event.shiftKey)) &&
+        index < history.length - 1
+      ) {
+        event.preventDefault()
+        setIndex(index + 1)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [active, source, index, history.length])
   const body = document ? descendants(document, 'body')[0] : undefined
   const settings = body ? first(body, 'sectPr') : undefined
   const size = settings ? first(settings, 'pgSz') : undefined

@@ -1,8 +1,17 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { documentLimit, validateZip } from './import-document'
 
-export type Position = { page: number; x: number; y: number; width?: number }
+export type AnswerColor = 'ink' | 'blue' | 'green'
+export type Position = {
+  page: number
+  x: number
+  y: number
+  width?: number
+  size?: number
+  color?: AnswerColor
+}
 export type Answer = Position & { text: string }
+
 const wordNs = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 
 export async function openResponse(file: File) {
@@ -112,9 +121,14 @@ export async function respondedPdf(
   answers: Answer[],
 ) {
   const [{ PDFDocument, degrees, rgb }, { fonts, printable, wrapText }] =
-    await Promise.all([import('pdf-lib'), import('./pdf')])
+    await Promise.all([import('pdf-lib'), import('./pdf-core')])
   const document = await PDFDocument.load(data)
   const { regular } = await fonts(document)
+  const palette: Record<AnswerColor, ReturnType<typeof rgb>> = {
+    ink: rgb(0.11, 0.16, 0.14),
+    blue: rgb(0.1, 0.25, 0.56),
+    green: rgb(0.12, 0.34, 0.26),
+  }
   for (const answer of answers) {
     const original = await source.getPage(answer.page)
     const viewport = original.getViewport({ scale: 1 })
@@ -124,7 +138,8 @@ export async function respondedPdf(
       viewport.width - left - 12,
       viewport.width * (answer.width ?? 1),
     )
-    const size = 11
+    const size = answer.size ?? 11
+    const lineStep = Math.round(size * 1.28)
     if (max < 45)
       throw Error('Escolha um ponto mais à esquerda para a resposta.')
     const lines = wrapText(
@@ -132,19 +147,23 @@ export async function respondedPdf(
       max,
       (value) => regular.widthOfTextAtSize(value, size),
     )
-    if (top + lines.length * 14 + 10 > viewport.height)
+    if (top + lines.length * lineStep + 10 > viewport.height)
       throw Error(
         'Falta espaço abaixo de uma resposta. Mova o marcador para cima ou encurte o texto.',
       )
+    const color = palette[answer.color ?? 'ink']
     for (const [index, line] of lines.entries()) {
-      const [x, y] = viewport.convertToPdfPoint(left, top + size + index * 14)
+      const [x, y] = viewport.convertToPdfPoint(
+        left,
+        top + size + index * lineStep,
+      )
       document.getPage(answer.page - 1).drawText(line, {
         x,
         y,
         font: regular,
         size,
         rotate: degrees(viewport.rotation),
-        color: rgb(0.08, 0.21, 0.16),
+        color,
       })
     }
   }
@@ -152,15 +171,18 @@ export async function respondedPdf(
     type: 'application/pdf',
   })
 }
+
 let answerMetrics:
-  Promise<(text: string, width: number) => string[]> | undefined
+  | Promise<(text: string, width: number, size: number) => string[]>
+  | undefined
+
 export async function checkPdfAnswer(source: PDFDocumentProxy, answer: Answer) {
-  answerMetrics ??= Promise.all([import('pdf-lib'), import('./pdf')])
+  answerMetrics ??= Promise.all([import('pdf-lib'), import('./pdf-core')])
     .then(async ([{ PDFDocument }, { fonts, printable, wrapText }]) => {
       const { regular } = await fonts(await PDFDocument.create())
-      return (text: string, width: number) =>
+      return (text: string, width: number, size: number) =>
         wrapText(printable(text.trim(), regular), width, (line) =>
-          regular.widthOfTextAtSize(line, 11),
+          regular.widthOfTextAtSize(line, size),
         )
     })
     .catch((error) => {
@@ -168,14 +190,19 @@ export async function checkPdfAnswer(source: PDFDocumentProxy, answer: Answer) {
       throw error
     })
   const viewport = (await source.getPage(answer.page)).getViewport({ scale: 1 })
+  const size = answer.size ?? 11
+  const lineStep = Math.round(size * 1.28)
   const width = Math.min(
     viewport.width * (1 - answer.x) - 12,
     viewport.width * (answer.width ?? 1),
   )
   if (width < 45)
     throw Error('Mova a resposta para a esquerda ou aumente a largura.')
-  const lines = (await answerMetrics)(answer.text, width)
-  if (viewport.height * answer.y + lines.length * 14 + 10 > viewport.height)
+  const lines = (await answerMetrics)(answer.text, width, size)
+  if (
+    viewport.height * answer.y + lines.length * lineStep + 10 >
+    viewport.height
+  )
     throw Error(
       'A resposta não cabe nesse espaço. Mova para cima, aumente a largura ou encurte o texto.',
     )

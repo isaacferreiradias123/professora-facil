@@ -1,40 +1,34 @@
 import {
-  createContext,
   lazy,
   Suspense,
-  useContext,
   useEffect,
   useRef,
   useState,
+  type FormEvent,
 } from 'react'
 import {
+  BookOpen,
+  Folder,
+  Home,
+  LifeBuoy,
+  Search,
+} from 'lucide-react'
+import {
   Link,
+  Navigate,
   NavLink,
   Outlet,
   Route,
   Routes,
   useLocation,
+  useNavigate,
   useParams,
   useSearchParams,
 } from 'react-router-dom'
-import { Plus, Folder, LifeBuoy, Settings2, BookOpen } from 'lucide-react'
-import {
-  activity,
-  catalog,
-  fields,
-  groups,
-  themes,
-  tools,
-  tutorials,
-  upcoming,
-  type Tool,
-} from './catalog'
+import { tools, tutorials, type Tool } from './catalog'
 import { drafts, newId, type Draft } from './store'
-
 import { clearRecovery, editableFile, importEditable } from './draft-transfer'
-import { download, filename } from './workflow'
-
-import { loadPack, worksheetUrl, type PackTemplate } from './template-pack'
+import { download, filename, type VisualPreset } from './workflow'
 import { FileDrop } from './editor-ui'
 import {
   ClassroomLibrary,
@@ -46,59 +40,29 @@ import { classroom } from './classroom-catalog'
 import { assetUrl } from './classroom-layout'
 
 const ClassroomRoute = lazy(() => import('./classroom-editor'))
-const Editor = lazy(() => import('./editor'))
 const Visual = lazy(() => import('./visual'))
 const DocumentResponse = lazy(() => import('./document-response-view'))
 const WordEditor = lazy(() => import('./word-edit-view'))
-const Preference = createContext({ easy: true, toggle: () => {} })
-export const useEasy = () => useContext(Preference).easy
-const toolCards: Record<Tool, { image: string; output: string }> = {
-  atividade: {
-    image: 'editorial-atividade.webp',
-    output: 'Monte uma ficha da criança ou organize uma vivência.',
-  },
-  'plano-de-aula': {
-    image: 'editorial-plano.webp',
-    output: 'Planeje o objetivo, os momentos e o tempo da aula.',
-  },
-  relatorio: {
-    image: 'editorial-relatorio.webp',
-    output: 'Registre observações individuais ou da turma.',
-  },
-  documento: {
-    image: 'editorial-documento.webp',
-    output: 'Crie um recado, ata ou declaração em Word e PDF.',
-  },
-  'fotos-em-pdf': {
-    image: 'editorial-fotos.webp',
-    output: 'Organize fotos e legendas em folhas A4.',
-  },
-  postagem: {
-    image: 'editorial-postagem.webp',
-    output: 'Prepare um convite, aviso ou registro em PNG.',
-  },
-  painel: {
-    image: 'editorial-painel.webp',
-    output: 'Imprima um kit recortável ou divida uma imagem em A4.',
-  },
-}
+
 const mainLinks = [
   ['/como-funciona', 'Como funciona'],
   ['/ajuda', 'Ajuda'],
 ]
+
 function Brand() {
   return (
     <Link to="/" className="brand">
       <img
         src={import.meta.env.BASE_URL + 'marca.svg'}
         alt=""
-        width="42"
-        height="42"
+        width="38"
+        height="38"
       />
       Professora Fácil
     </Link>
   )
 }
+
 function PublicLayout() {
   return (
     <>
@@ -110,6 +74,9 @@ function PublicLayout() {
               {n}
             </NavLink>
           ))}
+          <Link className="button nav-cta" to="/app">
+            Abrir ateliê
+          </Link>
         </nav>
       </header>
       <main id="conteudo" className="public-main">
@@ -119,8 +86,9 @@ function PublicLayout() {
         <Brand />
         <nav aria-label="Informações">
           {[
+            ['/como-funciona', 'Como funciona'],
             ['/sobre', 'Sobre'],
-            ['/planos', 'Planos'],
+            ['/ajuda', 'Ajuda'],
             ['/privacidade', 'Privacidade'],
             ['/termos', 'Termos'],
           ].map(([p, n]) => (
@@ -133,38 +101,24 @@ function PublicLayout() {
     </>
   )
 }
+
 const destinations = [
-  ['/app/criar', 'Criar', Plus],
+  ['/app', 'Início', Home],
   ['/app/colecao', 'Modelos', BookOpen],
-  ['/app/materiais', 'Meus materiais', Folder],
+  ['/app/materiais', 'Materiais', Folder],
   ['/app/ajuda', 'Ajuda', LifeBuoy],
 ] as const
+
 function InternalLayout() {
-  const { easy, toggle } = useContext(Preference)
   return (
-    <div className={easy ? 'shell easy' : 'shell'}>
+    <div className="shell">
       <aside className="sidebar">
         <Brand />
         <nav aria-label="Área de trabalho">
           {destinations.map(([p, n, Icon]) => (
-            <NavLink key={p} end={p === '/app/criar'} to={p} aria-label={n}>
-              <Icon className="sr-only" size={21} aria-hidden="true" />
-              <img
-                className="school-nav-image"
-                src={assetUrl(
-                  p === '/app/criar'
-                    ? 'atividades.webp'
-                    : p === '/app/colecao'
-                      ? 'mesa-planejamento.webp'
-                      : p === '/app/materiais'
-                        ? 'organizacao.webp'
-                        : 'recados.webp',
-                )}
-                width="28"
-                height="22"
-                alt=""
-              />
-              <span>{p === '/app/materiais' ? 'Materiais' : n}</span>
+            <NavLink key={p} end={p === '/app'} to={p}>
+              <Icon size={20} strokeWidth={2.1} aria-hidden="true" />
+              <span>{n}</span>
             </NavLink>
           ))}
         </nav>
@@ -174,19 +128,6 @@ function InternalLayout() {
           <span className="mobile-brand">
             <Brand />
           </span>
-          <button
-            className="mode"
-            type="button"
-            aria-pressed={easy}
-            aria-describedby="modo-facil-descricao"
-            onClick={toggle}
-          >
-            <Settings2 size={18} aria-hidden="true" /> Modo Fácil{' '}
-            <span>{easy ? 'ligado' : 'desligado'}</span>
-          </button>
-          <span id="modo-facil-descricao" className="mode-caption">
-            Recolhe as opções avançadas
-          </span>
         </header>
         <main id="conteudo">
           <Outlet />
@@ -195,82 +136,45 @@ function InternalLayout() {
     </div>
   )
 }
+
 function Steps() {
   return (
     <ol className="steps-public">
       <li>
-        <strong>Escolha o material</strong>
-        <p>Comece por um modelo ou escolha a ferramenta de que precisa.</p>
+        <strong>Escolha um modelo único</strong>
+        <p>Selecione pela ferramenta ou turma sem perder tempo com repetições.</p>
       </li>
       <li>
-        <strong>Preencha algumas informações</strong>
-        <p>Personalize com o tema e os detalhes da sua turma.</p>
+        <strong>Personalize com prévia ao vivo</strong>
+        <p>Ajuste textos, figuras, estilo de impressão ou selos da BNCC na hora.</p>
       </li>
       <li>
-        <strong>Confira, baixe ou imprima</strong>
-        <p>Veja como o material vai ficar antes de usá-lo.</p>
+        <strong>Baixe em PDF, Word ou PNG</strong>
+        <p>Imprima em A4 com margens limpas ou envie direto às famílias.</p>
       </li>
     </ol>
   )
 }
-function Plans() {
-  return (
-    <>
-      <div className="grid plans">
-        {[
-          ['Gratuito', 'R$ 0', 'Ferramentas demonstrativas e modelos locais.'],
-          [
-            'Essencial',
-            'R$ 19,90/mês',
-            'Proposta de acesso ampliado a modelos e documentos.',
-          ],
-          [
-            'Completo',
-            'R$ 39,90/mês',
-            'Proposta de criação assistida e maior capacidade de processamento.',
-          ],
-        ].map(([name, price, description], i) => (
-          <article className="card" key={name}>
-            <h3>{name}</h3>
-            <p className="price">{price}</p>
-            <p>{description}</p>
-            {i === 0 ? (
-              <Link className="button" to="/app">
-                Experimentar gratuitamente
-              </Link>
-            ) : (
-              <Link className="button secondary" to="/app/em-breve/assinaturas">
-                Em breve
-              </Link>
-            )}
-          </article>
-        ))}
-      </div>
-      <p>
-        Planos ilustrativos. Assinaturas ainda não disponíveis. Os preços são
-        hipóteses comerciais.
-      </p>
-    </>
-  )
-}
+
 const faqs = [
   [
-    'Preciso criar conta?',
-    'Abra a área de trabalho pelo botão Experimentar gratuitamente.',
+    'Preciso criar conta ou pagar?',
+    'Não. Todo o ateliê funciona diretamente no navegador, sem cadastro e sem custos.',
   ],
   [
-    'Onde ficam meus materiais?',
-    'Rascunhos ficam neste navegador e neste dispositivo. Eles podem ser removidos ao limpar os dados do site.',
+    'Onde ficam meus materiais salvos?',
+    'Os rascunhos ficam guardados localmente neste navegador. Você pode exportar uma cópia JSON em Materiais para levar a outro aparelho.',
   ],
   [
-    'Como faço para imprimir?',
-    'Confira a prévia e escolha Imprimir. No celular, também é possível abrir o PDF baixado e usar a opção de impressão do aparelho.',
+    'Consigo imprimir sem gastar tinta colorida?',
+    'Sim. Todos os materiais A4 trazem a opção Econômico P&B no seletor de estilo de impressão.',
   ],
   [
-    'Posso abrir qualquer PDF?',
-    'A leitura funciona em PDFs com texto selecionável e acesso liberado. PDFs digitalizados precisam de reconhecimento de texto.',
+    'Como funciona editar Word ou responder PDF?',
+    'Na ferramenta Documentos, você abre arquivos .docx ou .pdf direto do seu computador ou celular e baixa uma cópia editada sem enviar nada para servidores.',
   ],
 ]
+
 function Faq() {
   return (
     <div className="faq">
@@ -283,91 +187,7 @@ function Faq() {
     </div>
   )
 }
-const samples = [
-  {
-    name: 'Atividade de cores',
-    category: 'Atividade',
-    path: '/app/criar/atividade',
-    shape: 'activity',
-  },
-  {
-    name: 'Convite para a mostra',
-    category: 'Comunicado',
-    path: '/app/criar/postagem',
-    shape: 'invite',
-  },
-  {
-    name: 'Bem-vindos à turma',
-    category: 'Painel',
-    path: '/app/criar/painel',
-    shape: 'panel',
-  },
-] as const
 
-function Examples() {
-  return (
-    <div className="material-samples" aria-label="Exemplos de materiais">
-      {samples.map(({ name, category, path, shape }) => (
-        <Link className={'sample-tile sample-' + shape} key={shape} to={path}>
-          <svg viewBox="0 0 140 100" aria-hidden="true" focusable="false">
-            {shape === 'activity' && (
-              <>
-                <circle cx="35" cy="35" r="17" fill="#d28365" />
-                <rect
-                  x="57"
-                  y="54"
-                  width="28"
-                  height="28"
-                  rx="4"
-                  fill="#668572"
-                />
-                <path d="M105 19l21 35H84z" fill="#d9ab49" />
-                <path
-                  d="M20 80h25m53 0h25"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeDasharray="4 4"
-                />
-              </>
-            )}
-            {shape === 'invite' && (
-              <>
-                <path d="M22 24h96v58H22z" fill="#fff8ef" />
-                <path
-                  d="m23 25 47 35 47-35"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                />
-                <circle cx="70" cy="59" r="10" fill="#c46d58" />
-                <path
-                  d="M10 14v16m-8-8h16m111 49v16m-8-8h16"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-              </>
-            )}
-            {shape === 'panel' && (
-              <>
-                <path d="M18 75V46a52 34 0 0 1 104 0v29" fill="#e9ae72" />
-                <path d="M36 75V50a34 24 0 0 1 68 0v25" fill="#f8ecd9" />
-                <path d="M58 75V53a12 10 0 0 1 24 0v22" fill="#6d8e78" />
-                <path
-                  d="M70 9v78M12 48h116"
-                  stroke="currentColor"
-                  strokeDasharray="4 4"
-                  opacity=".55"
-                />
-              </>
-            )}
-          </svg>
-          <span>{category}</span>
-          <strong>{name}</strong>
-        </Link>
-      ))}
-    </div>
-  )
-}
 function Landing() {
   return (
     <div className="school-home">
@@ -375,8 +195,8 @@ function Landing() {
         <div className="school-hero-copy">
           <h1>Materiais para usar com a sua turma.</h1>
           <p>
-            Atividades por turma, recados para imprimir e painéis ilustrados em
-            folhas A4.
+            Atividades ilustradas, planos com BNCC, recados em até 4 vias, álbuns
+            de fotos e murais em folhas A4.
           </p>
           <div className="school-hero-actions">
             <Link className="button" to="/app">
@@ -393,19 +213,25 @@ function Landing() {
           fetchPriority="high"
         />
       </section>
-      <section className="school-home-section" aria-label="Escolher categoria">
+
+      <section className="school-home-section" aria-label="Ferramentas do ateliê">
         <ClassroomTabs />
       </section>
+
       <section className="school-home-section">
         <div className="school-section-head">
           <div>
             <h2>Abra, personalize e imprima</h2>
-            <p>Confira as folhas que você pode preparar para sua turma.</p>
+            <p>
+              Modelos curados para cada momento da Educação Infantil, com edição
+              direta e prévia real.
+            </p>
           </div>
           <Link to="/app/colecao">Ver toda a coleção</Link>
         </div>
         <CollectionShowcase />
       </section>
+
       <section className="school-home-section school-help">
         <article>
           <h2>Como funciona</h2>
@@ -419,13 +245,14 @@ function Landing() {
     </div>
   )
 }
+
 function Help() {
   return (
-    <>
+    <div className="school-dashboard">
       <h1>Como podemos ajudar?</h1>
       <Steps />
       <section className="band">
-        <h2>Tutoriais</h2>
+        <h2>Guia rápido por ferramenta</h2>
         <div className="grid">
           {(Object.keys(tools) as Tool[]).map((k) => (
             <article className="card" key={k}>
@@ -442,26 +269,21 @@ function Help() {
       </section>
       <h2>Perguntas frequentes</h2>
       <Faq />
-    </>
+    </div>
   )
 }
+
 function StaticPage({ kind }: { kind: string }) {
   if (kind === 'como')
     return (
       <>
         <h1>Como funciona</h1>
         <Steps />
-        <Examples />
-        <Link className="button" to="/app">
-          Experimentar gratuitamente
-        </Link>
-      </>
-    )
-  if (kind === 'planos')
-    return (
-      <>
-        <h1>Planos</h1>
-        <Plans />
+        <p>
+          <Link className="button" to="/app">
+            Experimentar gratuitamente
+          </Link>
+        </p>
       </>
     )
   if (kind === 'sobre')
@@ -469,11 +291,13 @@ function StaticPage({ kind }: { kind: string }) {
       <>
         <h1>Sobre o Professora Fácil</h1>
         <p>
-          O Professora Fácil nasceu para simplificar tarefas digitais de
-          professoras da creche à pré-escola. Seus modelos apoiam o trabalho
-          pedagógico cotidiano com espaço para adaptar cada proposta à turma.
+          O Professora Fácil nasceu para simplificar o dia a dia de professoras da
+          creche à pré-escola, reunindo atividades imprimíveis, planejamentos,
+          relatórios, recados, álbuns, postagens e murais em um só lugar.
         </p>
-        <Link to="/app">Conhecer as ferramentas</Link>
+        <Link className="button" to="/app">
+          Conhecer as ferramentas
+        </Link>
       </>
     )
   if (kind === 'privacidade')
@@ -481,17 +305,13 @@ function StaticPage({ kind }: { kind: string }) {
       <>
         <h1>Privacidade</h1>
         <p>
-          Documento preliminar, sujeito a revisão antes do lançamento comercial.
+          O aplicativo processa arquivos inteiramente no seu navegador. Nenhum
+          documento, foto ou rascunho é enviado a servidores externos.
         </p>
         <p>
-          O protótipo processa arquivos no navegador. Os rascunhos salvos e as
-          preferências ficam no dispositivo. Fotos e arquivos importados ficam
-          na sessão. Os arquivos que você baixa continuam no dispositivo até
-          serem excluídos por você.
-        </p>
-        <p>
-          Use nomes fictícios durante os testes. Para remover os rascunhos e
-          preferências, acesse Meus materiais e escolha Limpar dados locais.
+          Os rascunhos salvos ficam no armazenamento local deste dispositivo. Use
+          nomes fictícios quando estiver testando e gerencie suas cópias em Meus
+          materiais.
         </p>
         <Link to="/app/materiais">Gerenciar dados locais</Link>
       </>
@@ -500,61 +320,66 @@ function StaticPage({ kind }: { kind: string }) {
     <>
       <h1>Termos de uso</h1>
       <p>
-        Documento preliminar, sujeito a revisão antes do lançamento comercial.
-      </p>
-      <p>
-        O Professora Fácil é um protótipo gratuito para testes locais. Revise os
-        materiais antes de usar ou distribuir e utilize arquivos que você tenha
-        permissão para tratar.
+        O Professora Fácil é uma ferramenta gratuita para preparação de materiais
+        pedagógicos locais. Revise sempre os documentos antes de imprimir ou
+        compartilhar com as famílias.
       </p>
       <p>
         Guarde uma cópia dos materiais que deseja conservar. A limpeza dos dados
-        do navegador pode remover rascunhos.
+        do navegador pode remover rascunhos armazenados localmente.
       </p>
     </>
   )
 }
+
 function toolEntry(tool: Tool) {
   return '/app/colecao?ferramenta=' + tool
 }
+
 function ToolGrid({ selection }: { selection: Tool[] }) {
   return (
     <div className="grid tools">
-      {selection.map((tool) => (
-        <Link
-          className="tool card school-tool-card"
-          to={toolEntry(tool)}
-          key={tool}
-          aria-label={tools[tool].name}
-        >
-          <img
-            src={assetUrl(toolCards[tool].image)}
-            height="62"
-            width="74"
-            alt=""
-            loading="lazy"
-          />
-          <div>
-            <h3>{tools[tool].name}</h3>
-            <p>{toolCards[tool].output}</p>
-          </div>
-        </Link>
-      ))}
+      {selection.map((tool) => {
+        const info = tools[tool]
+        return (
+          <Link
+            className="tool card school-tool-card"
+            to={toolEntry(tool)}
+            key={tool}
+          >
+            <img
+              src={assetUrl(info.image)}
+              height="68"
+              width="68"
+              alt=""
+              loading="lazy"
+            />
+            <div className="tool-copy">
+              <h3>{info.name}</h3>
+              <p>{info.description}</p>
+              <div className="tool-badges" aria-hidden="true">
+                {info.outputs.map((badge) => (
+                  <span key={badge}>{badge}</span>
+                ))}
+              </div>
+            </div>
+          </Link>
+        )
+      })}
     </div>
   )
 }
-const normalize = (value: string) =>
-  value
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
+
 const toolGroups: [string, Tool[]][] = [
   ['Planejar e registrar', ['atividade', 'plano-de-aula', 'relatorio']],
-  ['Preparar e imprimir', ['documento', 'fotos-em-pdf', 'postagem', 'painel']],
+  ['Comunicar e montar', ['documento', 'fotos-em-pdf', 'postagem', 'painel']],
 ]
 
-function Dashboard({ create = false }: { create?: boolean }) {
+function Dashboard() {
   const [recent, setRecent] = useState<Draft[]>([])
+  const [search, setSearch] = useState('')
+  const navigate = useNavigate()
+
   useEffect(() => {
     let active = true
     void drafts
@@ -567,29 +392,57 @@ function Dashboard({ create = false }: { create?: boolean }) {
       active = false
     }
   }, [])
+
+  function handleSearch(event: FormEvent) {
+    event.preventDefault()
+    const term = search.trim()
+    navigate(term ? '/app/colecao?q=' + encodeURIComponent(term) : '/app/colecao')
+  }
+
   return (
-    <>
+    <div className="school-dashboard-page">
       <section className="welcome">
-        <h1>
-          {create ? 'Criar um material' : 'Olá! O que vamos preparar hoje?'}
-        </h1>
-        <p>Escolha uma ferramenta para preparar seu material.</p>
-        <Link className="button secondary" to="/app/colecao">
-          Explorar modelos
-        </Link>
+        <div className="welcome-copy">
+          <h1>Olá! O que vamos preparar hoje?</h1>
+          <p>
+            Escolha uma ferramenta ou busque diretamente nos {classroom.length}{' '}
+            modelos da coleção.
+          </p>
+        </div>
+        <form className="welcome-search" onSubmit={handleSearch} role="search">
+          <label className="sr-only" htmlFor="busca-inicio">
+            Buscar modelo
+          </label>
+          <span>
+            <Search size={18} aria-hidden="true" />
+            <input
+              id="busca-inicio"
+              type="search"
+              placeholder="Ex.: traçado, plano semanal, recado, polaroid…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </span>
+          <button type="submit">Buscar</button>
+        </form>
       </section>
+
       {recent.length > 0 && (
         <section className="recent-materials">
           <h2>Continuar um material</h2>
           <ul>
             {recent.map((item) => (
               <li key={item.id}>
-                <Link to={draftLink(item)}>{item.name}</Link>
+                <Link className="recent-pill" to={draftLink(item)}>
+                  <span>{item.name}</span>
+                  <small>{tools[item.tool].shortName}</small>
+                </Link>
               </li>
             ))}
           </ul>
         </section>
       )}
+
       {toolGroups.map(([heading, keys]) => (
         <section
           className={'catalog-group catalog-group-' + keys.length}
@@ -599,301 +452,18 @@ function Dashboard({ create = false }: { create?: boolean }) {
           <ToolGrid selection={keys} />
         </section>
       ))}
-      <section className="school-dashboard">
-        <div className="school-section-head">
-          <div>
-            <h2>Coleção de sala de aula</h2>
-            <p>Escolha pela tarefa e veja o material antes de imprimir.</p>
-          </div>
-          <Link to="/app/colecao">Abrir coleção</Link>
-        </div>
-        <ClassroomTabs />
-      </section>
-      <Link className="button secondary" to="/app/modelos">
-        Modelos anteriores
-      </Link>
-      <nav className="extra-links" aria-label="Mais recursos">
-        <Link to="/app/em-breve">Recursos em breve</Link>
-      </nav>
-    </>
+    </div>
   )
 }
 
-function Library() {
-  const [q, setQ] = useState('')
-  const [category, setCategory] = useState('')
-  const [age, setAge] = useState('')
-  const [theme, setTheme] = useState('')
-  const [field, setField] = useState('')
-  const term = normalize(q.trim())
-  const [loaded, setLoaded] = useState<Partial<Record<Tool, PackTemplate[]>>>(
-    {},
-  )
-  const [loadError, setLoadError] = useState('')
-  const [retry, setRetry] = useState(0)
-  const [limit, setLimit] = useState(24)
-  const requested = category || (term || age || theme || field ? 'all' : '')
-  useEffect(() => {
-    if (!requested) return
-    let current = true
-    const keys =
-      requested === 'all' ? (Object.keys(tools) as Tool[]) : [requested as Tool]
-    for (const key of keys)
-      void loadPack(key)
-        .then((models) => {
-          if (current) setLoaded((old) => ({ ...old, [key]: models }))
-        })
-        .catch(() => {
-          if (current)
-            setLoadError('Alguns modelos não puderam ser carregados.')
-        })
-    return () => {
-      current = false
-    }
-  }, [requested, retry])
-  useEffect(() => {
-    setLimit(24)
-  }, [q, category, age, theme, field])
-  const extra = requested
-    ? Object.values(loaded)
-        .flat()
-        .filter((item) => {
-          const value = item.values
-          if (category && item.tool !== category) return false
-          if (age && ![age, 'Todas as faixas'].includes(item.age)) return false
-          if (theme && value.theme !== theme) return false
-          if (
-            field &&
-            value.field !== field &&
-            !value.fields?.split('|').includes(field)
-          )
-            return false
-          return normalize(
-            [item.title, item.topic, ...item.keywords].join(' '),
-          ).includes(term)
-        })
-    : []
-  const found = (Object.keys(catalog) as Tool[])
-    .filter((key) => !category || category === key)
-    .flatMap((key) => catalog[key].map((name, i) => ({ key, name, i })))
-    .filter(({ key, i, name }) => {
-      if (!normalize(name + ' ' + tools[key].name).includes(term)) return false
-      if (age && key !== 'atividade' && key !== 'plano-de-aula') return false
-      if (age && age !== groups[2] && key === 'atividade' && i >= 10)
-        return false
-      if ((theme || field) && key !== 'atividade') return false
-      return (
-        (!theme || themes[activity[i]?.[1]] === theme) &&
-        (!field || fields[activity[i]?.[2]] === field)
-      )
-    })
-  const filtered = Boolean(term || category || age || theme || field)
-  return (
-    <section aria-label="Catálogo">
-      <h1>Modelos anteriores</h1>
-      <div className="catalog-search">
-        <label>
-          Pesquisar modelos
-          <input
-            type="search"
-            placeholder="Ex.: atividade, convite ou plano"
-            value={q}
-            onChange={(event) => setQ(event.target.value)}
-          />
-        </label>
-        <details>
-          <summary>Filtrar por categoria, faixa ou tema</summary>
-          <div className="controls">
-            <label>
-              Categoria
-              <select
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-              >
-                <option value="">Todas</option>
-                {(Object.keys(tools) as Tool[]).map((key) => (
-                  <option value={key} key={key}>
-                    {tools[key].name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Faixa etária
-              <select
-                value={age}
-                onChange={(event) => setAge(event.target.value)}
-              >
-                <option value="">Todas</option>
-                {groups.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Tema de atividade
-              <select
-                value={theme}
-                onChange={(event) => setTheme(event.target.value)}
-              >
-                <option value="">Todos</option>
-                {themes.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Campo de experiências
-              <select
-                value={field}
-                onChange={(event) => setField(event.target.value)}
-              >
-                <option value="">Todos</option>
-                {fields.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </details>
-      </div>
-      {!requested && (
-        <div className="filter-rail" aria-label="Escolher categoria da coleção">
-          {(Object.keys(tools) as Tool[]).map((key) => (
-            <button
-              className="secondary"
-              type="button"
-              key={key}
-              onClick={() => setCategory(key)}
-            >
-              {tools[key].name}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="filter-rail" aria-label="Filtros aplicados">
-        {[category && tools[category as Tool].name, age, theme, field]
-          .filter(Boolean)
-          .map((item) => (
-            <span className="filter-chip" key={item}>
-              {item}
-            </span>
-          ))}
-        {filtered && (
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => {
-              setQ('')
-              setCategory('')
-              setAge('')
-              setTheme('')
-              setField('')
-            }}
-          >
-            Limpar filtros
-          </button>
-        )}
-      </div>
-      <p>{found.length + extra.length} modelos encontrados</p>
-      {loadError && (
-        <p role="alert">
-          {loadError}{' '}
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => {
-              setLoadError('')
-              setRetry(retry + 1)
-            }}
-          >
-            Tentar novamente
-          </button>
-        </p>
-      )}
-      <div className="grid model-grid">
-        {[
-          ...found.map(({ key, i, name }) => ({
-            key,
-            name,
-            id: String(i),
-            values: undefined,
-          })),
-          ...extra.map((item) => ({
-            key: item.tool,
-            name: item.title,
-            id: item.id,
-            values: item.values,
-          })),
-        ]
-          .slice(0, limit)
-          .map(({ key, name, id, values }) => (
-            <Link
-              className="card library-link model-card"
-              key={key + id}
-              to={
-                '/app/criar/' +
-                key +
-                '?modelo=' +
-                id +
-                (age ? '&faixa=' + groups.indexOf(age) : '')
-              }
-            >
-              <span
-                aria-hidden="true"
-                className={'model-thumb model-thumb-' + key}
-                style={
-                  values && /^#[a-f0-9]{6}$/i.test(values.background)
-                    ? { backgroundColor: values.background }
-                    : undefined
-                }
-              >
-                {worksheetUrl(values?.asset) ? (
-                  <img
-                    src={worksheetUrl(values?.asset)}
-                    alt=""
-                    loading="lazy"
-                  />
-                ) : (
-                  <>
-                    <b>{values?.title ?? name}</b>
-                    <i />
-                    <i />
-                    <em>
-                      <i />
-                      <i />
-                    </em>
-                  </>
-                )}
-              </span>
-              <span>
-                <strong>{name}</strong>
-                <small>{tools[key].name}</small>
-              </span>
-            </Link>
-          ))}
-      </div>
-      {found.length + extra.length > limit && (
-        <button
-          type="button"
-          className="secondary"
-          onClick={() => setLimit(limit + 24)}
-        >
-          Mostrar mais 24
-        </button>
-      )}
-      {!found.length && !extra.length && (
-        <p>Nenhum modelo encontrado. Experimente outro nome ou categoria.</p>
-      )}
-    </section>
-  )
-}
 function Materials() {
   const [list, setList] = useState<Draft[] | null>(null)
+  const [filterTool, setFilterTool] = useState('')
   const [message, setMessage] = useState('')
   const [confirmation, setConfirmation] = useState<string | null>(null)
   const [editing, setEditing] = useState('')
   const [name, setName] = useState('')
+
   const refresh = () =>
     drafts
       .list()
@@ -901,6 +471,7 @@ function Materials() {
       .catch(() =>
         setMessage('Não foi possível abrir os materiais deste navegador.'),
       )
+
   useEffect(() => {
     void drafts
       .list()
@@ -909,6 +480,7 @@ function Materials() {
         setMessage('Não foi possível abrir os materiais deste navegador.'),
       )
   }, [])
+
   async function mutate(action: () => Promise<void>, success: string) {
     try {
       await action()
@@ -921,7 +493,10 @@ function Materials() {
       setEditing('')
     }
   }
-  const { easy, toggle } = useContext(Preference)
+
+  const visible =
+    list?.filter((item) => !filterTool || item.tool === filterTool) ?? null
+
   return (
     <>
       <h1>Meus materiais</h1>
@@ -938,17 +513,39 @@ function Materials() {
         }}
       />
 
+      {list && list.length > 0 && (
+        <div className="materials-filter">
+          <label>
+            Filtrar por ferramenta
+            <select
+              value={filterTool}
+              onChange={(e) => setFilterTool(e.target.value)}
+            >
+              <option value="">Todas ({list.length})</option>
+              {(Object.keys(tools) as Tool[]).map((key) => (
+                <option key={key} value={key}>
+                  {tools[key].shortName}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
       <p role="status">{message}</p>
-      {list?.length === 0 ? (
+      {visible?.length === 0 ? (
         <div className="card">
           <h2>Seu primeiro material começa aqui</h2>
-          <p>Crie algo e escolha Salvar rascunho para encontrar aqui depois.</p>
-          <Link className="button" to="/app/criar">
-            Criar material
+          <p>
+            Escolha um modelo, personalize e toque em Salvar rascunho para
+            encontrar aqui depois.
+          </p>
+          <Link className="button" to="/app/colecao">
+            Explorar modelos
           </Link>
         </div>
       ) : (
-        list?.map((d) => (
+        visible?.map((d) => (
           <article className="card draft" key={d.id}>
             <h2>{d.name}</h2>
             <p>
@@ -981,14 +578,16 @@ function Materials() {
                     maxLength={120}
                   />
                 </label>
-                <button>Salvar nome</button>
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => setEditing('')}
-                >
-                  Cancelar
-                </button>
+                <div className="actions">
+                  <button type="submit">Salvar nome</button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setEditing('')}
+                  >
+                    Cancelar
+                  </button>
+                </div>
               </form>
             ) : (
               <div className="actions">
@@ -996,6 +595,7 @@ function Materials() {
                   Editar
                 </Link>
                 <button
+                  type="button"
                   className="secondary"
                   onClick={() => {
                     setEditing(d.id)
@@ -1005,6 +605,7 @@ function Materials() {
                   Renomear
                 </button>
                 <button
+                  type="button"
                   className="secondary"
                   onClick={() =>
                     void mutate(
@@ -1022,6 +623,7 @@ function Materials() {
                   Duplicar
                 </button>
                 <button
+                  type="button"
                   className="secondary"
                   onClick={() =>
                     download(
@@ -1033,6 +635,7 @@ function Materials() {
                   Baixar cópia editável
                 </button>
                 <button
+                  type="button"
                   className="secondary"
                   onClick={() => setConfirmation(d.id)}
                 >
@@ -1044,6 +647,7 @@ function Materials() {
         ))
       )}
       <button
+        type="button"
         className="secondary clear-data"
         onClick={() => setConfirmation('all')}
       >
@@ -1059,14 +663,13 @@ function Materials() {
           <p>Esta ação é permanente.</p>
           <div className="actions">
             <button
+              type="button"
               onClick={() =>
                 void mutate(
                   async () => {
                     if (confirmation === 'all') {
                       await drafts.clear()
                       clearRecovery()
-                      if (!easy) toggle()
-                      localStorage.removeItem('pf-easy')
                     } else await drafts.remove(confirmation)
                   },
                   confirmation === 'all'
@@ -1077,7 +680,11 @@ function Materials() {
             >
               Confirmar
             </button>
-            <button className="secondary" onClick={() => setConfirmation(null)}>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setConfirmation(null)}
+            >
               Cancelar
             </button>
           </div>
@@ -1086,131 +693,51 @@ function Materials() {
     </>
   )
 }
-function Future() {
-  const { feature } = useParams()
-  const info = upcoming[feature as keyof typeof upcoming]
-  return (
-    <>
-      <h1>{info?.[0] ?? 'Recursos futuros'}</h1>
-      {info ? (
-        <div className="card">
-          <strong>Em breve</strong>
-          <p>{info[1]}</p>
-        </div>
-      ) : (
-        <div className="grid">
-          {Object.entries(upcoming).map(([key, [name, description]]) => (
-            <Link
-              className="card library-link"
-              key={key}
-              to={'/app/em-breve/' + key}
-            >
-              <strong>{name} · Em breve</strong>
-              <span>{description}</span>
-            </Link>
-          ))}
-        </div>
-      )}
-      <p>
-        <Link to="/app">Voltar ao início</Link>
-      </p>
-    </>
-  )
-}
+
 function CreateRoute() {
   const { tool } = useParams()
   const [params] = useSearchParams()
   if (!tool || !Object.hasOwn(tools, tool)) return <Missing />
-  return (
-    <OpenEditor
-      key={tool + params.toString()}
-      tool={tool as Tool}
-      params={params}
-    />
-  )
-}
-
-function OpenEditor({ tool, params }: { tool: Tool; params: URLSearchParams }) {
-  const group = params.get('faixa')
-  const model = params.get('modelo') ?? '0'
-  const packId = model.startsWith('pf327-') ? model : undefined
-  const [preset, setPreset] = useState<PackTemplate | null>()
-  useEffect(() => {
-    if (!packId) return
-    let active = true
-    void loadPack(tool)
-      .then((models) => {
-        if (active) setPreset(models.find((item) => item.id === packId) ?? null)
-      })
-      .catch(() => {
-        if (active) setPreset(null)
-      })
-    return () => {
-      active = false
-    }
-  }, [tool, packId])
-  if (packId && preset === undefined)
-    return <p role="status">Carregando modelo…</p>
-  if (packId && !preset)
-    return (
-      <>
-        <p role="alert">Modelo indisponível.</p>
-        <Link to="/app/modelos">Voltar ao catálogo</Link>
-      </>
-    )
+  if (!['postagem', 'painel', 'fotos-em-pdf'].includes(tool)) {
+    return <Navigate replace to={'/app/colecao?ferramenta=' + tool} />
+  }
   const selected = classroom.find(
     (item) =>
       item.id === params.get('colecao') && item.tool === tool && item.visual,
   )
-  const visualPreset: PackTemplate | undefined = selected?.visual
+  const visualPreset: VisualPreset | undefined = selected?.visual
     ? {
         id: 'sala-' + selected.id,
-        tool,
         title: selected.title,
-        topic: selected.category,
-        age: 'Todas as faixas',
-        subtype: 'Coleção de sala de aula',
-        description: selected.description,
-        keywords: [],
         values: { ...selected.visual, collectionId: selected.id },
       }
     : undefined
-  const props = {
-    tool,
-    model: packId ? 0 : Number(model),
-    preset: preset ?? visualPreset,
-    draftId: params.get('rascunho'),
-    age:
-      !packId && group !== null && groups[Number(group)]
-        ? Number(group)
-        : undefined,
-  }
+
   return (
     <Suspense fallback={<p role="status">Abrindo ferramenta…</p>}>
-      {['postagem', 'painel', 'fotos-em-pdf'].includes(tool) ? (
-        <Visual {...props} />
-      ) : (
-        <Editor {...props} />
-      )}
+      <Visual
+        key={tool + params.toString()}
+        tool={tool as Tool}
+        model={0}
+        preset={visualPreset}
+        draftId={params.get('rascunho')}
+      />
     </Suspense>
   )
 }
+
 function Missing() {
   return (
     <>
       <h1>Página não encontrada</h1>
-      <Link to="/app">Voltar ao início</Link>
+      <Link className="button" to="/app">
+        Voltar ao início
+      </Link>
     </>
   )
 }
+
 export function App() {
-  const [easy, setEasy] = useState(() => {
-    try {
-      return localStorage.getItem('pf-easy') !== 'off'
-    } catch {
-      return true
-    }
-  })
   const { pathname } = useLocation()
   const previousPath = useRef(pathname)
   useEffect(() => {
@@ -1222,21 +749,9 @@ export function App() {
       previousPath.current = pathname
     }
   }, [pathname])
+
   return (
-    <Preference.Provider
-      value={{
-        easy,
-        toggle: () => {
-          const next = !easy
-          setEasy(next)
-          try {
-            localStorage.setItem('pf-easy', next ? 'on' : 'off')
-          } catch {
-            /* preference stays in memory */
-          }
-        },
-      }}
-    >
+    <>
       <a
         className="skip"
         href="#conteudo"
@@ -1251,7 +766,6 @@ export function App() {
         <Route element={<PublicLayout />}>
           <Route index element={<Landing />} />
           <Route path="como-funciona" element={<StaticPage kind="como" />} />
-          <Route path="planos" element={<StaticPage kind="planos" />} />
           <Route path="sobre" element={<StaticPage kind="sobre" />} />
           <Route
             path="privacidade"
@@ -1262,8 +776,12 @@ export function App() {
         </Route>
         <Route path="app" element={<InternalLayout />}>
           <Route index element={<Dashboard />} />
-          <Route path="criar" element={<Dashboard create />} />
+          <Route path="criar" element={<Navigate replace to="/app" />} />
           <Route path="criar/:tool" element={<CreateRoute />} />
+          <Route
+            path="modelos"
+            element={<Navigate replace to="/app/colecao" />}
+          />
           <Route
             path="responder"
             element={
@@ -1280,7 +798,6 @@ export function App() {
               </Suspense>
             }
           />
-          <Route path="modelos" element={<Library />} />
           <Route path="colecao" element={<ClassroomLibrary />} />
           <Route
             path="colecao/:id"
@@ -1292,11 +809,10 @@ export function App() {
           />
           <Route path="materiais" element={<Materials />} />
           <Route path="ajuda" element={<Help />} />
-          <Route path="em-breve/:feature?" element={<Future />} />
           <Route path="*" element={<Missing />} />
         </Route>
         <Route path="*" element={<Missing />} />
       </Routes>
-    </Preference.Provider>
+    </>
   )
 }

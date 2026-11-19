@@ -31,12 +31,16 @@ test('mostra a Home e navega de volta ao painel com filtro e foco restaurados', 
   await page.getByLabel('Painel montado').selectOption('horizontal')
   await expect(page).toHaveURL(/orientacao=horizontal/)
   await page.getByRole('searchbox').fill('semana das descobertas')
-  const card = page.getByRole('link', { name: /A semana das descobertas/ })
+  const card = page.getByRole('link', { name: /Faixa semana das descobertas/ })
   await card.click()
+  const preview = page.getByRole('button', {
+    name: 'Ver prévia',
+    exact: true,
+  })
+  if (await preview.isVisible()) await preview.click()
   await expect(
     page.getByRole('heading', { name: 'Como fica montado' }),
   ).toBeVisible()
-  await page.getByRole('button', { name: '3. Baixar', exact: true }).click()
   await expect(page.getByText(/Painel horizontal/)).toBeVisible()
   await page.getByRole('link', { name: 'Escolher outro modelo' }).click()
   await expect(page.getByRole('searchbox')).toHaveValue(
@@ -51,11 +55,12 @@ test('exporta faixas, mosaicos em paisagem e painéis em retrato pela mesma pré
   browserName,
 }) => {
   for (const [id, sheets, landscape] of [
-    ['1', 4, false],
-    ['2', 5, true],
-    ['11', 5, false],
+    ['mural-semana-descobertas', 4, false],
+    ['mural-ciclo-borboleta', 5, true],
+    ['mural-tempo', 5, false],
+    ['mural-aniversariantes', 5, true],
   ] as const) {
-    await page.goto('/app/colecao/mural-oficina-' + id)
+    await page.goto('/app/colecao/' + id)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     const preview = page.getByRole('button', {
       name: 'Ver prévia',

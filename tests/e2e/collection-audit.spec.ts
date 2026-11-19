@@ -55,14 +55,6 @@ for (const section of collectionSections) {
           await page
             .getByLabel('Selecionar fotos')
             .setInputFiles(photos.slice(0, photoCount(item.visual?.perPage)))
-          await page.getByRole('button', { name: 'Organizar folhas' }).click()
-          await page.getByRole('button', { name: 'Conferir PDF' }).click()
-        }
-        if (isPost) {
-          await page
-            .getByRole('button', { name: 'Personalizar', exact: true })
-            .click()
-          await page.getByRole('button', { name: 'Conferir arte' }).click()
         }
         const label = isPost ? 'Baixar PNG' : 'Baixar PDF'
         const extension = isPost ? '.png' : '.pdf'

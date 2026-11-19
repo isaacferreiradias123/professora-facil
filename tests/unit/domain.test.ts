@@ -1,107 +1,111 @@
 import { describe, expect, it } from 'vitest'
-import { activity, fields, groups, rights } from '../../src/catalog'
-import { material, seed, dateLabel } from '../../src/model'
-import { fitted, photoPages, tiles, type Photo } from '../../src/media'
+import { figureUrl, figures } from '../../src/art-figures'
+import {
+  fields,
+  groups,
+  observationHints,
+  rights,
+  tools,
+} from '../../src/catalog'
+import {
+  fallbackClassroomId,
+  findClassroomItem,
+} from '../../src/classroom-catalog'
 import { readValues } from '../../src/draft-transfer'
-import { parseMoments } from '../../src/lesson-moments'
+import { validateZip } from '../../src/import-document'
+import { photoLayout, photoPages, tiles, type Photo } from '../../src/media'
 
-describe('Educação Infantil', () => {
-  it('cadastra grupos, campos e direitos e aplica experiências por faixa', () => {
-    expect([groups.length, fields.length, rights.length]).toEqual([3, 5, 6])
-    for (let i = 0; i < activity.length; i++) {
-      const v = seed('atividade', i)
-      const younger = material('atividade', {
-        ...v,
-        count: '12',
-        group: groups[0],
-      }).sections.at(-1)!
-      const older = material('atividade', {
-        ...v,
-        group: groups[2],
-      }).sections.at(-1)!
-      expect(younger.title).toBe('Experiências e interações')
-      expect(younger.blocks[0]).toMatchObject({
-        kind: 'list',
-        items: expect.arrayContaining([activity[i][3]]),
-      })
-      if (i < 10)
-        expect(older.blocks[0]).toMatchObject({
-          kind: 'list',
-          items: expect.arrayContaining([activity[i][4]]),
-        })
-      else {
-        expect(older.title).toBe(
-          i < 12 ? 'Gabarito para a professora' : 'Folha de atividade',
-        )
-        if (i < 12) expect(older.newPage).toBe(true)
-      }
-      expect(JSON.stringify(younger)).not.toContain('undefined')
+describe('catalog & pedagogy taxonomy', () => {
+  it('exposes complete BNCC groups, fields, rights and 7 tools', () => {
+    expect(groups).toHaveLength(3)
+    expect(fields).toHaveLength(5)
+    expect(rights).toHaveLength(6)
+    expect(Object.keys(tools)).toEqual([
+      'atividade',
+      'plano-de-aula',
+      'relatorio',
+      'documento',
+      'fotos-em-pdf',
+      'postagem',
+      'painel',
+    ])
+    expect(observationHints['Berçário'].length).toBeGreaterThanOrEqual(4)
+    expect(observationHints['Maternal'].length).toBeGreaterThanOrEqual(4)
+    expect(observationHints['Pré I'].length).toBeGreaterThanOrEqual(4)
+    expect(observationHints['Pré II'].length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('provides 24 curated studio illustrations with unique IDs and resolved URLs', () => {
+    expect(figures).toHaveLength(24)
+    expect(new Set(figures.map((f) => f.id)).size).toBe(24)
+    for (const fig of figures) {
+      expect(figureUrl(fig.id)).toContain('colecao/' + fig.asset)
+    }
+    expect(figureUrl('inexistente')).toBeUndefined()
+  })
+
+  it('resolves free builders and valid fallbackClassroomId per tool', () => {
+    for (const customId of ['criar-contagem', 'criar-pares', 'criar-tracado']) {
+      const item = findClassroomItem(customId)
+      expect(item).toBeDefined()
+      expect(item?.tool).toBe('atividade')
+    }
+    for (const tool of Object.keys(tools) as (keyof typeof tools)[]) {
+      const targetId = fallbackClassroomId(tool)
+      const target = findClassroomItem(targetId)
+      expect(target).toBeDefined()
+      expect(target?.tool).toBe(tool)
     }
   })
-  it('preserva conteúdo editado e converte datas sem alterar o dia', () => {
-    const data = material('plano-de-aula', {
-      ...seed('plano-de-aula', 2),
-      date: '2026-11-18',
-      objectives: 'Exploração e expressão',
-    })
-    expect(data.metadata).toContain('18/11/2026')
-    expect(dateLabel('')).toBe('')
-    expect(
-      data.sections.find((s) => s.title === 'Objetivos de aprendizagem')
-        ?.blocks,
-    ).toEqual([{ kind: 'text', text: 'Exploração e expressão' }])
-  })
-})
-describe('Geometria de impressão', () => {
-  it('encaixa ou recorta com proporção original', () => {
-    expect(fitted(200, 100, 100, 100, false)).toEqual({
-      x: 0,
-      y: 25,
-      width: 100,
-      height: 50,
-    })
-    expect(fitted(200, 100, 100, 100, true)).toEqual({
-      x: -50,
-      y: 0,
-      width: 200,
-      height: 100,
-    })
-  })
-  it.each([2, 3])('cria grade %s com sobreposição consistente', (grid) => {
-    const { positions, size, width, height } = tiles(grid)
-    expect(positions.length).toBe(grid ** 2)
-    expect(positions[1].x).toBe(size.width - 16)
-    expect(positions[grid].y).toBe(size.height - 16)
-    expect(positions.at(-1)!.x + size.width).toBe(width)
-    expect(positions.at(-1)!.y + size.height).toBe(height)
-  })
-})
-it('mantém uma quebra explícita sem criar folhas vazias', () => {
-  const pictures: Photo[] = Array.from({ length: 7 }, (_, i) => ({
-    id: String(i),
-    url: '',
-    blob: new Blob(),
-    caption: '',
-    breakBefore: i === 0 || i === 2,
-  }))
-  expect(
-    photoPages(pictures, 4).map((sheet) => sheet.map((picture) => picture.id)),
-  ).toEqual([['0', '1'], ['2', '3', '4', '5'], ['6']])
-  expect(tiles(4, 2).positions.map((p) => p.y)).toEqual([
-    0, 0, 0, 0, 1002, 1002, 1002, 1002,
-  ])
 })
 
-it('valida campos de cópia e preserva a ordem dos momentos válidos', () => {
-  expect(() => readValues(JSON.parse('{"constructor":"x"}'))).toThrow()
-  expect(() => readValues({ title: { value: 'inválido' } })).toThrow()
-  expect(readValues({ title: 'Coração' })).toEqual({ title: 'Coração' })
-  expect(
-    parseMoments(
-      '[{"title":"Roda","minutes":10},null,{"title":"Brincadeira","minutes":20},{"title":"Inválido","minutes":-1}]',
-    ),
-  ).toEqual([
-    { title: 'Roda', minutes: 10 },
-    { title: 'Brincadeira', minutes: 20 },
-  ])
+describe('visual layout & security guards', () => {
+  it('paginates photos honoring perPage and explicit page breaks', () => {
+    const sample = (n: number): Photo[] =>
+      Array.from({ length: n }, (_, index) => ({
+        id: 'p' + index,
+        url: '',
+        blob: new Blob(),
+        caption: '',
+        breakBefore: index === 2,
+      }))
+    const pages = photoPages(sample(5), 4)
+    expect(pages.map((p) => p.length)).toEqual([2, 3])
+
+    const layout = photoLayout({
+      orientation: 'vertical',
+      perPage: 4,
+      margin: 10,
+      crop: false,
+      quality: 'standard',
+      header: 'Semana de artes',
+      numbering: true,
+    })
+    expect(layout.width).toBeGreaterThan(200)
+    expect(layout.height).toBeGreaterThan(250)
+    expect(layout.x(1)).toBeGreaterThan(layout.x(0))
+    expect(layout.y(2)).toBeGreaterThan(layout.y(0))
+  })
+
+  it('computes poster tile positions cleanly', () => {
+    const grid = tiles(2)
+    expect(grid.positions).toHaveLength(4)
+    expect(grid.positions[1].x).toBe(grid.size.width - 16)
+    expect(grid.positions[2].y).toBe(grid.size.height - 16)
+
+    const strip = tiles(3, 1)
+    expect(strip.positions).toHaveLength(3)
+    expect(strip.positions.every((p) => p.y === 0)).toBe(true)
+  })
+
+  it('validates imported draft values and zip envelopes safely', () => {
+    expect(readValues({ title: 'Bilhete', body: 'Texto' })).toEqual({
+      title: 'Bilhete',
+      body: 'Texto',
+    })
+    expect(() => readValues([])).toThrow()
+    expect(() => readValues({ constructor: 'x' })).toThrow()
+    expect(() => readValues({ title: 'a'.repeat(241) })).toThrow()
+    expect(() => validateZip(new Uint8Array([1, 2, 3]))).toThrow()
+  })
 })

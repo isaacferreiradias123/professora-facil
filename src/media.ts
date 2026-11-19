@@ -1,5 +1,6 @@
 export const photoLimit = 24
 const maxBytes = 14 * 1024 * 1024
+
 export async function validateImage(file: File) {
   const ext = file.name.split('.').at(-1)?.toLowerCase()
   const mime =
@@ -31,6 +32,7 @@ export async function validateImage(file: File) {
       'O conteúdo da imagem não corresponde ao formato do arquivo.',
     )
 }
+
 export interface Photo {
   id: string
   url: string
@@ -41,6 +43,7 @@ export interface Photo {
   cropX?: number
   cropY?: number
 }
+
 export interface PhotoOptions {
   orientation: 'vertical' | 'horizontal'
   perPage: 1 | 2 | 3 | 4
@@ -50,7 +53,10 @@ export interface PhotoOptions {
   header?: string
   subtitle?: string
   numbering?: boolean
+  polaroid?: boolean
+  headerColor?: string
 }
+
 export function photoCount(value?: string): PhotoOptions['perPage'] {
   if (value === '1') return 1
   if (value === '2') return 2
@@ -122,6 +128,7 @@ export function canvas(width: number, height: number) {
   element.height = height
   return element
 }
+
 export function blobOf(
   element: HTMLCanvasElement,
   type = 'image/png',
@@ -135,6 +142,7 @@ export function blobOf(
     ),
   )
 }
+
 export function openImage(url: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image()
@@ -143,6 +151,7 @@ export function openImage(url: string) {
     img.src = url
   })
 }
+
 export async function imageFromFile(file: File, limit: number) {
   await validateImage(file)
   const url = URL.createObjectURL(file)
@@ -173,6 +182,7 @@ export async function imageFromFile(file: File, limit: number) {
     URL.revokeObjectURL(url)
   }
 }
+
 export async function photoThumbnail(url: string) {
   const image = await openImage(url)
   const scale = Math.min(
@@ -190,6 +200,7 @@ export async function photoThumbnail(url: string) {
     target.width = 0
   }
 }
+
 export function fitted(
   sw: number,
   sh: number,
@@ -198,10 +209,11 @@ export function fitted(
   crop: boolean,
 ) {
   const scale = (crop ? Math.max : Math.min)(dw / sw, dh / sh)
-  const width = sw * scale,
-    height = sh * scale
+  const width = sw * scale
+  const height = sh * scale
   return { x: (dw - width) / 2, y: (dh - height) / 2, width, height }
 }
+
 export async function photoCell(
   photo: Photo,
   width: number,
@@ -245,6 +257,7 @@ export async function photoCell(
     target.width = 0
   }
 }
+
 export interface ArtOptions {
   crop?: boolean
   composition?: string
@@ -255,8 +268,18 @@ export interface ArtOptions {
   background: string
   foreground: string
   font: string
-  model: number
+  model?: number
 }
+
+export const postPalettes = [
+  { id: 'jardim', label: 'Jardim', background: '#E8F2EC', foreground: '#1E5643' },
+  { id: 'sol', label: 'Sol & Mel', background: '#FFF7DF', foreground: '#5C3C0A' },
+  { id: 'pessego', label: 'Pêssego', background: '#FCECE5', foreground: '#743628' },
+  { id: 'lavanda', label: 'Lavanda', background: '#EFE8F8', foreground: '#3F2D59' },
+  { id: 'ceu', label: 'Céu Claro', background: '#E5F0F6', foreground: '#1B435E' },
+  { id: 'lousa', label: 'Lousa', background: '#1B3A30', foreground: '#FAF7EF' },
+] as const
+
 export const formats = {
   'Quadrado 1:1': [1080, 1080],
   'Vertical 4:5': [1080, 1350],
@@ -264,6 +287,7 @@ export const formats = {
   'Horizontal 16:9': [1920, 1080],
   'A4 para impressão': [1240, 1754],
 } as const
+
 function wrap(ctx: CanvasRenderingContext2D, text: string, width: number) {
   const result: string[] = []
   for (const paragraph of text.split('\n')) {
@@ -287,6 +311,59 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, width: number) {
   }
   return result
 }
+
+function roundRectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  ctx.beginPath()
+  ctx.roundRect(x, y, w, h, r)
+}
+
+function drawPennants(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  pad: number,
+  unit: number,
+  accent: string,
+) {
+  const colors = ['#E67B61', '#F2C14E', '#3E8266', '#9B82C2', '#5A9BC0']
+  const count = 7
+  const span = w - pad * 0.6
+  const step = span / count
+  const startX = pad * 0.3
+  const topY = unit * 0.03
+  ctx.save()
+  ctx.strokeStyle = accent
+  ctx.globalAlpha = 0.55
+  ctx.lineWidth = unit * 0.005
+  ctx.beginPath()
+  ctx.moveTo(startX, topY)
+  ctx.quadraticCurveTo(w / 2, topY + unit * 0.055, startX + span, topY)
+  ctx.stroke()
+  ctx.globalAlpha = 0.9
+  for (let i = 0; i < count; i++) {
+    const cx = startX + step * (i + 0.5)
+    const t = (i + 0.5) / count
+    const sag = 4 * t * (1 - t) * unit * 0.04
+    const y0 = topY + sag
+    const pw = step * 0.66
+    const ph = unit * 0.055
+    ctx.fillStyle = colors[i % colors.length]
+    ctx.beginPath()
+    ctx.moveTo(cx - pw / 2, y0)
+    ctx.lineTo(cx + pw / 2, y0)
+    ctx.lineTo(cx, y0 + ph)
+    ctx.closePath()
+    ctx.fill()
+  }
+  ctx.restore()
+}
+
 export function drawArt(
   element: HTMLCanvasElement,
   options: ArtOptions,
@@ -300,6 +377,7 @@ export function drawArt(
   const pad = unit * 0.095
   ctx.fillStyle = options.background
   ctx.fillRect(0, 0, w, h)
+
   const imageOnly = panel && options.composition === 'imagem'
   if (imageOnly) {
     if (image) {
@@ -314,157 +392,355 @@ export function drawArt(
     }
     return false
   }
-  const memory = !panel && options.composition === 'memoria' && Boolean(image)
-  const invite = !panel && options.composition === 'convite'
-  const notice = !panel && options.composition === 'aviso'
-  ctx.save()
-  ctx.globalAlpha = 0.21
-  ctx.fillStyle = options.foreground
-  const motif = options.model % 3
-  if (motif === 0) {
-    ctx.beginPath()
-    ctx.arc(w - pad, 0, unit * 0.23, 0, 2 * Math.PI)
+
+  const comp = options.composition || 'caderno'
+  const isNotice = comp === 'aviso'
+  const isInvite = comp === 'convite'
+  const isMemory = comp === 'memoria'
+  const isIllustrated = comp === 'ilustrado'
+  const isEditorial = comp === 'editorial'
+  const isCard = comp === 'caderno'
+
+  if (isInvite) {
+    drawPennants(ctx, w, pad, unit, options.foreground)
+    ctx.save()
+    ctx.fillStyle = '#FFFFFF'
+    ctx.globalAlpha = 0.72
+    roundRectPath(ctx, pad * 0.65, pad * 1.15, w - pad * 1.3, h - pad * 1.8, unit * 0.035)
     ctx.fill()
-    ctx.beginPath()
-    ctx.arc(pad, h, unit * 0.13, 0, 2 * Math.PI)
+    ctx.restore()
+  } else if (isCard) {
+    ctx.save()
+    ctx.fillStyle = '#FFFDF8'
+    roundRectPath(ctx, pad * 0.55, pad * 0.55, w - pad * 1.1, h - pad * 1.1, unit * 0.04)
     ctx.fill()
-  } else if (motif === 1) {
-    for (let i = 0; i < 7; i++) {
-      ctx.beginPath()
-      ctx.arc(
-        w - pad - i * unit * 0.045,
-        pad * 0.43,
-        unit * 0.013,
-        0,
-        2 * Math.PI,
-      )
-      ctx.fill()
-    }
-  } else {
-    ctx.fillRect(pad * 0.45, pad * 0.45, w - 2 * pad * 0.45, unit * 0.008)
-    ctx.fillRect(pad * 0.45, h - pad * 0.45, w - 2 * pad * 0.45, unit * 0.008)
+    ctx.strokeStyle = options.foreground
+    ctx.globalAlpha = 0.25
+    ctx.lineWidth = Math.max(2, unit * 0.004)
+    roundRectPath(ctx, pad * 0.72, pad * 0.72, w - pad * 1.44, h - pad * 1.44, unit * 0.03)
+    ctx.stroke()
+    ctx.restore()
+  } else if (isNotice) {
+    ctx.save()
+    ctx.fillStyle = options.foreground
+    ctx.fillRect(0, 0, w, h * 0.28)
+    ctx.fillStyle = '#FFFFFF'
+    roundRectPath(ctx, pad * 0.6, h * 0.22, w - pad * 1.2, h * 0.71, unit * 0.03)
+    ctx.fill()
+    ctx.restore()
+  } else if (isEditorial) {
+    ctx.save()
+    ctx.fillStyle = options.foreground
+    ctx.fillRect(0, 0, pad * 0.42, h)
+    ctx.globalAlpha = 0.14
+    ctx.fillRect(pad * 0.42, 0, pad * 0.14, h)
+    ctx.restore()
+  } else if (isIllustrated) {
+    ctx.save()
+    ctx.fillStyle = '#FFFFFF'
+    ctx.globalAlpha = 0.78
+    roundRectPath(ctx, pad * 0.6, pad * 0.6, w - pad * 1.2, h - pad * 1.2, unit * 0.035)
+    ctx.fill()
+    ctx.restore()
+  } else if (isMemory) {
+    ctx.save()
+    ctx.fillStyle = '#FFFFFF'
+    ctx.globalAlpha = 0.55
+    roundRectPath(ctx, pad * 0.55, pad * 0.55, w - pad * 1.1, h - pad * 1.1, unit * 0.03)
+    ctx.fill()
+    ctx.restore()
   }
-  ctx.restore()
+
+  let figureConsumedHeight = 0
   if (figure) {
-    const side = unit * 0.125
-    const fit = fitted(
-      figure.naturalWidth || 1,
-      figure.naturalHeight || 1,
-      side,
-      side,
-      false,
-    )
-    ctx.drawImage(
-      figure,
-      w - pad - side + fit.x,
-      pad * 0.55 + fit.y,
-      fit.width,
-      fit.height,
-    )
+    if (isIllustrated && !image) {
+      const side = unit * 0.22
+      const cx = w / 2
+      const cy = pad * 0.9 + side / 2
+      ctx.save()
+      ctx.fillStyle = options.background
+      ctx.beginPath()
+      ctx.arc(cx, cy, side * 0.62, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+      const fit = fitted(
+        figure.naturalWidth || 1,
+        figure.naturalHeight || 1,
+        side,
+        side,
+        false,
+      )
+      ctx.drawImage(
+        figure,
+        cx - side / 2 + fit.x,
+        cy - side / 2 + fit.y,
+        fit.width,
+        fit.height,
+      )
+      figureConsumedHeight = side + pad * 0.5
+    } else if (!isNotice) {
+      const side = unit * 0.15
+      const fit = fitted(
+        figure.naturalWidth || 1,
+        figure.naturalHeight || 1,
+        side,
+        side,
+        false,
+      )
+      const fy = isInvite ? pad * 1.3 : pad * 0.85
+      ctx.drawImage(
+        figure,
+        w - pad - side + fit.x,
+        fy + fit.y,
+        fit.width,
+        fit.height,
+      )
+    }
   }
-  ctx.fillStyle = options.foreground
-  const headLimit = image ? h * 0.22 : h * 0.36
+
+  const textWidth = w - 2 * pad
+  const fontStack =
+    options.font === 'Bricolage Grotesque'
+      ? "'Bricolage Grotesque', 'Noto Sans', sans-serif"
+      : options.font === 'Noto Sans'
+        ? "'Noto Sans', sans-serif"
+        : options.font
+
   function fit(text: string, size: number, maxHeight: number, bold = false) {
     let lines: string[] = []
-    for (; size >= 4; size = Math.floor(size * 0.91)) {
-      ctx.font = (bold ? '700 ' : '') + size + 'px ' + options.font
-      lines = wrap(ctx, text, w - 2 * pad)
+    for (; size >= 12; size = Math.floor(size * 0.91)) {
+      ctx.font = (bold ? '700 ' : '') + size + 'px ' + fontStack
+      lines = wrap(ctx, text, textWidth)
       if (lines.length * size * 1.24 <= maxHeight) break
     }
     return { lines, size, font: ctx.font }
   }
+
+  const headLimit = image ? h * 0.19 : h * 0.3
   const title = fit(
     options.title || 'Seu título',
-    Math.floor(unit * (panel ? 0.105 : 0.093)),
+    Math.floor(unit * (panel ? 0.095 : 0.082)),
     headLimit,
     true,
   )
-  const date = fit(options.date, Math.floor(unit * 0.035), h * 0.075, true)
+  const date = fit(options.date, Math.floor(unit * 0.032), h * 0.065, true)
   const body = fit(
     options.body,
-    Math.floor(unit * 0.045),
-    image ? h * 0.18 : h * 0.3,
+    Math.floor(unit * 0.042),
+    image ? h * 0.18 : h * 0.32,
   )
-  const gap = unit * 0.025
+  const gap = unit * 0.024
   const callout = !panel ? (options.callout?.trim() ?? '') : ''
-  const footer = fit(callout, Math.floor(unit * 0.03), h * 0.08, true)
-  const imageH = image ? h * (memory ? 0.33 : 0.27) : 0
+  const footer = fit(callout, Math.floor(unit * 0.031), h * 0.075, true)
+  const imageH = image ? h * (isMemory ? 0.34 : 0.25) : 0
+
+  if (isNotice) {
+    ctx.fillStyle = '#FFFFFF'
+    ctx.textBaseline = 'top'
+    ctx.font = title.font
+    let ty = h * 0.055
+    for (const line of title.lines.slice(0, 2)) {
+      ctx.fillText(line, pad, ty)
+      ty += title.size * 1.2
+    }
+    if (figure) {
+      const side = unit * 0.14
+      const fitFig = fitted(
+        figure.naturalWidth || 1,
+        figure.naturalHeight || 1,
+        side,
+        side,
+        false,
+      )
+      ctx.drawImage(
+        figure,
+        w - pad - side + fitFig.x,
+        h * 0.045 + fitFig.y,
+        fitFig.width,
+        fitFig.height,
+      )
+    }
+    let y = h * 0.265
+    ctx.fillStyle = options.foreground
+    if (options.date) {
+      ctx.font = date.font
+      for (const line of date.lines) {
+        ctx.fillText(line, pad, y)
+        y += date.size * 1.24
+      }
+      y += gap
+    }
+    if (image) {
+      const rect = fitted(
+        image.naturalWidth,
+        image.naturalHeight,
+        textWidth,
+        imageH,
+        Boolean(options.crop),
+      )
+      ctx.save()
+      roundRectPath(ctx, pad, y, textWidth, imageH, unit * 0.02)
+      ctx.clip()
+      ctx.drawImage(image, pad + rect.x, y + rect.y, rect.width, rect.height)
+      ctx.restore()
+      y += imageH + gap
+    }
+    if (options.body) {
+      ctx.font = body.font
+      for (const line of body.lines) {
+        ctx.fillText(line, pad, y)
+        y += body.size * 1.24
+      }
+    }
+    if (callout) {
+      y += gap * 1.4
+      ctx.save()
+      ctx.fillStyle = options.background
+      roundRectPath(
+        ctx,
+        pad,
+        y - gap * 0.35,
+        textWidth,
+        footer.lines.length * footer.size * 1.24 + gap * 0.7,
+        unit * 0.02,
+      )
+      ctx.fill()
+      ctx.restore()
+      ctx.fillStyle = options.foreground
+      ctx.font = footer.font
+      for (const line of footer.lines) {
+        ctx.fillText(line, pad + unit * 0.02, y)
+        y += footer.size * 1.24
+      }
+    }
+    return y > h - pad * 0.8
+  }
+
   const total =
+    figureConsumedHeight +
     title.lines.length * title.size * 1.24 +
     (options.body ? body.lines.length * body.size * 1.24 + gap : 0) +
     (options.date ? date.lines.length * date.size * 1.24 + gap : 0) +
     (image ? imageH + gap : 0) +
     (callout ? footer.lines.length * footer.size * 1.24 + gap * 2 : 0)
-  let y = Math.max(invite || notice ? pad * 1.12 : pad * 0.75, (h - total) / 2)
+
+  let y = Math.max(
+    (isInvite ? pad * 1.45 : pad * 0.95) + figureConsumedHeight,
+    (h - total) / 2 + figureConsumedHeight,
+  )
   ctx.textBaseline = 'top'
-  function draw(block: typeof title) {
+  ctx.fillStyle = options.foreground
+
+  function drawBlock(block: typeof title, centered = false) {
     ctx.font = block.font
     for (const line of block.lines) {
-      ctx.fillText(line, pad, y)
+      const lx = centered ? w / 2 - ctx.measureText(line).width / 2 : pad
+      ctx.fillText(line, lx, y)
       y += block.size * 1.24
     }
   }
+
   function drawPhoto() {
     if (!image) return
+    if (isMemory) {
+      const framePad = unit * 0.022
+      const fw = textWidth
+      const fh = imageH + framePad * 2.1
+      ctx.save()
+      ctx.fillStyle = '#FFFFFF'
+      ctx.shadowColor = 'rgba(27, 42, 36, 0.14)'
+      ctx.shadowBlur = unit * 0.03
+      ctx.shadowOffsetY = unit * 0.012
+      ctx.fillRect(pad, y, fw, fh)
+      ctx.restore()
+      ctx.save()
+      ctx.fillStyle = '#F2C14E'
+      ctx.globalAlpha = 0.55
+      ctx.fillRect(w / 2 - unit * 0.09, y - unit * 0.016, unit * 0.18, unit * 0.032)
+      ctx.restore()
+
+      const iw = fw - framePad * 2
+      const ih = imageH - framePad * 0.4
+      const rect = fitted(
+        image.naturalWidth,
+        image.naturalHeight,
+        iw,
+        ih,
+        Boolean(options.crop),
+      )
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(pad + framePad, y + framePad, iw, ih)
+      ctx.clip()
+      ctx.drawImage(
+        image,
+        pad + framePad + rect.x,
+        y + framePad + rect.y,
+        rect.width,
+        rect.height,
+      )
+      ctx.restore()
+      y += fh + gap
+      return
+    }
     const rect = fitted(
       image.naturalWidth,
       image.naturalHeight,
-      w - 2 * pad,
+      textWidth,
       imageH,
       Boolean(options.crop),
     )
     ctx.save()
-    ctx.beginPath()
-    ctx.rect(pad, y, w - 2 * pad, imageH)
+    roundRectPath(ctx, pad, y, textWidth, imageH, unit * 0.022)
     ctx.clip()
     ctx.drawImage(image, pad + rect.x, y + rect.y, rect.width, rect.height)
     ctx.restore()
     y += imageH + gap
   }
-  if (memory) drawPhoto()
-  if (invite || notice) {
-    ctx.save()
-    ctx.globalAlpha = 0.15
-    ctx.fillRect(pad, y - gap * 0.7, w - 2 * pad, gap * 0.24)
-    ctx.restore()
-  }
-  draw(title)
+
+  if (isMemory) drawPhoto()
+  drawBlock(title, isIllustrated && !image)
   if (options.date) {
-    y += gap
-    draw(date)
+    y += gap * 0.8
+    drawBlock(date, isIllustrated && !image)
   }
-  if (!memory && image) {
+  if (!isMemory && image) {
     y += gap
     drawPhoto()
   }
   if (options.body) {
     y += gap
-    draw(body)
+    drawBlock(body, isIllustrated && !image)
   }
   if (callout) {
-    y += gap * 1.8
+    y += gap * 1.5
     ctx.save()
-    ctx.globalAlpha = 0.18
-    ctx.fillRect(
+    ctx.fillStyle = options.foreground
+    ctx.globalAlpha = 0.14
+    roundRectPath(
+      ctx,
       pad,
-      y - gap * 0.45,
-      w - 2 * pad,
-      footer.lines.length * footer.size * 1.24 + gap * 0.65,
+      y - gap * 0.4,
+      textWidth,
+      footer.lines.length * footer.size * 1.24 + gap * 0.7,
+      unit * 0.018,
     )
+    ctx.fill()
     ctx.restore()
-    draw(footer)
+    drawBlock(footer, true)
   }
   return (
-    y > h - pad ||
-    title.size < unit * 0.033 ||
-    Boolean(options.body && body.size < unit * 0.022)
+    y > h - pad * 0.8 ||
+    title.size < unit * 0.032 ||
+    Boolean(options.body && body.size < unit * 0.021)
   )
 }
+
 export function tiles(grid: number, rows = grid) {
-  const size = { width: 720, height: 1018 },
-    overlap = 16
-  const stepX = size.width - overlap,
-    stepY = size.height - overlap
+  const size = { width: 720, height: 1018 }
+  const overlap = 16
+  const stepX = size.width - overlap
+  const stepY = size.height - overlap
   return {
     size,
     width: stepX * (grid - 1) + size.width,
