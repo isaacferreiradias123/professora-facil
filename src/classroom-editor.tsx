@@ -177,6 +177,7 @@ function ReadyMaterial({
       <img src={assetUrl(item.ready.image)} alt={item.title} />
       <p>
         <a href={item.ready.source}>{item.ready.author}</a>
+        {item.ready.originalPage && <> · {item.ready.originalPage}</>}
       </p>
       <a className="button" href={assetUrl(item.ready.file)} download>
         <Download size={18} aria-hidden="true" /> Baixar PDF
