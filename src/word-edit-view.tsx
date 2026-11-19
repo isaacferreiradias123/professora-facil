@@ -335,9 +335,18 @@ export default function WordEditor() {
               value={draft}
               rows={Math.min(10, Math.max(2, Math.ceil(draft.length / 55)))}
               onChange={(e) => setDraft(e.target.value.replace(/[\r\n]/g, ' '))}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  setActive(null)
+                } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault()
+                  saveParagraph()
+                }
+              }}
             />
             <div className="actions">
-              <button type="button" onClick={saveParagraph}>
+              <button type="button" onClick={saveParagraph} aria-keyshortcuts="Control+Enter Meta+Enter">
                 Aplicar alteração
               </button>
               <button

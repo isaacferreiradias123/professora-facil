@@ -369,7 +369,7 @@ export function drawArt(
   options: ArtOptions,
   image?: HTMLImageElement | null,
   panel = false,
-  figure?: HTMLImageElement,
+  ornament?: HTMLImageElement,
 ) {
   const ctx = element.getContext('2d')!
   const { width: w, height: h } = element
@@ -390,7 +390,7 @@ export function drawArt(
       )
       ctx.drawImage(image, rect.x, rect.y, rect.width, rect.height)
     }
-    return false
+    return null
   }
 
   const comp = options.composition || 'caderno'
@@ -400,6 +400,7 @@ export function drawArt(
   const isIllustrated = comp === 'ilustrado'
   const isEditorial = comp === 'editorial'
   const isCard = comp === 'caderno'
+  const figure = image && !isNotice ? undefined : ornament
 
   if (isInvite) {
     drawPennants(ctx, w, pad, unit, options.foreground)
@@ -506,22 +507,26 @@ export function drawArt(
         ? "'Noto Sans', sans-serif"
         : options.font
 
-  function fit(text: string, size: number, maxHeight: number, bold = false) {
-    let lines: string[] = []
-    for (; size >= 12; size = Math.floor(size * 0.91)) {
+  function fit(text: string, size: number, maxHeight: number, bold = false, width = textWidth) {
+    const minimum = Math.min(size, Math.max(12, Math.ceil(unit * 0.019)))
+    while (true) {
       ctx.font = (bold ? '700 ' : '') + size + 'px ' + fontStack
-      lines = wrap(ctx, text, textWidth)
-      if (lines.length * size * 1.24 <= maxHeight) break
+      const lines = wrap(ctx, text, width)
+      const overflow = Boolean(text && lines.length * size * 1.24 > maxHeight)
+      if (!overflow || size === minimum) return { lines, size, font: ctx.font, overflow }
+      size = Math.max(minimum, Math.floor(size * 0.91))
     }
-    return { lines, size, font: ctx.font }
   }
 
-  const headLimit = image ? h * 0.19 : h * 0.3
+  const headLimit = isNotice ? h * 0.15 : image ? h * 0.19 : h * 0.3
+  const figureSide = unit * (isNotice ? 0.14 : 0.15)
+  const headingWidth = figure && !isIllustrated ? textWidth - figureSide - unit * 0.035 : textWidth
   const title = fit(
     options.title || 'Seu título',
     Math.floor(unit * (panel ? 0.095 : 0.082)),
     headLimit,
     true,
+    headingWidth,
   )
   const date = fit(options.date, Math.floor(unit * 0.032), h * 0.065, true)
   const body = fit(
@@ -531,20 +536,29 @@ export function drawArt(
   )
   const gap = unit * 0.024
   const callout = !panel ? (options.callout?.trim() ?? '') : ''
-  const footer = fit(callout, Math.floor(unit * 0.031), h * 0.075, true)
+  const footer = fit(callout, Math.floor(unit * 0.031), h * 0.075, true, textWidth - unit * 0.04)
   const imageH = image ? h * (isMemory ? 0.34 : 0.25) : 0
 
+  const overflow =
+    title.overflow ? 'title' : date.overflow ? 'date' : body.overflow ? 'body' : footer.overflow ? 'callout' : null
+  const bottomField = callout ? 'callout' : options.body ? 'body' : options.date ? 'date' : 'title'
+
   if (isNotice) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(pad, h * 0.045, headingWidth, headLimit + h * 0.012)
+    ctx.clip()
     ctx.fillStyle = '#FFFFFF'
     ctx.textBaseline = 'top'
     ctx.font = title.font
     let ty = h * 0.055
-    for (const line of title.lines.slice(0, 2)) {
+    for (const line of title.lines) {
       ctx.fillText(line, pad, ty)
-      ty += title.size * 1.2
+      ty += title.size * 1.24
     }
+    ctx.restore()
     if (figure) {
-      const side = unit * 0.14
+      const side = figureSide
       const fitFig = fitted(
         figure.naturalWidth || 1,
         figure.naturalHeight || 1,
@@ -613,7 +627,7 @@ export function drawArt(
         y += footer.size * 1.24
       }
     }
-    return y > h - pad * 0.8
+    return overflow ?? (y > h * 0.91 ? bottomField : null)
   }
 
   const total =
@@ -729,11 +743,7 @@ export function drawArt(
     ctx.restore()
     drawBlock(footer, true)
   }
-  return (
-    y > h - pad * 0.8 ||
-    title.size < unit * 0.032 ||
-    Boolean(options.body && body.size < unit * 0.021)
-  )
+  return overflow ?? (y > h - pad * 0.8 ? bottomField : null)
 }
 
 export function tiles(grid: number, rows = grid) {

@@ -346,6 +346,25 @@ export default function DocumentResponse() {
       )) &&
     Boolean(text.trim())
 
+  const [spacingWarning, setSpacingWarning] = useState('')
+  useEffect(() => {
+    if (source?.kind !== 'pdf' || !point || !text.trim()) return
+    let current = true
+    const timer = window.setTimeout(() => {
+      void checkPdfAnswer(source.document, { ...point, text }).then(
+        () => { if (current) setSpacingWarning('') },
+        (error: unknown) => {
+          if (current) setSpacingWarning(error instanceof Error ? error.message : '')
+        },
+      )
+    }, 220)
+    return () => {
+      current = false
+      window.clearTimeout(timer)
+      setSpacingWarning('')
+    }
+  }, [source, point, text])
+
   async function save() {
     if (!source || !saved || pending || busy) return
     setError('')
@@ -406,7 +425,7 @@ export default function DocumentResponse() {
             {source.kind === 'pdf' ? (
               <>
                 <p>
-                  Toque no espaço da pergunta para marcar onde a resposta começa.
+                  Toque na folha onde a resposta deve começar. Para mudar a posição, selecione a resposta e toque em outro ponto.
                 </p>
                 <div className="school-form-grid">
                   <label>
@@ -598,6 +617,7 @@ export default function DocumentResponse() {
                 disabled={source.kind === 'pdf' ? !point : paragraph === null}
               />
             </label>
+            {pending && spacingWarning && <p role="status" className="school-warning">{spacingWarning}</p>}
             <div className="actions">
               <button
                 type="button"

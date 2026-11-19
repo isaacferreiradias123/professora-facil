@@ -66,6 +66,7 @@ test('ficha de Pré II tem contagem ilustrada, Econômico P&B e roteiro', async 
   await expect(
     page.getByRole('heading', { name: 'A feira da turma' }),
   ).toBeVisible()
+  await page.getByText('Estilo de impressão', { exact: true }).click()
   await page.getByRole('button', { name: 'Econômico P&B' }).click()
   await expect(
     page.getByRole('button', { name: 'Econômico P&B' }),
@@ -206,6 +207,7 @@ test('coleção é navegável por teclado, filtros, pronto e rascunho reaberto',
     .getByRole('combobox', { name: 'Turma', exact: true })
     .selectOption('')
   await search.clear()
+  await page.getByText('Mais filtros', { exact: true }).click()
   await page
     .getByRole('combobox', { name: 'Formato', exact: true })
     .selectOption('pronto')
@@ -236,6 +238,7 @@ test('montadores livres (contagem, pares, traçado) e planos com BNCC', async ({
   page,
 }, info) => {
   await page.goto('/app/colecao?ferramenta=atividade')
+  await page.getByText('Começar em branco', { exact: true }).click()
   await page.getByRole('link', { name: 'Montar ficha de contagem' }).click()
   await page
     .getByRole('combobox', { name: 'Conjunto de figuras', exact: true })

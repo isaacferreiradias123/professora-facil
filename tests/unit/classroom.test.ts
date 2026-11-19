@@ -198,3 +198,16 @@ describe('curated classroom collection', () => {
     expect(sheets[0].name).toBe('Guia de montagem')
   })
 })
+
+it('mantém as últimas linhas de planos semanais e roteiros longos', () => {
+  const weekly = findClassroomItem('plano-semanal-maternal')!
+  const experience = classroom.find((item) => item.task?.mode === 'experience')!
+  const rows = Array.from({ length: 65 }, (_, i) => 'Passo ' + (i + 1)).join('\n') + '\nÚltima linha'
+  for (const [item, field] of [[weekly, 'mon'], [experience, 'stepsText']] as const) {
+    const sheets = buildSheets(item, { ...initialValues(item), [field]: rows })
+    expect(sheets.length).toBeGreaterThan(1)
+    expect(sheets.some((sheet) => sheet.marks.some((mark) =>
+      mark.kind === 'text' && mark.text.includes('Última linha'),
+    ))).toBe(true)
+  }
+})

@@ -49,3 +49,18 @@ test('organiza o acervo integral e preserva a página ao voltar', async ({ page 
   await page.getByRole('link', { name: 'Baixar figura PNG' }).click()
   expect((await figure).suggestedFilename()).toMatch(/\.png$/)
 })
+
+test('todos os 200 materiais têm arquivos servidos no site', async ({ request, browserName }) => {
+  test.skip(browserName !== 'chromium', 'A checagem HTTP independe do navegador.')
+  for (let start = 0; start < archiveItems.length; start += 16) {
+    await Promise.all(archiveItems.slice(start, start + 16).map(async ({ ready }) => {
+      for (const path of [ready?.file, ready?.image, ready?.figure, ready?.presentation]) {
+        if (!path) continue
+        const response = await request.head('/colecao/' + path)
+        expect(response.ok(), path).toBe(true)
+        expect(response.headers()['content-type'], path).not.toContain('text/html')
+        await response.dispose()
+      }
+    }))
+  }
+})

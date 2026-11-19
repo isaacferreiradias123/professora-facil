@@ -1,4 +1,5 @@
 import { Upload } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
 import { useEffect, useId, useState, type ReactNode } from 'react'
 
 export function Stages({
@@ -90,14 +91,51 @@ export function FileDrop({
 export function AdjustLayout({
   form,
   preview,
+  catalogUrl,
 }: {
   form: ReactNode
   preview: ReactNode
+  catalogUrl: string
 }) {
   const id = useId()
   const [view, setView] = useState<'edit' | 'preview'>('edit')
+  const [step, setStep] = useState<'adjust' | 'download'>('adjust')
+  const { state } = useLocation()
+  const origin = typeof state?.catalogUrl === 'string' && state.catalogUrl.startsWith('/app/colecao')
+    ? state.catalogUrl
+    : catalogUrl
   return (
     <div className="adjust-layout" data-view={view} data-editor-step>
+      <nav className="editor-steps-guide" aria-label="Etapas do material">
+        <Link to={origin} aria-label="Escolher outro modelo">1. Escolher</Link>
+        <button
+          type="button"
+          className="secondary"
+          aria-current={step === 'adjust' ? 'step' : undefined}
+          onClick={(event) => {
+            const form = event.currentTarget.closest('.adjust-layout')
+            setView('edit')
+            setStep('adjust')
+            requestAnimationFrame(() => form?.querySelector<HTMLElement>('.adjust-form input:not([type="hidden"]), .adjust-form textarea, .adjust-form select')?.focus())
+          }}
+        >
+          2. Ajustar
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          aria-current={step === 'download' ? 'step' : undefined}
+          onClick={(event) => {
+            const action = event.currentTarget.closest('.school-editor')
+              ?.querySelector<HTMLButtonElement>('.pinned-action button')
+            setView('preview')
+            setStep('download')
+            if (!action?.disabled) action?.focus()
+          }}
+        >
+          3. Baixar
+        </button>
+      </nav>
       <div
         className="preview-switch"
         role="group"
@@ -107,7 +145,7 @@ export function AdjustLayout({
           type="button"
           aria-pressed={view === 'edit'}
           aria-controls={id + '-edit'}
-          onClick={() => setView('edit')}
+          onClick={() => { setView('edit'); setStep('adjust') }}
         >
           Editar
         </button>

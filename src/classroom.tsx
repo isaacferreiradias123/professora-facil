@@ -566,15 +566,16 @@ export function ClassroomLibrary() {
   }, [catalogUrl])
 
   const search = normalized(query.trim())
+  const activeFilters = Boolean(query || age || mode || kind || orientation || purpose || selectedSection)
   const results = (archive ? sortedArchive : classroom).filter(
     (item) =>
-      (archive ? !kind || (item.archiveType ?? item.category) === kind : !addedArchiveIds.has(item.id)) &&
+      (archive ? !kind || (item.archiveType ?? item.category) === kind : (!tool && Boolean(search)) || !addedArchiveIds.has(item.id)) &&
       (!tool || item.tool === tool) &&
       (!tool ||
         !choices.some((section) => section.id === selectedSection) ||
         sectionFor(item) === selectedSection) &&
       (!activityLibrary || !purpose || activityUse(item) === purpose) &&
-      (!age || item.age === age || (!item.age && item.tool !== 'atividade')) &&
+      (!age || item.age === age || (!archive && !item.age && item.tool !== 'atividade')) &&
       (!mode || (mode === 'pronto' ? !!item.ready : !item.ready)) &&
       (!orientation ||
         (item.tool === 'painel' &&
@@ -601,7 +602,8 @@ export function ClassroomLibrary() {
     Number.isInteger(requestedPage) && requestedPage > 0
       ? Math.min(requestedPage, totalPages)
       : 1
-  const listedItems = archive
+  const paginated = archive || (!tool && Boolean(search))
+  const listedItems = paginated
     ? results.slice((currentPage - 1) * archivePageSize, currentPage * archivePageSize)
     : results
 
@@ -685,8 +687,15 @@ export function ClassroomLibrary() {
         </div>
       )}
 
+      {tool && <a className="button" href="#modelos-da-ferramenta" onClick={(event) => {
+        event.preventDefault()
+        document.getElementById('modelos-da-ferramenta')?.focus()
+      }}>Escolher um modelo</a>}
+
       {tool === 'atividade' && purpose !== 'guided' && (
-        <div className="actions">
+        <details className="tool-shortcuts">
+          <summary>Começar em branco</summary>
+          <div className="actions">
           <Link className="button" to="/app/colecao/criar-contagem">
             Montar ficha de contagem
           </Link>
@@ -696,28 +705,32 @@ export function ClassroomLibrary() {
           <Link className="button secondary" to="/app/colecao/criar-tracado">
             Montar ficha de traçado
           </Link>
-        </div>
+          </div>
+        </details>
       )}
 
       {tool === 'documento' && (
-        <nav className="actions" aria-label="Ferramentas de documentos">
+        <details className="tool-shortcuts">
+          <summary>Abrir meu arquivo</summary>
+          <nav className="actions" aria-label="Ferramentas de documentos">
           <Link className="button" to="/app/editar-word">
             Editar um Word existente (.docx)
           </Link>
           <Link className="button secondary" to="/app/responder?tipo=pdf">
             Responder no PDF
           </Link>
-        </nav>
+          </nav>
+        </details>
       )}
 
       {tool && ['postagem', 'painel', 'fotos-em-pdf'].includes(tool) && (
         <div className="actions">
-          <Link className="button" to={'/app/criar/' + tool}>
+          <Link className="button secondary" to={'/app/criar/' + tool}>
             {tool === 'painel'
-              ? 'Dividir minha imagem em folhas A4'
+              ? 'Abrir minha imagem para imprimir'
               : tool === 'postagem'
-                ? 'Criar arte do zero'
-                : 'Abrir montador de fotos agora'}
+                ? 'Começar em branco'
+                : 'Abrir minhas fotos'}
           </Link>
         </div>
       )}
@@ -745,6 +758,17 @@ export function ClassroomLibrary() {
             ))}
           </select>
         </label>
+        {tool && <details className="tool-extra-filters" open={mode || orientation ? true : undefined}>
+          <summary>Mais filtros</summary>
+          <label>
+            Formato
+            <select value={mode} onChange={(e) => filter('formato', e.target.value)}>
+              <option value="">Todos</option>
+              <option value="editavel">Personalizável</option>
+              <option value="pronto">Pronto para imprimir</option>
+            </select>
+          </label>
+        </details>}
         {archive && (
           <label>
             Tipo de material
@@ -754,7 +778,7 @@ export function ClassroomLibrary() {
             </select>
           </label>
         )}
-        {!archive && <label>
+        {!archive && !tool && <label>
           Formato
           <select
             value={mode}
@@ -816,7 +840,7 @@ export function ClassroomLibrary() {
         )
       })}
 
-      {archive && totalPages > 1 && (
+      {paginated && totalPages > 1 && (
         <nav className="actions" aria-label="Páginas do acervo">
           <button type="button" className="secondary" disabled={currentPage === 1}
             onClick={() => filter('pagina', String(currentPage - 1))}>
@@ -829,7 +853,8 @@ export function ClassroomLibrary() {
           </button>
         </nav>
       )}
-      {!results.length && (
+      {!results.length && <p>Experimente buscar pelo nome do material ou limpar os filtros.</p>}
+      {activeFilters && (
         <button
           type="button"
           className="secondary"
