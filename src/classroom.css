@@ -155,7 +155,9 @@
 }
 
 .school-tab:hover {
+  background: var(--brand-soft);
   border-color: var(--brand);
+  color: var(--brand);
 }
 
 .school-showcase {
