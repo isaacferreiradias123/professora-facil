@@ -6,8 +6,8 @@ export interface ArtFigure {
 }
 
 export const figures: readonly ArtFigure[] = [
-  { id: 'acervo-entusiasmo', asset: 'acervo/015-figura.png', label: 'Entusiasmo · Abby the Pup', group: 'Rotina e escola' },
-  { id: 'acervo-raiva', asset: 'acervo/017-figura.png', label: 'Raiva · Abby the Pup', group: 'Rotina e escola' },
+  { id: 'acervo-entusiasmo', asset: 'acervo/015-figura.png', label: 'Entusiasmo', group: 'Rotina e escola' },
+  { id: 'acervo-raiva', asset: 'acervo/017-figura.png', label: 'Raiva', group: 'Rotina e escola' },
   { id: 'il-fruit-apple', asset: 'il-fruit-apple.png', label: 'Maçã', group: 'Frutas' },
   { id: 'il-fruit-banana', asset: 'il-fruit-banana.png', label: 'Banana', group: 'Frutas' },
   { id: 'il-fruit-pear', asset: 'il-fruit-pear.png', label: 'Pera', group: 'Frutas' },

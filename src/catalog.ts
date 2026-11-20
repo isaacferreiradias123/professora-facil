@@ -2,6 +2,7 @@ export const groups = [
   'Bebês · zero a 1 ano e 6 meses',
   'Crianças bem pequenas · 1 ano e 7 meses a 3 anos e 11 meses',
   'Crianças pequenas · 4 anos a 5 anos e 11 meses',
+  'Ensino Fundamental I · 1º ao 5º ano',
 ] as const
 
 export const fields = [
@@ -26,10 +27,10 @@ export const bncc =
 
 export const tools = {
   atividade: {
-    name: 'Atividades e vivências',
+    name: 'Atividades e tarefas',
     shortName: 'Atividades',
     description:
-      'Fichas ilustradas, traçado motor, contagem, pareamento e roteiros editáveis.',
+      'Tarefas com questões e linhas, provas, traçado motor, contagem, pareamento e roteiros.',
     outputs: ['PDF A4', 'Word'],
     image: 'editorial-atividade.webp',
   },
@@ -37,7 +38,7 @@ export const tools = {
     name: 'Planos de aula',
     shortName: 'Planos',
     description:
-      'Planejamentos diários, grade semanal, sequências didáticas e selos BNCC.',
+      'Planejamentos diários, grade semanal, sequências didáticas e campos da BNCC.',
     outputs: ['PDF A4', 'Word'],
     image: 'editorial-plano.webp',
   },
@@ -53,8 +54,8 @@ export const tools = {
     name: 'Documentos e recados',
     shortName: 'Documentos',
     description:
-      'Bilhetes em 1, 2 ou 4 vias, atas, checklists e edição de Word e PDF.',
-    outputs: ['PDF A4', 'DOCX', 'Responder PDF'],
+      'Bilhetes em 1, 2 ou 4 vias, atas, listas e edição de arquivos Word ou PDF.',
+    outputs: ['PDF A4', 'Word', 'Responder PDF'],
     image: 'editorial-documento.webp',
   },
   'fotos-em-pdf': {
@@ -77,7 +78,7 @@ export const tools = {
     name: 'Painéis e kits A4',
     shortName: 'Painéis',
     description:
-      'Murais em mosaico A4, kits recortáveis ilustrados e fatiador de imagem.',
+      'Murais em mosaico A4, placas para recortar e fatiador de imagem grande.',
     outputs: ['PDF A4', 'Guia'],
     image: 'editorial-painel.webp',
   },
@@ -87,9 +88,9 @@ export type Tool = keyof typeof tools
 
 export const tutorials: Record<Tool, readonly string[]> = {
   atividade: [
-    'Escolha uma ficha pronta, uma vivência ou abra um dos montadores livres.',
-    'Ajuste o comando, as figuras, a quantidade ou o tema de impressão (incluindo P&B econômico).',
-    'Confira a prévia A4 em tempo real e baixe em PDF ou Word.',
+    'Escolha uma folha pronta ou abra o Criador de Tarefas e Provas com questões numeradas.',
+    'Edite o cabeçalho escolar, todas as figuras, pistas ou alternativas e o estilo de impressão.',
+    'Confira a folha A4 na hora e baixe em PDF ou Word editável.',
   ],
   'plano-de-aula': [
     'Escolha entre plano diário, planejamento semanal, sequência ou vivência de creche.',
@@ -102,7 +103,7 @@ export const tutorials: Record<Tool, readonly string[]> = {
     'Baixe o registro em PDF ou Word com espaço de assinatura.',
   ],
   documento: [
-    'Escolha um recado (1, 2 ou 4 vias na mesma folha), um documento escolar ou abra seu Word/PDF.',
+    'Escolha um recado (1, 2 ou 4 vias na mesma folha), um documento escolar ou abra seu Word ou PDF.',
     'Personalize os campos, a arte do bilhete e o canhoto destacável.',
     'Baixe o novo arquivo pronto para imprimir ou enviar.',
   ],
@@ -112,12 +113,12 @@ export const tutorials: Record<Tool, readonly string[]> = {
     'Baixe o álbum em PDF ou imprima diretamente.',
   ],
   postagem: [
-    'Escolha um modelo ou comece direto no editor com 6 composições e 6 paletas.',
+    'Escolha um modelo ou comece do zero com 6 composições e 6 paletas com leitura nítida.',
     'Adicione título, texto, foto opcional ou uma ilustração da galeria.',
     'Baixe a imagem PNG em alta resolução e copie a legenda pronta.',
   ],
   painel: [
-    'Escolha um mural em mosaico A4, um kit recortável ilustrado ou envie sua própria imagem.',
+    'Escolha um mural em mosaico A4, placas ilustradas para recortar ou envie sua própria imagem.',
     'Personalize títulos e textos dos cartões na prévia montada.',
     'Imprima em escala de 100% usando o guia com sobreposição de 5 mm.',
   ],
@@ -151,5 +152,12 @@ export const observationHints = {
     'Registrou quantidades e comparou grupos justificando onde havia mais elementos.',
     'Elaborou combinações com os pares e propôs ajustes após testar uma ideia.',
     'Ditou frases para registro coletivo revisando informações importantes.',
+  ],
+  'Fundamental I': [
+    'Leu enunciados curtos com crescente autonomia e pediu esclarecimento quando necessário.',
+    'Registrou respostas completas utilizando as linhas e respeitando margens e espaçamento.',
+    'Utilizou estratégias pessoais de contagem, cálculo mental ou esquema para resolver problemas.',
+    'Revisou a própria produção corrigindo pontuação, segmentação e informações principais.',
+    'Participou das trocas em grupo ouvindo colegas e argumentando com exemplos.',
   ],
 } as const

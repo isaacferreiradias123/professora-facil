@@ -1,7 +1,7 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { documentLimit, validateZip } from './import-document'
 
-export type AnswerColor = 'ink' | 'blue' | 'green'
+export type AnswerColor = 'ink' | 'blue' | 'green' | 'red'
 export type Position = {
   page: number
   x: number
@@ -128,6 +128,7 @@ export async function respondedPdf(
     ink: rgb(0.11, 0.16, 0.14),
     blue: rgb(0.1, 0.25, 0.56),
     green: rgb(0.12, 0.34, 0.26),
+    red: rgb(0.68, 0.14, 0.14),
   }
   for (const answer of answers) {
     const original = await source.getPage(answer.page)

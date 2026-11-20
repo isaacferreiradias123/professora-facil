@@ -262,6 +262,7 @@ export interface ArtOptions {
   crop?: boolean
   composition?: string
   callout?: string
+  align?: 'left' | 'center'
   title: string
   body: string
   date: string
@@ -269,6 +270,15 @@ export interface ArtOptions {
   foreground: string
   font: string
   model?: number
+}
+
+function isDarkHex(hex: string) {
+  const clean = hex.replace('#', '')
+  if (clean.length !== 6) return false
+  const r = parseInt(clean.slice(0, 2), 16)
+  const g = parseInt(clean.slice(2, 4), 16)
+  const b = parseInt(clean.slice(4, 6), 16)
+  return Number.isFinite(r + g + b) && (r * 299 + g * 587 + b * 114) / 1000 < 130
 }
 
 export const postPalettes = [
@@ -400,19 +410,21 @@ export function drawArt(
   const isIllustrated = comp === 'ilustrado'
   const isEditorial = comp === 'editorial'
   const isCard = comp === 'caderno'
+  const dark = isDarkHex(options.background)
   const figure = image && !isNotice ? undefined : ornament
+  const contentPad = isEditorial ? pad * 1.15 : pad
 
   if (isInvite) {
     drawPennants(ctx, w, pad, unit, options.foreground)
     ctx.save()
-    ctx.fillStyle = '#FFFFFF'
-    ctx.globalAlpha = 0.72
+    ctx.fillStyle = dark ? '#244A3D' : '#FFFFFF'
+    ctx.globalAlpha = dark ? 0.86 : 0.72
     roundRectPath(ctx, pad * 0.65, pad * 1.15, w - pad * 1.3, h - pad * 1.8, unit * 0.035)
     ctx.fill()
     ctx.restore()
   } else if (isCard) {
     ctx.save()
-    ctx.fillStyle = '#FFFDF8'
+    ctx.fillStyle = dark ? '#224539' : '#FFFDF8'
     roundRectPath(ctx, pad * 0.55, pad * 0.55, w - pad * 1.1, h - pad * 1.1, unit * 0.04)
     ctx.fill()
     ctx.strokeStyle = options.foreground
@@ -423,9 +435,9 @@ export function drawArt(
     ctx.restore()
   } else if (isNotice) {
     ctx.save()
-    ctx.fillStyle = options.foreground
+    ctx.fillStyle = dark ? '#132B23' : options.foreground
     ctx.fillRect(0, 0, w, h * 0.28)
-    ctx.fillStyle = '#FFFFFF'
+    ctx.fillStyle = dark ? '#23493C' : '#FFFFFF'
     roundRectPath(ctx, pad * 0.6, h * 0.22, w - pad * 1.2, h * 0.71, unit * 0.03)
     ctx.fill()
     ctx.restore()
@@ -438,15 +450,15 @@ export function drawArt(
     ctx.restore()
   } else if (isIllustrated) {
     ctx.save()
-    ctx.fillStyle = '#FFFFFF'
-    ctx.globalAlpha = 0.78
+    ctx.fillStyle = dark ? '#244A3D' : '#FFFFFF'
+    ctx.globalAlpha = dark ? 0.86 : 0.78
     roundRectPath(ctx, pad * 0.6, pad * 0.6, w - pad * 1.2, h - pad * 1.2, unit * 0.035)
     ctx.fill()
     ctx.restore()
   } else if (isMemory) {
     ctx.save()
-    ctx.fillStyle = '#FFFFFF'
-    ctx.globalAlpha = 0.55
+    ctx.fillStyle = dark ? '#244A3D' : '#FFFFFF'
+    ctx.globalAlpha = dark ? 0.8 : 0.55
     roundRectPath(ctx, pad * 0.55, pad * 0.55, w - pad * 1.1, h - pad * 1.1, unit * 0.03)
     ctx.fill()
     ctx.restore()
@@ -459,7 +471,7 @@ export function drawArt(
       const cx = w / 2
       const cy = pad * 0.9 + side / 2
       ctx.save()
-      ctx.fillStyle = options.background
+      ctx.fillStyle = dark ? '#2E5B4C' : options.background
       ctx.beginPath()
       ctx.arc(cx, cy, side * 0.62, 0, Math.PI * 2)
       ctx.fill()
@@ -499,7 +511,9 @@ export function drawArt(
     }
   }
 
-  const textWidth = w - 2 * pad
+  const textWidth = w - contentPad - pad
+  const centerAll =
+    options.align === 'center' || (!options.align && isIllustrated && !image)
   const fontStack =
     options.font === 'Bricolage Grotesque'
       ? "'Bricolage Grotesque', 'Noto Sans', sans-serif"
@@ -608,13 +622,21 @@ export function drawArt(
     }
     if (callout) {
       y += gap * 1.4
+      ctx.font = footer.font
+      const pillPadX = unit * 0.025
+      const maxFooterW = footer.lines.reduce(
+        (max, l) => Math.max(max, ctx.measureText(l).width),
+        0,
+      )
+      const pillW = Math.min(textWidth, maxFooterW + pillPadX * 2)
+      const pillX = centerAll ? w / 2 - pillW / 2 : contentPad
       ctx.save()
-      ctx.fillStyle = options.background
+      ctx.fillStyle = dark ? '#132B23' : options.background
       roundRectPath(
         ctx,
-        pad,
+        pillX,
         y - gap * 0.35,
-        textWidth,
+        pillW,
         footer.lines.length * footer.size * 1.24 + gap * 0.7,
         unit * 0.02,
       )
@@ -623,7 +645,10 @@ export function drawArt(
       ctx.fillStyle = options.foreground
       ctx.font = footer.font
       for (const line of footer.lines) {
-        ctx.fillText(line, pad + unit * 0.02, y)
+        const lx = centerAll
+          ? w / 2 - ctx.measureText(line).width / 2
+          : pillX + pillPadX
+        ctx.fillText(line, lx, y)
         y += footer.size * 1.24
       }
     }
@@ -648,7 +673,7 @@ export function drawArt(
   function drawBlock(block: typeof title, centered = false) {
     ctx.font = block.font
     for (const line of block.lines) {
-      const lx = centered ? w / 2 - ctx.measureText(line).width / 2 : pad
+      const lx = centered ? w / 2 - ctx.measureText(line).width / 2 : contentPad
       ctx.fillText(line, lx, y)
       y += block.size * 1.24
     }
@@ -661,15 +686,15 @@ export function drawArt(
       const fw = textWidth
       const fh = imageH + framePad * 2.1
       ctx.save()
-      ctx.fillStyle = '#FFFFFF'
+      ctx.fillStyle = dark ? '#2E5B4C' : '#FFFFFF'
       ctx.shadowColor = 'rgba(27, 42, 36, 0.14)'
       ctx.shadowBlur = unit * 0.03
       ctx.shadowOffsetY = unit * 0.012
-      ctx.fillRect(pad, y, fw, fh)
+      ctx.fillRect(contentPad, y, fw, fh)
       ctx.restore()
       ctx.save()
       ctx.fillStyle = '#F2C14E'
-      ctx.globalAlpha = 0.55
+      ctx.globalAlpha = 0.65
       ctx.fillRect(w / 2 - unit * 0.09, y - unit * 0.016, unit * 0.18, unit * 0.032)
       ctx.restore()
 
@@ -684,11 +709,11 @@ export function drawArt(
       )
       ctx.save()
       ctx.beginPath()
-      ctx.rect(pad + framePad, y + framePad, iw, ih)
+      ctx.rect(contentPad + framePad, y + framePad, iw, ih)
       ctx.clip()
       ctx.drawImage(
         image,
-        pad + framePad + rect.x,
+        contentPad + framePad + rect.x,
         y + framePad + rect.y,
         rect.width,
         rect.height,
@@ -705,18 +730,18 @@ export function drawArt(
       Boolean(options.crop),
     )
     ctx.save()
-    roundRectPath(ctx, pad, y, textWidth, imageH, unit * 0.022)
+    roundRectPath(ctx, contentPad, y, textWidth, imageH, unit * 0.022)
     ctx.clip()
-    ctx.drawImage(image, pad + rect.x, y + rect.y, rect.width, rect.height)
+    ctx.drawImage(image, contentPad + rect.x, y + rect.y, rect.width, rect.height)
     ctx.restore()
     y += imageH + gap
   }
 
   if (isMemory) drawPhoto()
-  drawBlock(title, isIllustrated && !image)
+  drawBlock(title, centerAll)
   if (options.date) {
     y += gap * 0.8
-    drawBlock(date, isIllustrated && !image)
+    drawBlock(date, centerAll)
   }
   if (!isMemory && image) {
     y += gap
@@ -724,24 +749,38 @@ export function drawArt(
   }
   if (options.body) {
     y += gap
-    drawBlock(body, isIllustrated && !image)
+    drawBlock(body, centerAll)
   }
   if (callout) {
     y += gap * 1.5
+    ctx.font = footer.font
+    const pillPadX = unit * 0.028
+    const maxFooterW = footer.lines.reduce(
+      (max, l) => Math.max(max, ctx.measureText(l).width),
+      0,
+    )
+    const pillW = Math.min(textWidth, maxFooterW + pillPadX * 2)
+    const pillX = centerAll ? w / 2 - pillW / 2 : contentPad
     ctx.save()
     ctx.fillStyle = options.foreground
-    ctx.globalAlpha = 0.14
+    ctx.globalAlpha = dark ? 0.2 : 0.14
     roundRectPath(
       ctx,
-      pad,
+      pillX,
       y - gap * 0.4,
-      textWidth,
+      pillW,
       footer.lines.length * footer.size * 1.24 + gap * 0.7,
       unit * 0.018,
     )
     ctx.fill()
     ctx.restore()
-    drawBlock(footer, true)
+    for (const line of footer.lines) {
+      const lx = centerAll
+        ? w / 2 - ctx.measureText(line).width / 2
+        : pillX + pillPadX
+      ctx.fillText(line, lx, y)
+      y += footer.size * 1.24
+    }
   }
   return overflow ?? (y > h - pad * 0.8 ? bottomField : null)
 }

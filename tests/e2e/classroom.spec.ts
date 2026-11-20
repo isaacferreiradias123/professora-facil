@@ -238,8 +238,7 @@ test('montadores livres (contagem, pares, traçado) e planos com BNCC', async ({
   page,
 }, info) => {
   await page.goto('/app/colecao?ferramenta=atividade')
-  await page.getByText('Começar em branco', { exact: true }).click()
-  await page.getByRole('link', { name: 'Montar ficha de contagem' }).click()
+  await page.getByRole('link', { name: 'Ficha de contagem', exact: true }).click()
   await page
     .getByRole('combobox', { name: 'Conjunto de figuras', exact: true })
     .selectOption('animals')
@@ -271,7 +270,7 @@ test('montadores livres (contagem, pares, traçado) e planos com BNCC', async ({
     .getByRole('combobox', { name: 'Quantidade de caminhos', exact: true })
     .selectOption('3')
   await showPreview(page)
-  await expect(page.locator('.school-preview svg polyline')).toHaveCount(3)
+  await expect(page.locator('.school-preview .paper-svg polyline')).toHaveCount(3)
   await verifyA4(await save(page, 'Baixar PDF', 'tracado-motor.pdf'), 1)
 
   await page.goto('/app/colecao/criar-pares')
@@ -486,10 +485,10 @@ test('atividades separam folhas e vivências e ampliam a folha de traçado', asy
   await page.getByRole('link', { name: /Caminhos da borboleta/ }).click()
   await showPreview(page)
   await page.getByRole('button', { name: 'Ampliar folha' }).click()
-  await expect(
-    page.getByRole('button', { name: 'Ajustar à tela' }),
-  ).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.locator('.school-preview svg polyline')).toHaveCount(4)
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.locator('.sheet-modal svg polyline')).toHaveCount(4)
+  await page.getByRole('button', { name: /Fechar visualização/ }).click()
+  await expect(page.locator('.school-preview .paper-svg polyline')).toHaveCount(4)
   await verifyA4(await save(page, 'Baixar PDF', 'tracado-borboleta.pdf'), 1)
 })
 

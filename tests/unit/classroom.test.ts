@@ -10,7 +10,9 @@ import {
   initialValues,
   mosaicGeometry,
   noticeFits,
+  panelArtwork,
   printThemes,
+  traceTracks,
 } from '../../src/classroom-layout'
 
 const assetRoot = path.resolve(process.cwd(), 'public/colecao')
@@ -22,7 +24,7 @@ function assetExists(name: string) {
 describe('curated classroom collection', () => {
   it('preserves the curated collection alongside the imported archive', () => {
     const curated = classroom.filter((item) => !item.id.startsWith('acervo-'))
-    expect(curated).toHaveLength(69)
+    expect(curated).toHaveLength(73)
     expect(new Set(classroom.map((item) => item.id)).size).toBe(classroom.length)
     expect(new Set(curated.map((item) => item.title)).size).toBe(curated.length)
 
@@ -210,4 +212,33 @@ it('mantém as últimas linhas de planos semanais e roteiros longos', () => {
       mark.kind === 'text' && mark.text.includes('Última linha'),
     ))).toBe(true)
   }
+})
+
+it('uses distinct non-fruit icons on fruit trace tracks, customItems and boas-vindas card', () => {
+  const customTrace = findClassroomItem('criar-tracado')!
+  const fruitTracks = traceTracks(customTrace, {
+    ...initialValues(customTrace),
+    group: 'fruit',
+  })
+  expect(fruitTracks.map((t) => t.to)).toEqual(['Prato', 'Copo', 'Pano', 'Flor'])
+
+  const table = findClassroomItem('tabela-de-frutas')!
+  const customTable = buildSheets(table, {
+    ...initialValues(table),
+    customItems: JSON.stringify({
+      rows: [
+        { label: 'Estrelas', qty: 2 },
+        { label: 'Flores', qty: 4 },
+      ],
+    }),
+  })
+  expect(
+    customTable[0].marks.some((m) => m.kind === 'text' && m.text === 'Estrelas'),
+  ).toBe(true)
+
+  const mural = findClassroomItem('boas-vindas')!
+  const muralMarks = panelArtwork(initialValues(mural), mural)
+  expect(
+    muralMarks.some((m) => m.kind === 'box' && m.fill === '#FFFDF8' && m.width > 200),
+  ).toBe(true)
 })

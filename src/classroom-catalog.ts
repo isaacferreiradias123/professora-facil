@@ -3,7 +3,14 @@ import { archiveItems } from './archive-items'
 import type { Tool } from './catalog'
 import type { Values } from './store'
 
-export const ageBands = ['Berçário', 'Maternal', 'Pré I', 'Pré II'] as const
+export const archiveAgeBands = ['Berçário', 'Maternal', 'Pré I', 'Pré II'] as const
+export const ageBands = [
+  'Berçário',
+  'Maternal',
+  'Pré I',
+  'Pré II',
+  'Fundamental I',
+] as const
 export type AgeBand = (typeof ageBands)[number]
 
 export const ageGuides: Record<AgeBand, string> = {
@@ -11,6 +18,7 @@ export const ageGuides: Record<AgeBand, string> = {
   Maternal: 'Crianças bem pequenas · 1 ano e 7 meses a 3 anos e 11 meses',
   'Pré I': 'Crianças pequenas · 4 anos',
   'Pré II': 'Crianças pequenas · 5 anos',
+  'Fundamental I': 'Ensino Fundamental I · 1º ao 5º ano',
 }
 
 export const categories = [
@@ -23,6 +31,40 @@ export type Category = (typeof categories)[number]
 
 export type PrintTheme = 'jardim' | 'sol' | 'pessego' | 'economico'
 export type NoticeArt = 'reuniao' | 'passeio' | 'materiais' | 'evento'
+export type TaskHeaderStyle = 'padrao' | 'ludico' | 'compacto'
+export type TaskLineStyle = 'simples' | 'caligrafia'
+export type TaskQuestionKind =
+  | 'lines'
+  | 'space'
+  | 'choice'
+  | 'tf'
+  | 'match'
+  | 'section'
+
+export type TaskQuestion = {
+  id: string
+  kind: TaskQuestionKind
+  prompt: string
+  points?: string
+  lines?: number
+  lineStyle?: TaskLineStyle
+  spaceSize?: 'pequeno' | 'medio' | 'grande'
+  framed?: boolean
+  options?: string[]
+  pairs?: [string, string][]
+  figure?: string
+  imageDataUrl?: string
+}
+
+export type TaskSheetPreset = {
+  headerStyle: TaskHeaderStyle
+  subject?: string
+  totalValue?: string
+  showGrade?: boolean
+  uppercase?: boolean
+  sheetFont?: 'noto' | 'andika'
+  questions: TaskQuestion[]
+}
 
 export type Field = {
   key: string
@@ -68,6 +110,7 @@ export type ClassroomItem = {
   description: string
   age?: AgeBand
   task?: Task
+  taskSheet?: TaskSheetPreset
   fields?: Field[]
   body?: string
   detachable?: boolean
@@ -401,7 +444,7 @@ export const classroom: ClassroomItem[] = [
     category: 'Atividades',
     age: 'Pré I',
     description:
-      'Prancha vetorial clássica do Openclipart pronta para imprimir em A4 e colorir.',
+      'Desenho com contorno limpo pronto para imprimir em folha A4 e colorir com a turma.',
     ready: {
       file: 'frutas-cc0.pdf',
       image: 'frutas-cc0.png',
@@ -416,7 +459,7 @@ export const classroom: ClassroomItem[] = [
     category: 'Atividades',
     age: 'Pré I',
     description:
-      'Desenho original em traço limpo do Openclipart para projetos de horta e natureza.',
+      'Ilustração em traço nítido para colorir em projetos de horta, água e natureza.',
     ready: {
       file: 'openclipart-regador.pdf',
       image: 'openclipart-regador.png',
@@ -497,6 +540,191 @@ export const classroom: ClassroomItem[] = [
     },
     'jardim',
   ),
+  {
+    id: 'tarefa-questoes-linhas',
+    title: 'Tarefa escolar com cabeçalho e questões',
+    tool: 'atividade',
+    category: 'Atividades',
+    age: 'Fundamental I',
+    description:
+      'Cabeçalho completo (escola, data, aluno, turma e matéria) com questões numeradas e linhas.',
+    defaultTheme: 'jardim',
+    taskSheet: {
+      headerStyle: 'padrao',
+      subject: 'Língua Portuguesa',
+      sheetFont: 'andika',
+      questions: [
+        {
+          id: 'q1',
+          kind: 'lines',
+          prompt:
+            'Leia o título da história de hoje com atenção e responda: qual foi a parte de que você mais gostou e por quê?',
+          lines: 4,
+          lineStyle: 'simples',
+        },
+        {
+          id: 'q2',
+          kind: 'lines',
+          prompt:
+            'Escreva três palavras que apareceram na leitura e forme uma frase com uma delas:',
+          lines: 3,
+          lineStyle: 'caligrafia',
+        },
+        {
+          id: 'q3',
+          kind: 'space',
+          prompt: 'Faça um desenho caprichado mostrando a cena principal:',
+          spaceSize: 'medio',
+          framed: true,
+        },
+      ],
+    },
+  },
+  {
+    id: 'prova-multipla-escolha',
+    title: 'Avaliação com múltipla escolha e linhas',
+    tool: 'atividade',
+    category: 'Atividades',
+    age: 'Fundamental I',
+    description:
+      'Modelo de prova ou revisão com cabeçalho de nota, alternativas A–D, Verdadeiro/Falso e questão aberta.',
+    defaultTheme: 'economico',
+    taskSheet: {
+      headerStyle: 'padrao',
+      subject: 'Ciências e Natureza',
+      totalValue: '10,0',
+      showGrade: true,
+      questions: [
+        {
+          id: 'p1',
+          kind: 'choice',
+          prompt:
+            'Do que a maioria das plantas precisa para germinar e crescer saudável?',
+          points: '2,5',
+          figure: 'il-sprout',
+          options: [
+            'Água, luz do sol e solo ou espaço adequado.',
+            'Ficar guardada no escuro sem água.',
+            'Ser coberta com plástico fechado.',
+            'Viver apenas em gelo.',
+          ],
+        },
+        {
+          id: 'p2',
+          kind: 'tf',
+          prompt: 'Marque (V) para verdadeiro e (F) para falso:',
+          points: '2,5',
+          options: [
+            'A semente muda aos poucos quando recebe cuidado.',
+            'As folhas não têm relação com a luz.',
+            'Regar em excesso pode encharcar a terra.',
+          ],
+        },
+        {
+          id: 'p3',
+          kind: 'match',
+          prompt: 'Ligue cada elemento ao seu papel no jardim:',
+          points: '2,5',
+          pairs: [
+            ['Semente', 'Dá origem ao broto'],
+            ['Regador', 'Leva água às plantas'],
+            ['Sol', 'Fornece luz e calor'],
+          ],
+        },
+        {
+          id: 'p4',
+          kind: 'lines',
+          prompt:
+            'Explique com suas palavras um cuidado importante que a turma deve ter com a horta:',
+          points: '2,5',
+          lines: 4,
+          lineStyle: 'simples',
+        },
+      ],
+    },
+  },
+  {
+    id: 'tarefa-leitura-desenho',
+    title: 'Atividade de leitura, interpretação e desenho',
+    tool: 'atividade',
+    category: 'Atividades',
+    age: 'Pré II',
+    description:
+      'Folha lúdica em letra escolar legível com texto curto de apoio, pergunta simples e espaço ilustrado.',
+    defaultTheme: 'sol',
+    taskSheet: {
+      headerStyle: 'ludico',
+      subject: 'Linguagem',
+      uppercase: true,
+      sheetFont: 'andika',
+      questions: [
+        {
+          id: 'l1',
+          kind: 'section',
+          prompt:
+            'TEXTO DE APOIO: O SOL NASCEU CEDO NO JARDIM DA ESCOLA. A BORBOLETA POUSOU NA FLOR AMARELA ENQUANTO AS CRIANÇAS REGAVAM AS SEMENTES.',
+          figure: 'oficina-sol',
+        },
+        {
+          id: 'l2',
+          kind: 'lines',
+          prompt: 'QUEM POUSOU NA FLOR AMARELA? ESCREVA OU TENTE REGISTRAR:',
+          lines: 2,
+          lineStyle: 'caligrafia',
+        },
+        {
+          id: 'l3',
+          kind: 'space',
+          prompt: 'DESENHE COMO VOCÊ IMAGINA ESSE JARDIM ENSOLARADO:',
+          spaceSize: 'grande',
+          framed: true,
+          figure: 'oficina-borboleta',
+        },
+      ],
+    },
+  },
+  {
+    id: 'lista-calculos',
+    title: 'Lista de Matemática com espaço de cálculo',
+    tool: 'atividade',
+    category: 'Atividades',
+    age: 'Fundamental I',
+    description:
+      'Folha compacta com caixas amplas para armar contas, desenhar estratégias e escrever a resposta.',
+    defaultTheme: 'jardim',
+    taskSheet: {
+      headerStyle: 'compacto',
+      subject: 'Matemática',
+      questions: [
+        {
+          id: 'm1',
+          kind: 'space',
+          prompt:
+            'Na cesta da sala havia 14 lápis verdes e chegaram mais 12 lápis amarelos. Quantos lápis há ao todo agora?',
+          spaceSize: 'medio',
+          framed: true,
+          figure: 'il-pencil',
+        },
+        {
+          id: 'm2',
+          kind: 'space',
+          prompt:
+            'A turma preparou 28 livros para a feira e emprestou 9 deles pela manhã. Quantos livros ficaram na estante?',
+          spaceSize: 'medio',
+          framed: true,
+          figure: 'il-book',
+        },
+        {
+          id: 'm3',
+          kind: 'lines',
+          prompt:
+            'Explique como você pensou para resolver um dos problemas acima:',
+          lines: 3,
+          lineStyle: 'simples',
+        },
+      ],
+    },
+  },
 
   // =========================================================
   // 2. PLANOS DE AULA (8 modelos em 4 formatos distintos + BNCC)
@@ -1650,7 +1878,17 @@ const customTrace: ClassroomItem = {
   },
 }
 
+const taskTemplate = classroom.find((item) => item.id === 'tarefa-questoes-linhas')!
+const customTaskSheet: ClassroomItem = {
+  ...taskTemplate,
+  id: 'criar-tarefa',
+  title: 'Minha tarefa ou prova por questões',
+  description:
+    'Comece com cabeçalho escolar completo e adicione questões com linhas, espaços, alternativas, V/F ou ligue.',
+}
+
 export function findClassroomItem(id: string | undefined) {
+  if (id === customTaskSheet.id) return customTaskSheet
   if (id === customWorksheet.id) return customWorksheet
   if (id === customPairs.id) return customPairs
   if (id === customTrace.id) return customTrace

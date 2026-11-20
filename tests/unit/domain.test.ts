@@ -17,7 +17,7 @@ import { photoLayout, photoPages, tiles, type Photo } from '../../src/media'
 
 describe('catalog & pedagogy taxonomy', () => {
   it('exposes complete BNCC groups, fields, rights and 7 tools', () => {
-    expect(groups).toHaveLength(3)
+    expect(groups).toHaveLength(4)
     expect(fields).toHaveLength(5)
     expect(rights).toHaveLength(6)
     expect(Object.keys(tools)).toEqual([
@@ -33,6 +33,7 @@ describe('catalog & pedagogy taxonomy', () => {
     expect(observationHints['Maternal'].length).toBeGreaterThanOrEqual(4)
     expect(observationHints['Pré I'].length).toBeGreaterThanOrEqual(4)
     expect(observationHints['Pré II'].length).toBeGreaterThanOrEqual(4)
+    expect(observationHints['Fundamental I'].length).toBeGreaterThanOrEqual(4)
   })
 
   it('provides studio illustrations with unique IDs and resolved URLs', () => {
@@ -45,7 +46,12 @@ describe('catalog & pedagogy taxonomy', () => {
   })
 
   it('resolves free builders and valid fallbackClassroomId per tool', () => {
-    for (const customId of ['criar-contagem', 'criar-pares', 'criar-tracado']) {
+    for (const customId of [
+      'criar-tarefa',
+      'criar-contagem',
+      'criar-pares',
+      'criar-tracado',
+    ]) {
       const item = findClassroomItem(customId)
       expect(item).toBeDefined()
       expect(item?.tool).toBe('atividade')

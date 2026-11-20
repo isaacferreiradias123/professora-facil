@@ -212,8 +212,7 @@ test('atividade, Word/PDF em português, rascunho e limpeza', async ({
   )
 
   await page.goto('/app/colecao?ferramenta=documento')
-  await page.getByText('Abrir meu arquivo', { exact: true }).click()
-  await page.getByRole('link', { name: 'Responder no PDF', exact: true }).click()
+  await page.getByRole('link', { name: 'Escrever por cima no PDF', exact: true }).click()
   await page.getByLabel('Selecionar arquivo para responder').setInputFiles({
     name: 'teste.pdf',
     mimeType: 'application/pdf',
@@ -423,7 +422,7 @@ test('postagens em cinco formatos com figuras reais e fatiador de painéis', asy
   }
 
   await editIfMobile(page)
-  await page.getByText(/Ilustração do ateliê/).click()
+  await page.getByText(/Ilustração decorativa/).click()
   await page.getByRole('button', { name: 'Gato', exact: true }).click()
   await expect(
     page.getByRole('button', { name: 'Gato', exact: true }),
@@ -466,11 +465,11 @@ test('postagens em cinco formatos com figuras reais e fatiador de painéis', asy
   ).toBe(8)
 })
 
-test('catálogo de 77 modelos com filtro e recuperação após recarregar', async ({
+test('catálogo de 81 modelos com filtro e recuperação após recarregar', async ({
   page,
 }) => {
   await page.goto('/app/colecao')
-  await expect(page.getByRole('status')).toContainText('77 materiais encontrados')
+  await expect(page.getByRole('status')).toContainText('81 materiais encontrados')
   await page
     .getByRole('combobox', { name: 'Turma', exact: true })
     .selectOption('Berçário')

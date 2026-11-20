@@ -28,11 +28,16 @@ export function inlineEditAllowed(node: Element) {
   return Array.from(node.children).every(
     (child) =>
       child.namespaceURI === w &&
-      (child.localName === 'pPr' ||
+      (['pPr', 'bookmarkStart', 'bookmarkEnd', 'proofErr', 'noProof'].includes(
+        child.localName,
+      ) ||
         (child.localName === 'r' &&
           Array.from(child.children).every(
             (part) =>
-              part.namespaceURI === w && ['rPr', 't'].includes(part.localName),
+              part.namespaceURI === w &&
+              ['rPr', 't', 'br', 'tab', 'noBreakHyphen', 'lastRenderedPageBreak'].includes(
+                part.localName,
+              ),
           ))),
   )
 }
@@ -87,6 +92,48 @@ export function insertParagraph(anchor: Element, text = '') {
   const next = anchor.ownerDocument.createElementNS(w, 'w:p')
   insertText(next, text)
   anchor.after(next)
+}
+export function appendParagraphAtEnd(doc: Document, text = '') {
+  const body = descendants(doc, 'body')[0]
+  if (!body) return
+  const next = doc.createElementNS(w, 'w:p')
+  insertText(next, text)
+  const sect = children(body, 'sectPr')[0]
+  if (sect) sect.before(next)
+  else body.append(next)
+}
+export function insertSchoolHeader(
+  doc: Document,
+  info: { school?: string; teacher?: string; classroom?: string; date?: string },
+) {
+  const body = descendants(doc, 'body')[0]
+  if (!body) return
+  const lines = [
+    [info.school?.trim() || 'Atividade Escolar', info.classroom?.trim(), info.date?.trim()]
+      .filter(Boolean)
+      .join(' · '),
+    [
+      info.teacher?.trim() ? 'Professora: ' + info.teacher.trim() : '',
+      'Aluno(a): ____________________________________',
+    ]
+      .filter(Boolean)
+      .join('   '),
+  ]
+  const firstNode = body.firstElementChild
+  for (const line of lines.reverse()) {
+    const p = doc.createElementNS(w, 'w:p')
+    const run = doc.createElementNS(w, 'w:r')
+    const rPr = doc.createElementNS(w, 'w:rPr')
+    const bold = doc.createElementNS(w, 'w:b')
+    rPr.append(bold)
+    const t = doc.createElementNS(w, 'w:t')
+    t.setAttributeNS(xml, 'xml:space', 'preserve')
+    t.textContent = line
+    run.append(rPr, t)
+    p.append(run)
+    if (firstNode) firstNode.before(p)
+    else body.append(p)
+  }
 }
 export async function openWord(file: File) {
   if (!/\.docx$/i.test(file.name) || file.size > documentLimit)

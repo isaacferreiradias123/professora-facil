@@ -17,16 +17,19 @@ import {
   WidthType,
 } from 'docx'
 import { imageBytes } from './classroom-export'
-import { ageGuides, type ClassroomItem } from './classroom-catalog'
+import { ageGuides, type ClassroomItem, type TraceTrack } from './classroom-catalog'
 import {
   activityCommand,
   activityObservation,
+  applyCase,
   buildSheets,
   documentDetails,
   documentSignatures,
   hasAuthorization,
+  localDate,
   noticeFields,
   noticeVisual,
+  parseCustomItems,
   planMinutes,
   planMoments,
   resolveTheme,
@@ -35,8 +38,79 @@ import {
   type Mark,
 } from './classroom-layout'
 import type { Values } from './store'
+import { buildTaskWord } from './task-builder'
 
 type Child = Paragraph | Table
+
+function imageKind(bytes: Uint8Array): 'jpg' | 'png' {
+  return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+    ? 'jpg'
+    : 'png'
+}
+
+async function tracePathPng(
+  kind: TraceTrack['kind'],
+  strokeHex: string,
+): Promise<Uint8Array | null> {
+  if (typeof document === 'undefined') return null
+  const canvas = document.createElement('canvas')
+  canvas.width = 340
+  canvas.height = 76
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  try {
+    ctx.strokeStyle = '#' + strokeHex
+    ctx.fillStyle = '#' + strokeHex
+    ctx.lineWidth = 4
+    ctx.lineCap = 'round'
+    ctx.setLineDash([10, 9])
+    const cy = 38
+    const x0 = 16
+    const x1 = 324
+    ctx.beginPath()
+    if (kind === 'straight') {
+      ctx.moveTo(x0, cy)
+      ctx.lineTo(x1, cy)
+    } else if (kind === 'zigzag') {
+      const segs = 6
+      for (let i = 0; i <= segs; i++) {
+        const px = x0 + ((x1 - x0) * i) / segs
+        const py = cy + (i === 0 || i === segs ? 0 : i % 2 === 1 ? -22 : 22)
+        if (i === 0) ctx.moveTo(px, py)
+        else ctx.lineTo(px, py)
+      }
+    } else if (kind === 'arc') {
+      for (let i = 0; i <= 24; i++) {
+        const t = i / 24
+        const px = x0 + (x1 - x0) * t
+        const py = cy + 12 - Math.sin(t * Math.PI) * 34
+        if (i === 0) ctx.moveTo(px, py)
+        else ctx.lineTo(px, py)
+      }
+    } else {
+      for (let i = 0; i <= 32; i++) {
+        const t = i / 32
+        const px = x0 + (x1 - x0) * t
+        const py = cy - Math.sin(t * Math.PI * 4) * 20
+        if (i === 0) ctx.moveTo(px, py)
+        else ctx.lineTo(px, py)
+      }
+    }
+    ctx.stroke()
+    ctx.setLineDash([])
+    for (const px of [x0, x1]) {
+      ctx.beginPath()
+      ctx.arc(px, cy, 5, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/png'),
+    )
+    return blob ? new Uint8Array(await blob.arrayBuffer()) : null
+  } finally {
+    canvas.width = 0
+  }
+}
 
 function text(
   value: string,
@@ -225,9 +299,73 @@ async function notices(
   const fineRule = { style: BorderStyle.SINGLE, size: 4, color: ruleHex }
 
   if (copies === 4) {
-    const cellContent = () => [
-      text(values.school || 'COMUNICADO', { bold: true, size: 16, color: accent, after: 30 }),
-      text(values.title, { bold: true, size: 22, color: accent, after: 40 }),
+    const visualBg =
+      values.printTheme === 'economico'
+        ? 'FFFFFF'
+        : visual.color.slice(1).toUpperCase()
+    const cellContent = (): Child[] => [
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        layout: TableLayoutType.FIXED,
+        columnWidths: artwork ? [3700, 1100] : [4800],
+        borders: {
+          top: noBorder,
+          bottom: noBorder,
+          left: noBorder,
+          right: noBorder,
+          insideHorizontal: noBorder,
+          insideVertical: noBorder,
+        },
+        rows: [
+          new TableRow({
+            cantSplit: true,
+            children: [
+              new TableCell({
+                shading: { fill: visualBg },
+                margins: { top: 60, bottom: 60, left: 80, right: 80 },
+                children: [
+                  text(values.school || 'COMUNICADO', {
+                    bold: true,
+                    size: 15,
+                    color: accent,
+                    after: 15,
+                  }),
+                  text(values.title, {
+                    bold: true,
+                    size: 20,
+                    color: accent,
+                    after: 15,
+                  }),
+                  ...(values.classroom
+                    ? [text(values.classroom, { size: 15, after: 10 })]
+                    : []),
+                ],
+              }),
+              ...(artwork
+                ? [
+                    new TableCell({
+                      shading: { fill: visualBg },
+                      verticalAlign: VerticalAlign.CENTER,
+                      children: [
+                        new Paragraph({
+                          alignment: AlignmentType.CENTER,
+                          children: [
+                            new ImageRun({
+                              type: imageKind(artwork),
+                              data: artwork,
+                              transformation: { width: 48, height: 32 },
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                  ]
+                : []),
+            ],
+          }),
+        ],
+      }),
+      text('', { size: 6, after: 20 }),
       text(values.recipient, { bold: true, size: 18, after: 40 }),
       ...noticeFields(item, values)
         .slice(0, 3)
@@ -254,7 +392,7 @@ async function notices(
               children: [0, 1].map(
                 () =>
                   new TableCell({
-                    margins: { top: 150, bottom: 100, left: 150, right: 150 },
+                    margins: { top: 120, bottom: 90, left: 120, right: 120 },
                     children: cellContent(),
                   }),
               ),
@@ -308,19 +446,27 @@ async function activity(
   ruleHex: string,
 ): Promise<Child[]> {
   const task = item.task!
+  const custom = parseCustomItems(values)
+  const upper = values.uppercase === 'yes'
+  const c = (s: string) => applyCase(s, upper)
   const papers = buildSheets(item, values)
   const contents: Child[] = []
   const fineRule = { style: BorderStyle.SINGLE, size: 4, color: ruleHex }
 
   for (const sheet of papers) {
-    contents.push(heading(values.title, accent, contents.length > 0))
+    if (sheet.name === 'Roteiro da professora · continuação') {
+      continue
+    }
+
+    contents.push(heading(c(values.title), accent, contents.length > 0))
     contents.push(
       text(
         [
-          sheet.name,
-          item.age ? ageGuides[item.age] : '',
-          values.school,
-          values.classroom,
+          c(sheet.name),
+          item.age ? c(ageGuides[item.age]) : '',
+          c(values.school ?? ''),
+          c(values.classroom ?? ''),
+          localDate(values.date ?? ''),
         ]
           .filter(Boolean)
           .join(' · '),
@@ -328,7 +474,7 @@ async function activity(
       ),
     )
 
-    if (sheet.name === 'Roteiro da professora') {
+    if (sheet.name.startsWith('Roteiro da professora')) {
       const supplies = values.supplies?.trim() || task.supplies
       const steps = (
         values.stepsText?.trim()
@@ -345,9 +491,9 @@ async function activity(
         ['Como adaptar e incluir', adaptation],
         ...(obs ? [['O que observar', obs]] : []),
       ]) {
-        contents.push(text(label, { bold: true, color: accent, size: 25 }))
+        contents.push(text(c(label), { bold: true, color: accent, size: 25 }))
         contents.push(
-          ...description.split('\n').map((line) => text(line, { size: 22 })),
+          ...description.split('\n').map((line) => text(c(line), { size: 22 })),
         )
       }
       continue
@@ -356,17 +502,19 @@ async function activity(
     if (task.mode !== 'cards')
       contents.push(
         text(
-          'Nome: ________________________________________  Data: __________',
+          c('Nome: ________________________________________  Data: __________'),
           { bold: true },
         ),
       )
     contents.push(
       text(
-        task.mode === 'cards'
-          ? values.memoryMode === 'yes'
-            ? 'Recorte os pares de cartões para jogar.'
-            : 'Recorte os cartões e apresente um de cada vez.'
-          : activityCommand(item, values),
+        c(
+          task.mode === 'cards'
+            ? values.memoryMode === 'yes'
+              ? 'Recorte os pares de cartões para jogar.'
+              : 'Recorte os cartões e apresente um de cada vez.'
+            : activityCommand(item, values),
+        ),
       ),
     )
 
@@ -380,6 +528,9 @@ async function activity(
 
     if (task.mode === 'trace') {
       const tracks = traceTracks(item, values)
+      const pathImages = await Promise.all(
+        tracks.map((track) => tracePathPng(track.kind, accent)),
+      )
       contents.push(
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
@@ -396,6 +547,9 @@ async function activity(
           rows: tracks.map((track, idx) => {
             const leftImg = pictures[idx * 2]
             const rightImg = pictures[idx * 2 + 1]
+            const leftData = leftImg ? cache.get(leftImg.asset) : undefined
+            const rightData = rightImg ? cache.get(rightImg.asset) : undefined
+            const pathPng = pathImages[idx]
             return new TableRow({
               cantSplit: true,
               height: { value: 2100, rule: HeightRule.ATLEAST },
@@ -403,17 +557,21 @@ async function activity(
                 new TableCell({
                   verticalAlign: VerticalAlign.CENTER,
                   children: [
-                    new Paragraph({
-                      alignment: AlignmentType.CENTER,
-                      children: [
-                        new ImageRun({
-                          type: 'png',
-                          data: cache.get(leftImg.asset)!,
-                          transformation: { width: 64, height: 64 },
-                        }),
-                      ],
-                    }),
-                    text(track.from, { size: 16 }),
+                    ...(leftData
+                      ? [
+                          new Paragraph({
+                            alignment: AlignmentType.CENTER,
+                            children: [
+                              new ImageRun({
+                                type: imageKind(leftData),
+                                data: leftData,
+                                transformation: { width: 64, height: 64 },
+                              }),
+                            ],
+                          }),
+                        ]
+                      : []),
+                    text(c(track.from), { size: 16 }),
                   ],
                 }),
                 new TableCell({
@@ -421,35 +579,47 @@ async function activity(
                   children: [
                     new Paragraph({
                       alignment: AlignmentType.CENTER,
-                      children: [
-                        new TextRun({
-                          text:
-                            track.kind === 'wave'
-                              ? '•  ~  •  ~  •  ~  •  ~  •  ~  •  ~  •  ~  •  ~  •'
-                              : track.kind === 'zigzag'
-                                ? '•  ^  •  v  •  ^  •  v  •  ^  •  v  •  ^  •'
-                                : '•  •  •  •  •  •  •  •  •  •  •  •  •  •  •  •  •',
-                          size: 28,
-                          color: accent,
-                        }),
-                      ],
+                      children: pathPng
+                        ? [
+                            new ImageRun({
+                              type: 'png',
+                              data: pathPng,
+                              transformation: { width: 320, height: 72 },
+                            }),
+                          ]
+                        : [
+                            new TextRun({
+                              text:
+                                track.kind === 'wave'
+                                  ? '•  ~  •  ~  •  ~  •  ~  •  ~  •  ~  •  ~  •  ~  •'
+                                  : track.kind === 'zigzag'
+                                    ? '•  ^  •  v  •  ^  •  v  •  ^  •  v  •  ^  •'
+                                    : '•  •  •  •  •  •  •  •  •  •  •  •  •  •  •  •  •',
+                              size: 28,
+                              color: accent,
+                            }),
+                          ],
                     }),
                   ],
                 }),
                 new TableCell({
                   verticalAlign: VerticalAlign.CENTER,
                   children: [
-                    new Paragraph({
-                      alignment: AlignmentType.CENTER,
-                      children: [
-                        new ImageRun({
-                          type: 'png',
-                          data: cache.get(rightImg.asset)!,
-                          transformation: { width: 64, height: 64 },
-                        }),
-                      ],
-                    }),
-                    text(track.to, { size: 16 }),
+                    ...(rightData
+                      ? [
+                          new Paragraph({
+                            alignment: AlignmentType.CENTER,
+                            children: [
+                              new ImageRun({
+                                type: imageKind(rightData),
+                                data: rightData,
+                                transformation: { width: 64, height: 64 },
+                              }),
+                            ],
+                          }),
+                        ]
+                      : []),
+                    text(c(track.to), { size: 16 }),
                   ],
                 }),
               ],
@@ -459,14 +629,15 @@ async function activity(
       )
     } else if (task.mode === 'draw-frame') {
       const hero = pictures[0]
-      if (hero)
+      const heroData = hero ? cache.get(hero.asset) : undefined
+      if (heroData)
         contents.push(
           new Paragraph({
             alignment: AlignmentType.RIGHT,
             children: [
               new ImageRun({
-                type: 'png',
-                data: cache.get(hero.asset)!,
+                type: imageKind(heroData),
+                data: heroData,
                 transformation: { width: 78, height: 78 },
               }),
             ],
@@ -483,7 +654,14 @@ async function activity(
           ],
         }),
         text(''),
-        text(task.prompts?.[0] ?? 'O que eu desenhei:', { bold: true }),
+        text(
+          c(
+            custom?.prompt?.trim() ||
+              worksheetGroups(item, values)[0] ||
+              'O que eu desenhei:',
+          ),
+          { bold: true },
+        ),
         text('______________________________________________________________'),
         text('______________________________________________________________'),
       )
@@ -496,20 +674,20 @@ async function activity(
           children: [
             new TableCell({
               verticalAlign: VerticalAlign.CENTER,
-              children: [text(label, { bold: true, size: 25 })],
+              children: [text(c(label), { bold: true, size: 25 })],
             }),
             new TableCell({
               verticalAlign: VerticalAlign.CENTER,
               children: [
                 new Paragraph({
-                  children: images.map(
-                    (p) =>
-                      new ImageRun({
-                        type: 'png',
-                        data: cache.get(p.asset)!,
-                        transformation: { width: 48, height: 48 },
-                      }),
-                  ),
+                  children: images.map((p) => {
+                    const data = cache.get(p.asset)!
+                    return new ImageRun({
+                      type: imageKind(data),
+                      data,
+                      transformation: { width: 48, height: 48 },
+                    })
+                  }),
                 }),
               ],
             }),
@@ -541,7 +719,7 @@ async function activity(
                 (label) =>
                   new TableCell({
                     shading: { fill: headerFill },
-                    children: [text(label, { bold: true })],
+                    children: [text(c(label), { bold: true })],
                   }),
               ),
             }),
@@ -550,8 +728,10 @@ async function activity(
         }),
         text(''),
         text(
-          values.footerQuestion?.trim() ||
-            'Qual grupo tem mais figuras? Circule ou escreva como descobriu:',
+          c(
+            values.footerQuestion?.trim() ||
+              'Qual grupo tem mais figuras? Circule ou escreva como descobriu:',
+          ),
           { bold: true, size: 24 },
         ),
         new Table({
@@ -564,6 +744,58 @@ async function activity(
           ],
         }),
       )
+    } else if (task.mode === 'names') {
+      const namesList = worksheetGroups(item, values).slice(0, 4)
+      for (const name of namesList) {
+        contents.push(
+          text(c(name), { bold: true, color: accent, size: 25, after: 60 }),
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            layout: TableLayoutType.FIXED,
+            columnWidths: [1400, 9050],
+            borders: {
+              top: fineRule,
+              bottom: fineRule,
+              left: fineRule,
+              right: fineRule,
+              insideHorizontal: noBorder,
+              insideVertical: fineRule,
+            },
+            rows: [
+              new TableRow({
+                cantSplit: true,
+                height: { value: 1500, rule: HeightRule.ATLEAST },
+                children: [
+                  new TableCell({
+                    shading: { fill: headerFill },
+                    verticalAlign: VerticalAlign.CENTER,
+                    children: [
+                      text(c('1ª letra'), { size: 16, color: accent, after: 15 }),
+                    ],
+                  }),
+                  new TableCell({
+                    margins: { top: 90, bottom: 90, left: 120, right: 120 },
+                    children: [
+                      text('_____________________________________________________________', {
+                        color: ruleHex,
+                        after: 40,
+                      }),
+                      text('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -', {
+                        color: ruleHex,
+                        after: 40,
+                      }),
+                      text('_____________________________________________________________', {
+                        after: 20,
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+          text('', { after: 60 }),
+        )
+      }
     } else if (pictures.length) {
       const rows = [...new Set(pictures.map((p) => p.y))].map((y) =>
         pictures.filter((p) => p.y === y),
@@ -583,31 +815,36 @@ async function activity(
               new TableRow({
                 cantSplit: true,
                 children: [
-                  ...row.flatMap((p, index) => [
-                    ...(task.mode === 'match' && index === 1
-                      ? [new TableCell({ children: [text('')] })]
-                      : []),
-                    new TableCell({
-                      children: [
-                        new Paragraph({
-                          alignment: AlignmentType.CENTER,
-                          children: [
-                            new ImageRun({
-                              type: 'png',
-                              data: cache.get(p.asset)!,
-                              transformation: { width: 55, height: 55 },
-                            }),
-                          ],
-                        }),
-                        text(
-                          task.mode === 'story'
-                            ? pictures.indexOf(p) + 1 + '. ' + p.alt
-                            : p.alt,
-                          { size: 17 },
-                        ),
-                      ],
-                    }),
-                  ]),
+                  ...row.flatMap((p, index) => {
+                    const data = cache.get(p.asset)!
+                    return [
+                      ...(task.mode === 'match' && index === 1
+                        ? [new TableCell({ children: [text('')] })]
+                        : []),
+                      new TableCell({
+                        children: [
+                          new Paragraph({
+                            alignment: AlignmentType.CENTER,
+                            children: [
+                              new ImageRun({
+                                type: imageKind(data),
+                                data,
+                                transformation: { width: 55, height: 55 },
+                              }),
+                            ],
+                          }),
+                          text(
+                            c(
+                              task.mode === 'story'
+                                ? pictures.indexOf(p) + 1 + '. ' + p.alt
+                                : p.alt,
+                            ),
+                            { size: 17 },
+                          ),
+                        ],
+                      }),
+                    ]
+                  }),
                   ...(task.mode === 'pattern'
                     ? [new TableCell({ children: [text('_____')] })]
                     : []),
@@ -618,22 +855,23 @@ async function activity(
       )
       if (task.mode === 'pattern')
         contents.push(
-          text('Invente seu padrão: __________________________________________'),
+          text(c('Invente seu padrão: __________________________________________')),
         )
-      if (task.mode === 'sort' && task.sortLabels)
-        for (const label of task.sortLabels)
+      const sortLabels = custom?.sortLabels ?? task.sortLabels
+      if (task.mode === 'sort' && sortLabels)
+        for (const label of sortLabels)
           contents.push(
-            text(label, { bold: true }),
+            text(c(label), { bold: true }),
             text('__________________________________________________'),
           )
       else if (task.mode === 'story' || task.mode === 'sort')
         contents.push(
-          text('Meu registro: ________________________________________________'),
+          text(c('Meu registro: ________________________________________________')),
         )
     } else {
       contents.push(
-        ...(task.prompts ?? []).flatMap((label) => [
-          text(label, { bold: true }),
+        ...worksheetGroups(item, values).flatMap((label) => [
+          text(c(label), { bold: true }),
           text('__________________________________________________'),
         ]),
       )
@@ -643,7 +881,14 @@ async function activity(
 }
 
 export async function classroomWord(item: ClassroomItem, values: Values) {
+  if (item.taskSheet || item.id === 'criar-tarefa') {
+    return buildTaskWord(item, values)
+  }
+
   const theme = resolveTheme(item, values)
+  const upper = values.uppercase === 'yes'
+  const c = (s: string) => applyCase(s, upper)
+  const docFont = values.sheetFont === 'andika' ? 'Andika' : 'Calibri'
   const accent = theme.primary.slice(1).toUpperCase()
   const headerFill = theme.headerBg.slice(1).toUpperCase()
   const cardFill = theme.cardB.slice(1).toUpperCase()
@@ -670,9 +915,13 @@ export async function classroomWord(item: ClassroomItem, values: Values) {
       .filter(Boolean)
       .join(' | ')
     children = [
-      heading(values.title, accent),
+      heading(c(values.title), accent),
       text(
-        [values.school, values.classroom || item.age, values.date]
+        [
+          c(values.school ?? ''),
+          c(values.classroom || item.age || ''),
+          localDate(values.date ?? ''),
+        ]
           .filter(Boolean)
           .join(' · '),
         { color: accent },
@@ -727,10 +976,36 @@ export async function classroomWord(item: ClassroomItem, values: Values) {
             .filter(Boolean)
             .join(' | ')
         : ''
+    let familyArtwork: Uint8Array | null = null
+    if (item.reportLayout === 'family-card') {
+      try {
+        familyArtwork = await imageBytes('bilhete-evento.webp')
+      } catch {
+        familyArtwork = null
+      }
+    }
     children = [
-      heading(values.title, accent),
+      heading(c(values.title), accent),
+      ...(familyArtwork
+        ? [
+            new Paragraph({
+              alignment: AlignmentType.RIGHT,
+              children: [
+                new ImageRun({
+                  type: imageKind(familyArtwork),
+                  data: familyArtwork,
+                  transformation: { width: 92, height: 62 },
+                }),
+              ],
+            }),
+          ]
+        : []),
       text(
-        [values.school, values.classroom || item.age, values.date]
+        [
+          c(values.school ?? ''),
+          c(values.classroom || item.age || ''),
+          localDate(values.date ?? ''),
+        ]
           .filter(Boolean)
           .join(' · '),
         { color: accent },
@@ -832,7 +1107,7 @@ export async function classroomWord(item: ClassroomItem, values: Values) {
   return Packer.toBlob(
     new Document({
       title: values.title,
-      styles: { default: { document: { run: { font: 'Calibri', size: 22 } } } },
+      styles: { default: { document: { run: { font: docFont, size: 22 } } } },
       sections: [
         {
           properties: {

@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useBlocker, useSearchParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Move } from 'lucide-react'
+import { findClassroomItem } from './classroom-catalog'
 import { FileDrop } from './editor-ui'
+import { assetUrl } from './sheet-core'
 import { download, filename } from './workflow'
 import {
   checkPdfAnswer,
@@ -18,6 +20,7 @@ const colorCss: Record<AnswerColor, string> = {
   ink: '#1B2A24',
   blue: '#19408F',
   green: '#1E5643',
+  red: '#AD2424',
 }
 
 type PdfSource = Extract<ResponseDocument, { kind: 'pdf' }>
@@ -174,12 +177,14 @@ function PdfAnswerSheet({
 export default function DocumentResponse() {
   const [params] = useSearchParams()
   const pdfOnly = params.get('tipo') === 'pdf'
+  const acervoId = params.get('acervo') ?? ''
   const [source, setSource] = useState<ResponseDocument | null>(null)
   const [fileName, setFileName] = useState('')
   const [page, setPage] = useState(1)
   const [zoom, setZoom] = useState(100)
   const [point, setPoint] = useState<Position | null>(null)
   const [anchor, setAnchor] = useState<Position | null>(null)
+  const [movingAnchor, setMovingAnchor] = useState<Position | null>(null)
   const [dirty, setDirty] = useState(false)
   const blocker = useBlocker(dirty)
   useEffect(() => {
@@ -197,6 +202,7 @@ export default function DocumentResponse() {
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
   const response = useRef<HTMLTextAreaElement>(null)
+  const loadedAcervo = useRef('')
 
   useEffect(
     () => () => {
@@ -215,6 +221,34 @@ export default function DocumentResponse() {
   }, [dirty])
 
   function selectPoint(next: Position) {
+    const clamped: Position = {
+      ...next,
+      x: Math.max(0.02, Math.min(0.87, next.x)),
+      y: Math.max(0.02, Math.min(0.93, next.y)),
+      width: point?.width,
+      size: point?.size ?? 11,
+      color: point?.color ?? 'ink',
+    }
+    if (movingAnchor) {
+      const origin = pdfAnswers.find((answer) => samePoint(answer, movingAnchor))
+      if (origin) {
+        const updated: Answer = {
+          ...clamped,
+          text: text.trim() || origin.text,
+        }
+        setPdfAnswers([
+          ...pdfAnswers.filter((answer) => !samePoint(answer, movingAnchor)),
+          updated,
+        ])
+        setAnchor(clamped)
+        setPoint(clamped)
+        setMovingAnchor(null)
+        setDirty(true)
+        setStatus('Resposta movida na folha ' + clamped.page + '.')
+        return
+      }
+      setMovingAnchor(null)
+    }
     if (
       pending &&
       !window.confirm(
@@ -225,56 +259,91 @@ export default function DocumentResponse() {
     const existing = pdfAnswers.find((answer) => samePoint(answer, next))
     setAnchor(existing ? next : null)
     setPoint({
-      ...next,
-      x: Math.max(0.02, Math.min(0.87, next.x)),
-      y: Math.max(0.02, Math.min(0.93, next.y)),
+      ...clamped,
       size: existing?.size ?? point?.size ?? 11,
       color: existing?.color ?? point?.color ?? 'ink',
+      width: existing?.width ?? point?.width,
     })
     setText(existing?.text ?? '')
     setStatus('Posição selecionada na folha ' + next.page + '.')
   }
 
-  async function read(file?: File) {
-    if (!file || busy) return
-    if (pdfOnly && !/\.pdf$/i.test(file.name)) {
-      setError('Escolha um arquivo PDF para responder na página.')
-      return
-    }
-    if (
-      dirty &&
-      !window.confirm(
-        'Abrir outro arquivo e descartar as respostas desta sessão?',
+  const read = useCallback(
+    async (file?: File) => {
+      if (!file || busy) return
+      if (pdfOnly && !/\.pdf$/i.test(file.name)) {
+        setError('Escolha um arquivo PDF para responder na página.')
+        return
+      }
+      if (
+        dirty &&
+        !window.confirm(
+          'Abrir outro arquivo e descartar as respostas desta sessão?',
+        )
       )
-    )
-      return
-    setBusy(true)
-    setError('')
-    setStatus('Abrindo documento…')
-    try {
-      const next = await openResponse(file)
-      setSource(next)
-      setFileName(file.name)
-      setPage(1)
-      setPoint(null)
-      setParagraph(null)
-      setText('')
-      setPdfAnswers([])
-      setWordAnswers({})
-      setAnchor(null)
-      setDirty(false)
-      setStatus('Documento pronto para responder.')
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Não foi possível abrir o documento.',
-      )
-      setStatus('')
-    } finally {
-      setBusy(false)
+        return
+      setBusy(true)
+      setError('')
+      setStatus('Abrindo documento…')
+      try {
+        const next = await openResponse(file)
+        setSource(next)
+        setFileName(file.name)
+        setPage(1)
+        setPoint(null)
+        setParagraph(null)
+        setText('')
+        setPdfAnswers([])
+        setWordAnswers({})
+        setAnchor(null)
+        setMovingAnchor(null)
+        setDirty(false)
+        setStatus('Documento pronto para responder.')
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Não foi possível abrir o documento.',
+        )
+        setStatus('')
+      } finally {
+        setBusy(false)
+      }
+    },
+    [busy, dirty, pdfOnly],
+  )
+
+  useEffect(() => {
+    if (!acervoId || loadedAcervo.current === acervoId) return
+    const item = findClassroomItem(acervoId)
+    if (!item?.ready?.file) return
+    loadedAcervo.current = acervoId
+    let active = true
+    setStatus('Carregando folha pronta para escrever por cima…')
+    void fetch(assetUrl(item.ready.file))
+      .then((res) => {
+        if (!res.ok) throw new Error('Não foi possível abrir o PDF pronto.')
+        return res.blob()
+      })
+      .then((blob) => {
+        if (!active) return
+        const file = new File([blob], filename(item.title) + '.pdf', {
+          type: 'application/pdf',
+        })
+        return read(file)
+      })
+      .catch((err: unknown) => {
+        if (!active) return
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Não foi possível carregar este PDF.',
+        )
+      })
+    return () => {
+      active = false
     }
-  }
+  }, [acervoId, read])
 
   async function apply() {
     setError('')
@@ -405,7 +474,7 @@ export default function DocumentResponse() {
       <FileDrop
         label="Selecionar arquivo para responder"
         instructions={
-          (pdfOnly ? 'PDF' : 'PDF ou DOCX') +
+          (pdfOnly ? 'PDF' : 'PDF ou Word') +
           ' desbloqueado, até 12 MB. O arquivo fica no navegador.'
         }
         accept={pdfOnly ? '.pdf' : '.pdf,.docx'}
@@ -580,8 +649,72 @@ export default function DocumentResponse() {
                       <option value="ink">Tinta escura</option>
                       <option value="blue">Azul caneta</option>
                       <option value="green">Verde escola</option>
+                      <option value="red">Vermelho correção</option>
                     </select>
                   </label>
+                </div>
+                <div className="response-quick-controls">
+                  <div className="actions" role="group" aria-label="Atalhos de tamanho da letra">
+                    {(
+                      [
+                        ['P', 10],
+                        ['M', 11],
+                        ['G', 13],
+                      ] as const
+                    ).map(([label, sz]) => (
+                      <button
+                        key={label}
+                        type="button"
+                        className="secondary"
+                        aria-pressed={(point.size ?? 11) === sz}
+                        onClick={() => setPoint({ ...point, size: sz })}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="actions" role="group" aria-label="Ajuste fino da posição">
+                    <button
+                      type="button"
+                      className="secondary"
+                      aria-label="Mover resposta para a esquerda"
+                      onClick={() =>
+                        setPoint({ ...point, x: Math.max(0.02, point.x - 0.02) })
+                      }
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      aria-label="Mover resposta para cima"
+                      onClick={() =>
+                        setPoint({ ...point, y: Math.max(0.02, point.y - 0.02) })
+                      }
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      aria-label="Mover resposta para baixo"
+                      onClick={() =>
+                        setPoint({ ...point, y: Math.min(0.93, point.y + 0.02) })
+                      }
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      aria-label="Mover resposta para a direita"
+                      onClick={() =>
+                        setPoint({ ...point, x: Math.min(0.87, point.x + 0.02) })
+                      }
+                    >
+                      →
+                    </button>
+                  </div>
                 </div>
                 <label>
                   Largura da resposta (% da folha)
@@ -626,6 +759,25 @@ export default function DocumentResponse() {
               >
                 Inserir resposta
               </button>
+              {source.kind === 'pdf' && anchor && current && (
+                <button
+                  type="button"
+                  className="secondary"
+                  aria-pressed={Boolean(movingAnchor)}
+                  onClick={() => {
+                    if (movingAnchor) {
+                      setMovingAnchor(null)
+                      setStatus('Movimento cancelado.')
+                    } else {
+                      setMovingAnchor(anchor)
+                      setStatus('Agora toque no novo ponto da folha para mover esta resposta.')
+                    }
+                  }}
+                >
+                  <Move size={15} aria-hidden="true" />{' '}
+                  {movingAnchor ? 'Cancelar movimento' : 'Mover esta resposta'}
+                </button>
+              )}
               {current && (
                 <button type="button" className="secondary" onClick={remove}>
                   Remover resposta

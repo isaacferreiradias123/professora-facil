@@ -2,22 +2,29 @@ import { tools, type Tool } from './catalog'
 import { newId, type Draft, type Values } from './store'
 
 export const recoveryPrefix = 'pf-recovery:'
-const maxValue = 20000
+const largeValue = 50000
 const maxFileSize = 250000
+const largeKeys = new Set([
+  'moments',
+  'planSteps',
+  'questions',
+  'customItems',
+  'logoDataUrl',
+])
 
 export function readValues(value: unknown): Values {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error()
   const entries = Object.entries(value)
   if (
-    entries.length > 80 ||
+    entries.length > 120 ||
     entries.some(
       ([key, item]) =>
         !/^[A-Za-z][A-Za-z0-9]{0,40}$/.test(key) ||
         key === 'constructor' ||
         typeof item !== 'string' ||
         item.length >
-          (key === 'moments' ? maxValue : key === 'title' ? 240 : 8000),
+          (largeKeys.has(key) ? largeValue : key === 'title' ? 240 : 8000),
     )
   )
     throw new Error()

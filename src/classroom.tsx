@@ -35,6 +35,7 @@ import './classroom.css'
 
 const archivePageSize = 24
 const addedArchiveIds = new Set<string>(archiveAdditions.map(({ id }) => id))
+const editableItems = classroom.filter((item) => !addedArchiveIds.has(item.id))
 const sortedArchive = [...archiveItems].sort((a, b) => a.id.localeCompare(b.id))
 const archiveTypes = [...new Set(archiveItems.map((item) => item.archiveType ?? item.category))]
   .sort((a, b) => a.localeCompare(b, 'pt-BR'))
@@ -52,10 +53,12 @@ export function Paper({
   marks,
   width = paper.width,
   height = paper.height,
+  font = 'noto',
 }: {
   marks: Mark[]
   width?: number
   height?: number
+  font?: 'noto' | 'andika'
 }) {
   function place(mark: Exclude<Mark, { kind: 'path' }>): CSSProperties {
     return {
@@ -69,7 +72,7 @@ export function Paper({
   )
   return (
     <div
-      className="print-paper"
+      className={'print-paper' + (font === 'andika' ? ' paper-font-andika' : '')}
       style={{ aspectRatio: width + ' / ' + height }}
     >
       {marks.map((mark, index) => {
@@ -170,9 +173,11 @@ export function Paper({
 export function ClassroomTabs({
   selected,
   choose,
+  totalCount,
 }: {
   selected?: string
   choose?: (tool: string) => void
+  totalCount?: number
 }) {
   const entries = Object.entries(tools) as [Tool, (typeof tools)[Tool]][]
   return (
@@ -184,7 +189,7 @@ export function ClassroomTabs({
           aria-pressed={!selected}
           onClick={() => choose('')}
         >
-          <span>Todas ({classroom.length})</span>
+          <span>Todas ({totalCount ?? editableItems.length})</span>
         </button>
       )}
       {entries.map(([key, info]) => {
@@ -261,6 +266,7 @@ export function PreviewThumb({ item }: { item: ClassroomItem }) {
       marks={sheets[0].marks}
       width={sheets[0].size?.width}
       height={sheets[0].size?.height}
+      font={sheets[0]?.font}
     />
   )
 }
@@ -461,7 +467,7 @@ function ClassroomCard({
             {item.panel
               ? ' · ' + (item.panel.landscape ? 'Horizontal' : 'Vertical')
               : ''}
-            {item.ready?.presentation ? ' · PPTX e PDF' : item.tool === 'postagem' ? ' · PNG' : ' · PDF'}
+            {item.ready?.presentation ? ' · PowerPoint e PDF' : item.tool === 'postagem' ? ' · PNG' : ' · PDF'}
             {count ? ' · ' + count + (count === 1 ? ' folha' : ' folhas') : ''}
           </p>
           <h3>{item.title}</h3>
@@ -501,7 +507,8 @@ export function ClassroomLibrary() {
   const [params, setParams] = useSearchParams()
   const archive = params.get('acervo') === 'pt-br'
   const kind = params.get('tipo') ?? ''
-  const requestedTool = archive ? null : params.get('ferramenta')
+  const rawTool = archive ? null : params.get('ferramenta')
+  const requestedTool = rawTool === 'foto' ? 'fotos-em-pdf' : rawTool
   const tool =
     requestedTool && Object.hasOwn(tools, requestedTool)
       ? (requestedTool as Tool)
@@ -614,21 +621,37 @@ export function ClassroomLibrary() {
           <h1>{archive ? 'Acervo em português' : tool ? tools[tool].name : 'Modelos da coleção'}</h1>
           <p>
             {archive
-              ? 'Fichas, cartazes e certificados para baixar, do Berçário ao Pré II.'
+              ? '200 folhas ilustradas em PDF para baixar ou estampar com seu cabeçalho escolar.'
               : tool
-              ? tools[tool].description
-              : 'Escolha uma ferramenta abaixo ou filtre pela turma para personalizar e baixar.'}
+                ? tools[tool].description
+                : 'Escolha uma ferramenta abaixo, monte sua tarefa ou filtre pela turma.'}
           </p>
         </div>
       </div>
 
-      {archive ? (
-        <Link className="button secondary" to="/app/colecao">Voltar à coleção</Link>
-      ) : (
-        <>
-          <Link className="button secondary" to="/app/colecao?acervo=pt-br">Acervo em português</Link>
-          <ClassroomTabs selected={tool ?? ''} choose={selectTool} />
-        </>
+      <div className="library-mode-switch" role="navigation" aria-label="Modo da coleção">
+        <Link
+          className={'button' + (archive ? ' secondary' : '')}
+          to="/app/colecao"
+          aria-current={!archive ? 'page' : undefined}
+        >
+          Modelos editáveis ({editableItems.length})
+        </Link>
+        <Link
+          className={'button' + (archive ? '' : ' secondary')}
+          to="/app/colecao?acervo=pt-br"
+          aria-current={archive ? 'page' : undefined}
+        >
+          Acervo em português ({sortedArchive.length})
+        </Link>
+      </div>
+
+      {!archive && (
+        <ClassroomTabs
+          selected={tool ?? ''}
+          choose={selectTool}
+          totalCount={editableItems.length}
+        />
       )}
 
       {tool && !activityLibrary && choices.length > 1 && (
@@ -687,40 +710,32 @@ export function ClassroomLibrary() {
         </div>
       )}
 
-      {tool && <a className="button" href="#modelos-da-ferramenta" onClick={(event) => {
-        event.preventDefault()
-        document.getElementById('modelos-da-ferramenta')?.focus()
-      }}>Escolher um modelo</a>}
-
-      {tool === 'atividade' && purpose !== 'guided' && (
-        <details className="tool-shortcuts">
-          <summary>Começar em branco</summary>
-          <div className="actions">
-          <Link className="button" to="/app/colecao/criar-contagem">
-            Montar ficha de contagem
+      {!archive && (!tool || tool === 'atividade') && purpose !== 'guided' && (
+        <div className="actions library-shortcuts">
+          <Link className="button" to="/app/colecao/criar-tarefa">
+            + Montar tarefa ou prova do zero
+          </Link>
+          <Link className="button secondary" to="/app/colecao/criar-contagem">
+            Ficha de contagem
           </Link>
           <Link className="button secondary" to="/app/colecao/criar-pares">
-            Montar ficha de pareamento
+            Ficha de pareamento
           </Link>
           <Link className="button secondary" to="/app/colecao/criar-tracado">
-            Montar ficha de traçado
+            Ficha de traçado
           </Link>
-          </div>
-        </details>
+        </div>
       )}
 
-      {tool === 'documento' && (
-        <details className="tool-shortcuts">
-          <summary>Abrir meu arquivo</summary>
-          <nav className="actions" aria-label="Ferramentas de documentos">
+      {!archive && (!tool || tool === 'documento') && (
+        <nav className="actions library-shortcuts" aria-label="Ferramentas de documentos">
           <Link className="button" to="/app/editar-word">
-            Editar um Word existente (.docx)
+            Editar um Word meu
           </Link>
           <Link className="button secondary" to="/app/responder?tipo=pdf">
-            Responder no PDF
+            Escrever por cima no PDF
           </Link>
-          </nav>
-        </details>
+        </nav>
       )}
 
       {tool && ['postagem', 'painel', 'fotos-em-pdf'].includes(tool) && (
@@ -742,7 +757,7 @@ export function ClassroomLibrary() {
             <Search size={18} aria-hidden="true" />
             <input
               type="search"
-              placeholder="Ex.: traçado, recado, semanal ou polaroid"
+              placeholder="Buscar por título, tema ou turma..."
               ref={searchInput}
               defaultValue={query}
               onChange={(e) => filter('q', e.target.value, true)}

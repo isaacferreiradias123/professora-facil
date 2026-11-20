@@ -126,11 +126,15 @@ export function AdjustLayout({
           className="secondary"
           aria-current={step === 'download' ? 'step' : undefined}
           onClick={(event) => {
-            const action = event.currentTarget.closest('.school-editor')
+            const action = event.currentTarget
+              .closest('.school-editor')
               ?.querySelector<HTMLButtonElement>('.pinned-action button')
             setView('preview')
             setStep('download')
-            if (!action?.disabled) action?.focus()
+            requestAnimationFrame(() => {
+              action?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              if (!action?.disabled) action?.focus()
+            })
           }}
         >
           3. Baixar

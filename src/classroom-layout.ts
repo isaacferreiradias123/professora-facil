@@ -7,142 +7,41 @@ import type {
 } from './classroom-catalog'
 import { ageGuides } from './classroom-catalog'
 import { panelGeometry, panelLabelLimit } from './panel-geometry'
+import type { SheetFont } from './pdf-core'
+import {
+  applyCase,
+  assetUrl,
+  draw,
+  lineWrap,
+  localDate,
+  makeSheet as sheet,
+  paper,
+  printThemes,
+  resolveTheme,
+  textRows,
+  type Draw,
+  type Mark,
+  type Sheet,
+} from './sheet-core'
 import type { Values } from './store'
+import { buildTaskSheets, resolveFigureAsset } from './task-builder'
 
-export const paper = { width: 210, height: 297 }
-
-export const printThemes: Record<
-  PrintTheme,
-  {
-    label: string
-    swatch: string
-    headerBg: string
-    headerBar: string
-    primary: string
-    ink: string
-    muted: string
-    rule: string
-    cardA: string
-    cardB: string
-    cardC: string
-    cardD: string
-  }
-> = {
-  jardim: {
-    label: 'Jardim',
-    swatch: '#1E5643',
-    headerBg: '#E6F2EC',
-    headerBar: '#1E5643',
-    primary: '#1E5643',
-    ink: '#1B2A24',
-    muted: '#4E635A',
-    rule: '#A6BCB0',
-    cardA: '#E6F2EC',
-    cardB: '#FBF3E4',
-    cardC: '#FCECE5',
-    cardD: '#EFE8F8',
-  },
-  sol: {
-    label: 'Sol & Papel',
-    swatch: '#D4921A',
-    headerBg: '#FDF3D8',
-    headerBar: '#D4921A',
-    primary: '#7A4F08',
-    ink: '#2A2216',
-    muted: '#665840',
-    rule: '#D0BA88',
-    cardA: '#FDF3D8',
-    cardB: '#EEF4E8',
-    cardC: '#FCECE5',
-    cardD: '#F5EFE0',
-  },
-  pessego: {
-    label: 'Pêssego',
-    swatch: '#B9543F',
-    headerBg: '#FCECE5',
-    headerBar: '#B9543F',
-    primary: '#8C3B2B',
-    ink: '#2E201D',
-    muted: '#6B524C',
-    rule: '#D5B2A8',
-    cardA: '#FCECE5',
-    cardB: '#EFE8F8',
-    cardC: '#FBF5EA',
-    cardD: '#E8F2EC',
-  },
-  economico: {
-    label: 'Econômico P&B',
-    swatch: '#222825',
-    headerBg: '#FFFFFF',
-    headerBar: '#222825',
-    primary: '#1B221F',
-    ink: '#111614',
-    muted: '#424D47',
-    rule: '#5C6861',
-    cardA: '#FFFFFF',
-    cardB: '#FFFFFF',
-    cardC: '#FFFFFF',
-    cardD: '#FFFFFF',
-  },
+export {
+  applyCase,
+  assetUrl,
+  lineWrap,
+  localDate,
+  paper,
+  printThemes,
+  resolveTheme,
+  type Mark,
+  type Sheet,
 }
 
-export function resolveTheme(item: ClassroomItem, values: Values) {
-  const key = (values.printTheme || item.defaultTheme || 'jardim') as PrintTheme
-  return printThemes[key] ?? printThemes.jardim
-}
+const fontFor = (values: Values): SheetFont =>
+  values.sheetFont === 'andika' ? 'andika' : 'noto'
 
-export type Mark =
-  | {
-      kind: 'text'
-      text: string
-      x: number
-      y: number
-      width: number
-      size: number
-      color: string
-      bold?: boolean
-      align?: 'left' | 'center' | 'right'
-    }
-  | {
-      kind: 'box'
-      x: number
-      y: number
-      width: number
-      height: number
-      fill?: string
-      stroke?: string
-      dashed?: boolean
-      radius?: number
-    }
-  | {
-      kind: 'line'
-      x: number
-      y: number
-      width: number
-      color: string
-      dashed?: boolean
-    }
-  | {
-      kind: 'path'
-      points: { x: number; y: number }[]
-      color: string
-      strokeWidth: number
-      dashed?: boolean
-    }
-  | {
-      kind: 'image'
-      asset: string
-      x: number
-      y: number
-      width: number
-      height: number
-      alt: string
-    }
-
-export type Sheet = { name: string; marks: Mark[]; size?: typeof paper }
-
-export const assetUrl = (name: string) =>
-  import.meta.env.BASE_URL + 'colecao/' + name
+const isUpper = (values: Values) => values.uppercase === 'yes'
 
 export function initialValues(item: ClassroomItem): Values {
   const taskSteps = item.task?.steps.join('\n') ?? ''
@@ -166,127 +65,33 @@ export function initialValues(item: ClassroomItem): Values {
     supplies: item.task?.supplies ?? '',
     stepsText: taskSteps,
     adaptation: item.task?.adaptation ?? '',
+    teacher: '',
+    subject: '',
+    uppercase: item.taskSheet?.uppercase ? 'yes' : 'no',
+    sheetFont: item.taskSheet?.sheetFont ?? 'noto',
+    customItems: '',
+    subtitle: '',
+    ...(item.taskSheet
+      ? {
+          headerStyle: item.taskSheet.headerStyle,
+          subject: item.taskSheet.subject ?? '',
+          totalValue: item.taskSheet.totalValue ?? '10,0',
+          showGrade: item.taskSheet.showGrade ? 'yes' : 'no',
+          studentLine: 'yes',
+          questions: JSON.stringify(item.taskSheet.questions),
+        }
+      : {}),
     bnccFields:
       item.tool === 'plano-de-aula'
         ? fields[item.age === 'Berçário' ? 1 : 3]
         : '',
-    bnccRights: item.tool === 'plano-de-aula' ? `${rights[1]}|${rights[2]}|${rights[3]}` : '',
+    bnccRights:
+      item.tool === 'plano-de-aula' ? `${rights[1]}|${rights[2]}|${rights[3]}` : '',
     ...Object.fromEntries(
       item.fields?.map((field) => [field.key, field.value ?? '']) ?? [],
     ),
   }
 }
-
-export function localDate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? value.split('-').reverse().join('/')
-    : value
-}
-
-export function lineWrap(text: string, width: number, size: number) {
-  const rows: string[] = []
-  const capacity = Math.max(1, Math.floor(width / (size * 0.54)))
-  for (const paragraph of text.trim().split(/\r?\n/)) {
-    if (!paragraph.trim()) {
-      rows.push('')
-      continue
-    }
-    let line = ''
-    for (const word of paragraph.trim().split(/\s+/)) {
-      if (line && line.length + word.length + 1 > capacity) {
-        rows.push(line)
-        line = ''
-      }
-      if (word.length > capacity) {
-        const letters = Array.from(word)
-        while (letters.length > capacity)
-          rows.push(letters.splice(0, capacity).join(''))
-        line = letters.join('')
-      } else line = line ? line + ' ' + word : word
-    }
-    rows.push(line)
-  }
-  return rows
-}
-
-function draw(sheet: Sheet, defaultInk: string, defaultRule: string) {
-  const { marks } = sheet
-  return {
-    box(
-      x: number,
-      y: number,
-      width: number,
-      height: number,
-      fill?: string,
-      stroke?: string,
-      dashed = false,
-      radius?: number,
-    ) {
-      marks.push({
-        kind: 'box',
-        x,
-        y,
-        width,
-        height,
-        fill,
-        stroke,
-        dashed,
-        radius,
-      })
-    },
-    line(x: number, y: number, width: number, color = defaultRule, dashed = false) {
-      marks.push({ kind: 'line', x, y, width, color, dashed })
-    },
-    path(
-      points: { x: number; y: number }[],
-      color = defaultRule,
-      strokeWidth = 0.85,
-      dashed = true,
-    ) {
-      marks.push({ kind: 'path', points, color, strokeWidth, dashed })
-    },
-    text(
-      text: string,
-      x: number,
-      y: number,
-      size = 4,
-      options: {
-        width?: number
-        color?: string
-        bold?: boolean
-        align?: 'left' | 'center' | 'right'
-      } = {},
-    ) {
-      marks.push({
-        kind: 'text',
-        text,
-        x,
-        y,
-        size,
-        width: options.width ?? 185 - x,
-        bold: options.bold,
-        color: options.color ?? defaultInk,
-        align: options.align,
-      })
-    },
-    image(
-      asset: string,
-      x: number,
-      y: number,
-      width: number,
-      height: number,
-      alt: string,
-    ) {
-      marks.push({ kind: 'image', asset, x, y, width, height, alt })
-    },
-  }
-}
-
-function sheet(name: string, size?: typeof paper): Sheet {
-  return { name, marks: [], ...(size ? { size } : {}) }
-}
-
-type Draw = ReturnType<typeof draw>
 
 function heading(
   page: Draw,
@@ -297,21 +102,28 @@ function heading(
   paperWidth = paper.width,
   title = values.title,
 ) {
+  const upper = isUpper(values)
   const boxWidth = paperWidth - 24
   page.box(12, 12, boxWidth, 39, theme.headerBg, theme.rule, false, 3)
   page.box(12, 12, 3.2, 39, theme.headerBar)
-  page.text(label.toUpperCase(), 20, 18.5, 3.2, {
+  page.text(applyCase(label, upper).toUpperCase(), 20, 18.5, 3.2, {
     bold: true,
     color: theme.primary,
     width: boxWidth - 16,
   })
-  page.text(title, 20, 27, 6.8, {
+  page.text(applyCase(title, upper), 20, 27, 6.8, {
     bold: true,
     color: theme.ink,
     width: boxWidth - 20,
   })
   page.text(
-    [values.school, values.classroom || item.age, localDate(values.date ?? '')]
+    [
+      values.school,
+      values.classroom || item.age,
+      values.teacher ? 'Prof. ' + values.teacher : '',
+      values.subject,
+      localDate(values.date ?? ''),
+    ]
       .filter(Boolean)
       .join(' · '),
     20,
@@ -319,22 +131,6 @@ function heading(
     3.1,
     { color: theme.muted, width: boxWidth - 16 },
   )
-}
-
-function textRows(
-  page: Draw,
-  rows: string[],
-  x: number,
-  y: number,
-  width: number,
-  size = 4.1,
-  color?: string,
-) {
-  for (const row of rows) {
-    if (row) page.text(row, x, y, size, { width, color })
-    y += size * 1.55
-  }
-  return y
 }
 
 const picture: Record<string, string> = {
@@ -417,7 +213,41 @@ export const activityGroups = [
   { id: 'routine', label: 'Objetos da rotina' },
 ] as const
 
+export type CustomWorksheetData = {
+  prompts?: string[]
+  icons?: string[]
+  rows?: { label: string; qty: number; icon?: string }[]
+  tracks?: TraceTrack[]
+  patternRows?: string[][]
+  patternThirdPrompt?: string
+  sortLabels?: [string, string]
+  prompt?: string
+  heroIcon?: string
+}
+
+export function parseCustomItems(values: Values): CustomWorksheetData | null {
+  if (!values.customItems?.trim()) return null
+  try {
+    const parsed = JSON.parse(values.customItems)
+    return parsed && typeof parsed === 'object'
+      ? (parsed as CustomWorksheetData)
+      : null
+  } catch {
+    return null
+  }
+}
+
 export function worksheetGroups(item: ClassroomItem, values: Values) {
+  const custom = parseCustomItems(values)
+  if (
+    (item.task?.mode === 'count' || item.task?.mode === 'table') &&
+    custom?.rows?.length
+  ) {
+    return custom.rows.slice(0, 4).map((r) => r.label || 'Item')
+  }
+  if (custom?.prompts?.length) {
+    return custom.prompts.slice(0, 6)
+  }
   if (item.id === 'criar-pares') {
     if (values.group === 'animals') return ['Gato', 'Pato', 'Cão', 'Pássaro']
     if (values.group === 'school') return ['Lápis', 'Livro', 'Pincel', 'Blocos']
@@ -436,8 +266,15 @@ export function worksheetGroups(item: ClassroomItem, values: Values) {
 }
 
 export function traceTracks(item: ClassroomItem, values: Values): TraceTrack[] {
-  if (item.id !== 'criar-tracado') return item.task?.tracks ?? []
+  const custom = parseCustomItems(values)
   const count = values.traceCount === '3' ? 3 : 4
+  if (custom?.tracks?.length) {
+    return custom.tracks.slice(0, count)
+  }
+  if (item.id !== 'criar-tracado') {
+    const base = item.task?.tracks ?? []
+    return values.traceCount === '3' ? base.slice(0, 3) : base
+  }
   const sets: Record<string, TraceTrack[]> = {
     nature: [
       { from: 'Borboleta', to: 'Flor', kind: 'wave' },
@@ -459,8 +296,8 @@ export function traceTracks(item: ClassroomItem, values: Values): TraceTrack[] {
     ],
     fruit: [
       { from: 'Maçã', to: 'Prato', kind: 'straight' },
-      { from: 'Banana', to: 'Lanche', kind: 'wave' },
-      { from: 'Pera', to: 'Copo', kind: 'arc' },
+      { from: 'Banana', to: 'Copo', kind: 'wave' },
+      { from: 'Pera', to: 'Pano', kind: 'arc' },
       { from: 'Morango', to: 'Flor', kind: 'zigzag' },
     ],
     routine: [
@@ -473,12 +310,24 @@ export function traceTracks(item: ClassroomItem, values: Values): TraceTrack[] {
   return (sets[values.group ?? 'nature'] ?? sets.nature).slice(0, count)
 }
 
-function iconFor(label: string) {
+export function iconFor(label: string, customIcon?: string) {
+  if (customIcon) {
+    if (customIcon.startsWith('data:image/')) return customIcon
+    const resolved = resolveFigureAsset(customIcon)
+    if (resolved) return resolved
+    if (picture[customIcon]) return picture[customIcon]
+    if (/\.(png|svg|webp|jpg)$/i.test(customIcon)) return customIcon
+  }
   return picture[label.split(' · ')[0]] ?? 'il-book.png'
 }
 
 export function worksheetQuantity(values: Values, index: number) {
-  const fallback = [3, 5, 4][index] ?? 3
+  const custom = parseCustomItems(values)
+  const customQty = custom?.rows?.[index]?.qty
+  if (typeof customQty === 'number' && Number.isFinite(customQty)) {
+    return Math.max(1, Math.min(6, Math.trunc(customQty)))
+  }
+  const fallback = [3, 5, 4, 2][index] ?? 3
   const quantity = Number(values['quantity' + index] ?? fallback)
   return Number.isFinite(quantity)
     ? Math.max(1, Math.min(6, Math.trunc(quantity)))
@@ -499,15 +348,17 @@ export function activityObservation(item: ClassroomItem, values: Values) {
 function guidePages(item: ClassroomItem, values: Values) {
   const task = item.task!
   const theme = resolveTheme(item, values)
+  const upper = isUpper(values)
+  const c = (t: string) => applyCase(t, upper)
   const pages: Sheet[] = []
   function nextPage() {
     const label = pages.length ? 'Roteiro da professora · continuação' : 'Roteiro da professora'
-    const result = sheet(label)
+    const result = sheet(label, paper, fontFor(values))
     pages.push(result)
     const page = draw(result, theme.ink, theme.rule)
     heading(page, item, values, label, theme)
     if (item.age) {
-      page.text(ageGuides[item.age], 16, 58, 3.4, { color: theme.muted, width: 180 })
+      page.text(c(ageGuides[item.age]), 16, 58, 3.4, { color: theme.muted, width: 180 })
     }
     page.text('Professora Fácil · Educação Infantil', 16, 283, 3.1, { color: theme.muted })
     return page
@@ -530,7 +381,7 @@ function guidePages(item: ClassroomItem, values: Values) {
     ['Como adaptar e incluir', adaptation],
     ...(obs ? [['O que observar', obs]] : []),
   ]) {
-    const rows = lineWrap(content, 175, 3.85)
+    const rows = lineWrap(c(content), 175, 3.85)
     let offset = 0
     do {
       if (y + 23 > 276) {
@@ -538,40 +389,16 @@ function guidePages(item: ClassroomItem, values: Values) {
         y = 70
       }
       page.box(14, y - 2, 182, 8.5, theme.headerBg, undefined, false, 2)
-      page.text(label + (offset ? ' · continuação' : ''), 18, y + 0.5, 4.4, { bold: true, color: theme.primary })
-      const count = Math.floor((276 - y - 10.5) / (3.85 * 1.55))
+      page.text(c(label + (offset ? ' · continuação' : '')), 18, y + 0.5, 4.4, {
+        bold: true,
+        color: theme.primary,
+      })
+      const count = Math.max(1, Math.floor((276 - y - 10.5) / (3.85 * 1.55)))
       y = textRows(page, rows.slice(offset, offset + count), 16, y + 10.5, 178, 3.85) + 7
       offset += count
     } while (offset < rows.length)
   }
   return pages
-}
-
-function card(
-  page: Draw,
-  label: string,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  tint: string,
-  stroke: string,
-) {
-  page.box(x, y, width, height, tint, stroke, true, 3)
-  const side = Math.min(height - 15, width * 0.62, 31)
-  page.image(
-    iconFor(label),
-    x + (width - side) / 2,
-    y + 4,
-    side,
-    side,
-    label.split(' · ')[0],
-  )
-  page.text(label, x + 4, y + height - 8.5, 3.6, {
-    bold: true,
-    width: width - 8,
-    align: 'center',
-  })
 }
 
 function trackPoints(
@@ -652,17 +479,22 @@ function buildCardsSheet(
   values: Values,
   prompts: string[],
   titleSuffix: string,
+  customIcons?: string[],
 ) {
   const theme = resolveTheme(item, values)
-  const result = sheet(titleSuffix)
+  const upper = isUpper(values)
+  const c = (t: string) => applyCase(t, upper)
+  const result = sheet(titleSuffix, paper, fontFor(values))
   const page = draw(result, theme.ink, theme.rule)
   heading(page, item, values, 'Cartões para a roda', theme)
   textRows(
     page,
     lineWrap(
-      values.memoryMode === 'yes'
-        ? 'Jogo da memória: recorte os pares iguais nas linhas tracejadas e vire para baixo.'
-        : 'Recorte nas linhas tracejadas. Apresente os cartões um por vez.',
+      c(
+        values.memoryMode === 'yes'
+          ? 'Jogo da memória: recorte os pares iguais nas linhas tracejadas e vire para baixo.'
+          : 'Recorte nas linhas tracejadas. Apresente os cartões um por vez.',
+      ),
       175,
       4,
     ),
@@ -673,18 +505,27 @@ function buildCardsSheet(
   )
   const palette = [theme.cardA, theme.cardB, theme.cardC, theme.cardD]
   const top = 76
-  prompts.forEach((label, i) =>
-    card(
-      page,
-      label,
-      16 + (i % 2) * 91,
-      top + Math.floor(i / 2) * 64,
-      86,
-      58,
-      palette[i % palette.length],
-      theme.rule,
-    ),
-  )
+  prompts.forEach((label, i) => {
+    const x = 16 + (i % 2) * 91
+    const y = top + Math.floor(i / 2) * 64
+    const width = 86
+    const height = 58
+    page.box(x, y, width, height, palette[i % palette.length], theme.rule, true, 3)
+    const side = Math.min(height - 15, width * 0.62, 31)
+    page.image(
+      iconFor(label, customIcons?.[i]),
+      x + (width - side) / 2,
+      y + 4,
+      side,
+      side,
+      label.split(' · ')[0],
+    )
+    page.text(c(label), x + 4, y + height - 8.5, 3.6, {
+      bold: true,
+      width: width - 8,
+      align: 'center',
+    })
+  })
   page.text('Professora Fácil · Educação Infantil', 16, 283, 3.1, {
     color: theme.muted,
   })
@@ -694,7 +535,11 @@ function buildCardsSheet(
 function worksheet(item: ClassroomItem, values: Values): Sheet[] {
   const task = item.task!
   const theme = resolveTheme(item, values)
+  const custom = parseCustomItems(values)
+  const upper = isUpper(values)
+  const c = (t: string) => applyCase(t, upper)
   const prompts = worksheetGroups(item, values)
+  const customIcons = custom?.icons
   const palette = [theme.cardA, theme.cardB, theme.cardC, theme.cardD]
 
   if (task.mode === 'cards') {
@@ -705,31 +550,34 @@ function worksheet(item: ClassroomItem, values: Values): Sheet[] {
       values.memoryMode === 'yes'
         ? 'Cartões · folha 1 (pares)'
         : 'Cartões de uso coletivo',
+      customIcons,
     )
     if (values.memoryMode === 'yes') {
+      const reversedIcons = customIcons ? [...customIcons].reverse() : undefined
       const second = buildCardsSheet(
         item,
         values,
         [...prompts].reverse(),
         'Cartões · folha 2 (pares)',
+        reversedIcons,
       )
       return [first, second]
     }
     return [first]
   }
 
-  const result = sheet('Folha da criança')
+  const result = sheet('Folha da criança', paper, fontFor(values))
   const page = draw(result, theme.ink, theme.rule)
   heading(page, item, values, 'Atividade ilustrada', theme)
 
-  page.text('Nome:', 16, 58, 3.8, { bold: true })
+  page.text(c('Nome:'), 16, 58, 3.8, { bold: true })
   page.line(31, 63.5, 107, theme.rule)
-  page.text('Data:', 144, 58, 3.8, { bold: true })
+  page.text(c('Data:'), 144, 58, 3.8, { bold: true })
   page.line(156, 63.5, 36, theme.rule)
 
   textRows(
     page,
-    lineWrap(activityCommand(item, values), 178, 4.1),
+    lineWrap(c(activityCommand(item, values)), 178, 4.1),
     16,
     70,
     178,
@@ -757,12 +605,12 @@ function worksheet(item: ClassroomItem, values: Values): Sheet[] {
       )
     })
   } else if (task.mode === 'draw-frame') {
-    const heroIcon = task.illustrations?.[0] ?? 'Flor do dia'
+    const heroIcon = custom?.heroIcon ?? task.illustrations?.[0] ?? 'Flor do dia'
     page.box(16, 86, 178, 134, '#FFFFFF', theme.primary, false, 4)
     page.box(18, 88, 174, 130, undefined, theme.rule, true, 3)
-    page.image(iconFor(heroIcon), 164, 91, 24, 24, heroIcon)
+    page.image(iconFor(heroIcon, custom?.heroIcon), 164, 91, 24, 24, heroIcon)
     page.text(
-      prompts[0] ?? 'O que eu desenhei',
+      c(custom?.prompt?.trim() || prompts[0] || 'O que eu desenhei'),
       16,
       230,
       4.2,
@@ -773,20 +621,27 @@ function worksheet(item: ClassroomItem, values: Values): Sheet[] {
     }
   } else if (task.mode === 'story' || task.mode === 'sort') {
     const top = 88
-    prompts.forEach((label, i) =>
-      card(
-        page,
-        label,
-        16 + (i % 2) * 91,
-        top + Math.floor(i / 2) * 62,
-        86,
-        56,
-        palette[i % palette.length],
-        theme.rule,
-      ),
-    )
+    prompts.slice(0, 4).forEach((label, i) => {
+      const x = 16 + (i % 2) * 91
+      const y = top + Math.floor(i / 2) * 62
+      page.box(x, y, 86, 56, palette[i % palette.length], theme.rule, true, 3)
+      const side = Math.min(56 - 15, 86 * 0.62, 31)
+      page.image(
+        iconFor(label, customIcons?.[i]),
+        x + (86 - side) / 2,
+        y + 4,
+        side,
+        side,
+        label.split(' · ')[0],
+      )
+      page.text(c(label), x + 4, y + 56 - 8.5, 3.6, {
+        bold: true,
+        width: 86 - 8,
+        align: 'center',
+      })
+    })
     if (task.mode === 'story') {
-      prompts.forEach((_, index) => {
+      prompts.slice(0, 4).forEach((_, index) => {
         const x = 16 + (index % 2) * 91
         const y = top + Math.floor(index / 2) * 62
         page.box(x + 5, y + 4, 9, 9, theme.primary)
@@ -798,92 +653,138 @@ function worksheet(item: ClassroomItem, values: Values): Sheet[] {
         })
       })
       const drawNext = item.id === 'ciclo-borboleta'
-      page.text('Minha ordem:', 16, 220, 4, { bold: true })
-      for (let i = 0; i < prompts.length; i++)
+      page.text(c('Minha ordem:'), 16, 220, 4, { bold: true })
+      for (let i = 0; i < Math.min(4, prompts.length); i++)
         page.box(16 + i * 45, 230, 36, drawNext ? 14 : 24, '#FFFFFF', theme.rule, false, 2)
       if (drawNext) {
-        page.text('Desenhe onde a borboleta voou depois:', 16, 250, 3.9, {
+        page.text(c('Desenhe onde a borboleta voou depois:'), 16, 250, 3.9, {
           bold: true,
         })
         page.box(16, 258, 178, 19, '#FFFFFF', theme.rule, false, 2)
       }
     }
     if (task.mode === 'sort') {
-      page.text('Desenhe ou cole cada objeto na caixa certa:', 16, 218, 3.9, {
+      const sLabels = custom?.sortLabels ?? task.sortLabels
+      page.text(c('Desenhe ou cole cada objeto na caixa certa:'), 16, 218, 3.9, {
         bold: true,
       })
       page.box(16, 228, 86, 47, theme.cardA, theme.rule, false, 3)
       page.box(108, 228, 86, 47, theme.cardC, theme.rule, false, 3)
-      page.text(task.sortLabels?.[0] ?? 'Brinquedos', 20, 232, 3.9, {
+      page.text(c(sLabels?.[0] ?? 'Brinquedos'), 20, 232, 3.9, {
         bold: true,
         color: theme.primary,
         width: 78,
       })
-      page.text(task.sortLabels?.[1] ?? 'Materiais de desenho', 112, 232, 3.9, {
+      page.text(c(sLabels?.[1] ?? 'Materiais de desenho'), 112, 232, 3.9, {
         bold: true,
         color: theme.primary,
         width: 78,
       })
     }
   } else if (task.mode === 'match') {
-    const order = matchOrder(values, prompts.length)
-    prompts.forEach((label, i) => {
+    const visible = prompts.slice(0, 4)
+    const order = matchOrder(values, visible.length)
+    visible.forEach((label, i) => {
       const y = 92 + i * 44
-      card(page, label, 18, y, 54, 38, theme.cardB, theme.rule)
-      card(page, prompts[order[i]], 138, y, 54, 38, theme.cardC, theme.rule)
+      const leftIcon = customIcons?.[i]
+      const rightIdx = order[i] ?? i
+      const rightLabel = visible[rightIdx] ?? label
+      const rightIcon = customIcons?.[rightIdx]
+      page.box(18, y, 54, 38, theme.cardB, theme.rule, true, 3)
+      page.image(iconFor(label, leftIcon), 18 + (54 - 23) / 2, y + 4, 23, 23, label)
+      page.text(c(label), 22, y + 29.5, 3.6, { bold: true, width: 46, align: 'center' })
+      page.box(138, y, 54, 38, theme.cardC, theme.rule, true, 3)
+      page.image(
+        iconFor(rightLabel, rightIcon),
+        138 + (54 - 23) / 2,
+        y + 4,
+        23,
+        23,
+        rightLabel,
+      )
+      page.text(c(rightLabel), 142, y + 29.5, 3.6, { bold: true, width: 46, align: 'center' })
       page.box(77, y + 17.5, 3.5, 3.5, theme.primary)
       page.box(129.5, y + 17.5, 3.5, 3.5, theme.primary)
     })
   } else if (task.mode === 'names') {
-    prompts.forEach((label, i) => {
-      const y = 92 + i * 58
-      page.box(16, y, 178, 49, i === 0 ? theme.cardA : theme.cardB, theme.rule, false, 3)
-      page.text(label, 22, y + 5, 4.3, { bold: true, color: theme.primary })
-      // Caixinha da letra inicial + pauta caligráfica infantil
-      page.box(22, y + 15, 18, 24, '#FFFFFF', theme.primary, false, 2)
-      page.text('1ª letra', 22, y + 40.5, 2.5, {
+    const visible = prompts.slice(0, 4)
+    const stepY = visible.length > 3 ? 45 : 58
+    const boxH = visible.length > 3 ? 40 : 49
+    visible.forEach((label, i) => {
+      const y = 92 + i * stepY
+      page.box(16, y, 178, boxH, i % 2 === 0 ? theme.cardA : theme.cardB, theme.rule, false, 3)
+      page.text(c(label), 22, y + 5, 4.3, { bold: true, color: theme.primary })
+      page.box(22, y + 13, 18, boxH - 22, '#FFFFFF', theme.primary, false, 2)
+      page.text(c('1ª letra'), 22, y + boxH - 7.5, 2.5, {
         color: theme.muted,
         width: 18,
         align: 'center',
       })
-      page.line(46, y + 20, 140, theme.rule)
-      page.line(46, y + 28, 140, theme.muted, true)
-      page.line(46, y + 36, 140, theme.ink)
+      const pTop = y + 17
+      page.line(46, pTop, 140, theme.rule)
+      page.line(46, pTop + 7.5, 140, theme.muted, true)
+      page.line(46, pTop + 15, 140, theme.ink)
     })
   } else if (task.mode === 'table' || task.mode === 'count') {
-    page.box(16, 90, 178, 15, theme.primary)
-    page.text('ELEMENTO', 21, 95, 3.4, { color: '#FFFFFF', bold: true })
-    page.text('FIGURAS PARA CONTAR', 60, 95, 3.4, { color: '#FFFFFF', bold: true })
-    page.text('QUANTOS?', 161, 95, 3.4, {
+    const visible = prompts.slice(0, 4)
+    const tableTop = visible.length > 3 ? 86 : 90
+    const rowH = visible.length > 3 ? 34 : 40
+    page.box(16, tableTop, 178, 13, theme.primary)
+    page.text(c('ELEMENTO'), 21, tableTop + 4, 3.4, { color: '#FFFFFF', bold: true })
+    page.text(c('FIGURAS PARA CONTAR'), 60, tableTop + 4, 3.4, {
+      color: '#FFFFFF',
+      bold: true,
+    })
+    page.text(c('QUANTOS?'), 161, tableTop + 4, 3.4, {
       color: '#FFFFFF',
       bold: true,
       width: 30,
     })
-    prompts.forEach((label, i) => {
-      const y = 105 + i * 40
-      page.box(16, y, 178, 40, i % 2 ? theme.cardB : '#FFFFFF', theme.rule)
-      page.text(label, 21, y + 15, 4.1, { bold: true })
+    visible.forEach((label, i) => {
+      const y = tableTop + 13 + i * rowH
+      page.box(16, y, 178, rowH, i % 2 ? theme.cardB : '#FFFFFF', theme.rule)
+      page.text(c(label), 21, y + rowH / 2 - 2.5, 4.1, { bold: true })
       const qty = worksheetQuantity(values, i)
       const step = qty >= 6 ? 16.5 : 18
+      const rowCustomIcon = custom?.rows?.[i]?.icon ?? customIcons?.[i]
       for (let j = 0; j < qty; j++)
-        page.image(iconFor(label), 57 + j * step, y + 11.5, 15, 15, label)
-      page.box(164, y + 7, 23, 25, '#FFFFFF', theme.primary, false, 2)
+        page.image(
+          iconFor(label, rowCustomIcon),
+          57 + j * step,
+          y + (rowH - 15) / 2,
+          15,
+          15,
+          label,
+        )
+      page.box(164, y + 6, 23, rowH - 12, '#FFFFFF', theme.primary, false, 2)
     })
+    const questionY = Math.max(234, tableTop + 15 + visible.length * rowH + 4)
     const question =
       values.footerQuestion?.trim() ||
       'Qual grupo tem mais figuras? Circule ou escreva como descobriu:'
-    page.text(question, 16, 234, 4, { bold: true, width: 178 })
-    page.box(16, 244, 178, 28, '#FFFFFF', theme.rule, false, 2)
+    page.text(c(question), 16, questionY, 4, { bold: true, width: 178 })
+    page.box(16, questionY + 10, 178, 28, '#FFFFFF', theme.rule, false, 2)
   } else if (task.mode === 'pattern') {
-    const rows = [
+    const defaultRows: string[][] = [
       ['Maçã', 'Banana', 'Maçã', 'Banana', 'Maçã'],
       ['Pera', 'Pera', 'Maçã', 'Pera', 'Pera'],
       [],
     ]
+    const rows = custom?.patternRows?.length
+      ? [
+          custom.patternRows[0] ?? defaultRows[0],
+          custom.patternRows[1] ?? defaultRows[1],
+          custom.patternRows[2] ?? [],
+        ]
+      : defaultRows
     rows.forEach((sequence, i) => {
       const y = 94 + i * 58
       page.text(
-        i === 2 ? 'Invente seu padrão:' : 'Complete a fileira ' + (i + 1) + ':',
+        c(
+          i === 2
+            ? custom?.patternThirdPrompt?.trim() || 'Invente seu padrão:'
+            : 'Complete a fileira ' + (i + 1) + ':',
+        ),
         16,
         y,
         4.1,
@@ -896,7 +797,7 @@ function worksheet(item: ClassroomItem, values: Values): Sheet[] {
           y + 10,
           26,
           34,
-          i === 2 || !sequence[j] ? '#FFFFFF' : theme.cardB,
+          i === 2 && !sequence[j] ? '#FFFFFF' : !sequence[j] ? '#FFFFFF' : theme.cardB,
           theme.rule,
           !sequence[j],
           2,
@@ -974,7 +875,7 @@ export function noticeFits(item: ClassroomItem, values: Values) {
 
 function noticeSheet(item: ClassroomItem, values: Values) {
   const theme = resolveTheme(item, values)
-  const result = sheet('Comunicado às famílias')
+  const result = sheet('Comunicado às famílias', paper, fontFor(values))
   const page = draw(result, theme.ink, theme.rule)
   const copies = values.copies === '4' ? 4 : values.copies === '1' ? 1 : 2
   const fields = noticeFields(item, values)
@@ -1157,7 +1058,7 @@ export function kitSheetCount(item: ClassroomItem, values: Values) {
 
 function panelGuide(item: ClassroomItem, values: Values, pages: number) {
   const theme = resolveTheme(item, values)
-  const guide = sheet('Guia de montagem')
+  const guide = sheet('Guia de montagem', paper, fontFor(values))
   const page = draw(guide, theme.ink, theme.rule)
   heading(page, item, values, 'Guia de montagem', theme)
   const geometry = mosaicGeometry(item)
@@ -1417,11 +1318,24 @@ export function panelArtwork(values: Values, item?: ClassroomItem): Mark[] {
     assembled.height,
     'Painel ilustrado de boas-vindas',
   )
-  page.text(values.title, 55, 239, 25, { bold: true, width: 256 })
-  page.text(values.classroom || 'Nossa sala de descobertas', 58, 297, 12, {
-    width: 255,
-    color: theme.muted,
-  })
+  page.box(38, 224, 299, 98, '#FFFDF8', theme.rule, false, 10)
+  page.text(
+    applyCase(values.title, isUpper(values)),
+    52,
+    240,
+    24,
+    { bold: true, color: theme.primary, width: 271 },
+  )
+  page.text(
+    applyCase(
+      values.subtitle?.trim() || values.classroom || 'Nossa sala de descobertas',
+      isUpper(values),
+    ),
+    52,
+    292,
+    12,
+    { width: 271, color: theme.muted },
+  )
   return source.marks
 }
 
@@ -1476,7 +1390,7 @@ function cutoutPanel(item: ClassroomItem, values: Values) {
   const grid = kitGrid(item)
   const capacity = grid.columns * grid.rows
   const count = kitSheetCount(item, values) - 1
-  const cover = sheet('Cabeçalho para recortar')
+  const cover = sheet('Cabeçalho para recortar', paper, fontFor(values))
   const title = draw(cover, theme.ink, theme.rule)
   title.box(14, 25, 182, 42, theme.cardA, theme.muted, true, 3)
   title.image('paineis.webp', 18, 30, 39, 32, 'Ilustração para o cabeçalho')
@@ -1492,6 +1406,8 @@ function cutoutPanel(item: ClassroomItem, values: Values) {
   for (let start = 0; start < pieces.length; start += capacity) {
     const part = sheet(
       'Cartões · folha ' + (result.length + 1) + ' de ' + count,
+      paper,
+      fontFor(values),
     )
     const page = draw(part, theme.ink, theme.rule)
     page.text(part.name, 14, 12, 3.4, { bold: true, color: theme.primary })
@@ -1566,7 +1482,7 @@ export function planMoments(values: Values): PlanMoment[] {
       const original = saved[index]?.match(/^(\d+)\s*min\s*·\s*(.*)$/)
       const minutes = Number(values['minute' + index] ?? original?.[1] ?? 0)
       return {
-        label,
+        label: values['label' + index]?.trim() || label,
         minutes: Number.isFinite(minutes)
           ? Math.max(0, Math.min(180, Math.trunc(minutes)))
           : 0,
@@ -1626,7 +1542,7 @@ function buildWeeklyPlanSheets(item: ClassroomItem, values: Values): Sheet[] {
   const theme = resolveTheme(item, values)
   const pages: Sheet[] = []
   function nextPage(label: string) {
-    const result = sheet(label, { width: 297, height: 210 })
+    const result = sheet(label, { width: 297, height: 210 }, fontFor(values))
     pages.push(result)
     const page = draw(result, theme.ink, theme.rule)
     heading(page, item, values, label, theme, 297)
@@ -1667,7 +1583,7 @@ function buildWeeklyPlanSheets(item: ClassroomItem, values: Values): Sheet[] {
       y += height + 4
     }
     const height = 194 - y
-    const capacity = Math.floor((height - 20) / (3.6 * 1.55))
+    const capacity = Math.max(1, Math.floor((height - 20) / (3.6 * 1.55)))
     days.forEach(([, label], index) => {
       const x = 12 + index * (width + gap)
       page.box(x, y, width, height, '#FFFFFF', theme.rule, false, 3)
@@ -1686,6 +1602,9 @@ function buildWeeklyPlanSheets(item: ClassroomItem, values: Values): Sheet[] {
 }
 
 export function buildSheets(item: ClassroomItem, values: Values): Sheet[] {
+  if (item.taskSheet || item.id === 'criar-tarefa') {
+    return buildTaskSheets(item, values)
+  }
   if (item.task) {
     if (item.task.mode === 'experience') return guidePages(item, values)
     const workSheets = worksheet(item, values)
@@ -1708,7 +1627,7 @@ export function buildSheets(item: ClassroomItem, values: Values): Sheet[] {
   let y = 0
 
   function nextPage() {
-    const result = sheet(kind + (pages.length ? ' · continuação' : ''))
+    const result = sheet(kind + (pages.length ? ' · continuação' : ''), paper, fontFor(values))
     pages.push(result)
     page = draw(result, theme.ink, theme.rule)
     heading(page, item, values, kind, theme)

@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useBlocker } from 'react-router-dom'
 import { FileDrop } from './editor-ui'
+import { loadSchoolProfile } from './school-profile'
+import { localDate } from './sheet-core'
 import { download, filename } from './workflow'
 import {
+  appendParagraphAtEnd,
   children,
   descendants,
   embeddedPictures,
   inlineEditAllowed,
   insertParagraph,
+  insertSchoolHeader,
   openWord,
   paragraphText,
   parseWord,
@@ -482,11 +486,11 @@ export default function WordEditor() {
       <h1>Editar um Word existente</h1>
       <p>
         Escolha um trecho na página ou numa tabela. As alterações serão gravadas
-        numa cópia DOCX.
+        em uma cópia do arquivo Word.
       </p>
       <FileDrop
         label="Selecionar Word para editar"
-        instructions="DOCX desbloqueado de até 12 MB. O arquivo fica no dispositivo."
+        instructions="Arquivo Word (.docx) desbloqueado de até 12 MB. O arquivo fica no dispositivo."
         accept=".docx"
         disabled={busy}
         onFiles={([file]) => void open(file)}
@@ -516,6 +520,36 @@ export default function WordEditor() {
               onClick={() => setIndex(index + 1)}
             >
               Refazer
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={active !== null}
+              onClick={() => {
+                const profile = loadSchoolProfile()
+                commit((doc) =>
+                  insertSchoolHeader(doc, {
+                    school: profile.school,
+                    teacher: profile.teacher,
+                    classroom: profile.classroom,
+                    date: localDate(new Date().toISOString().slice(0, 10)),
+                  }),
+                )
+                setMessage('Cabeçalho escolar adicionado no topo do documento.')
+              }}
+            >
+              Inserir cabeçalho escolar
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={active !== null}
+              onClick={() => {
+                commit((doc) => appendParagraphAtEnd(doc, 'Novo parágrafo'))
+                setMessage('Parágrafo adicionado ao final.')
+              }}
+            >
+              + Parágrafo no fim
             </button>
             <button
               type="button"

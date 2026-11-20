@@ -127,6 +127,7 @@ test('edita o conteúdo na página e mantém a estrutura do DOCX original', asyn
   await expect(page.getByRole('row')).toHaveCount(2)
   await page.getByText('Tamanho da imagem 1', { exact: true }).click()
   await page.getByRole('button', { name: 'Ampliar 10%' }).click()
+  await page.getByRole('button', { name: 'Inserir cabeçalho escolar' }).click()
   await page.getByText('Ajustar margens, cabeçalhos e rodapés').click()
   await page.getByLabel('Esquerda', { exact: true }).fill('25')
   await page.getByRole('button', { name: 'Aplicar margens' }).click()
@@ -145,6 +146,7 @@ test('edita o conteúdo na página e mantém a estrutura do DOCX original', asyn
   const body = await updated.file('word/document.xml')!.async('string')
   expect(body).toContain('w:left="1417"')
   expect(body).toContain('cx="1047750"')
+  expect(body).toContain('Aluno(a):')
   expect(body.match(/<w:tr>/g)).toHaveLength(2)
   expect(await updated.file('word/header1.xml')!.async('string')).toContain(
     'Escola Ipê',

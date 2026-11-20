@@ -30,6 +30,7 @@ import { drafts, newId, type Draft } from './store'
 import { clearRecovery, editableFile, importEditable } from './draft-transfer'
 import { download, filename, type VisualPreset } from './workflow'
 import { FileDrop } from './editor-ui'
+import { clearSchoolProfile, loadSchoolProfile, saveSchoolProfile, type SchoolProfile } from './school-profile'
 import {
   ClassroomLibrary,
   ClassroomTabs,
@@ -75,7 +76,7 @@ function PublicLayout() {
             </NavLink>
           ))}
           <Link className="button nav-cta" to="/app">
-            Abrir ateliê
+            Abrir painel
           </Link>
         </nav>
       </header>
@@ -141,16 +142,25 @@ function Steps() {
   return (
     <ol className="steps-public">
       <li>
-        <strong>Escolha um modelo único</strong>
-        <p>Selecione pela ferramenta ou turma sem perder tempo com repetições.</p>
+        <span className="step-badge" aria-hidden="true">1</span>
+        <div>
+          <strong>Escolha um modelo ou comece do zero</strong>
+          <p>Encontre atividades, tarefas numeradas, planos, recados ou painéis sem poluição.</p>
+        </div>
       </li>
       <li>
-        <strong>Personalize com prévia ao vivo</strong>
-        <p>Ajuste textos, figuras, estilo de impressão ou selos da BNCC na hora.</p>
+        <span className="step-badge" aria-hidden="true">2</span>
+        <div>
+          <strong>Personalize com prévia ao vivo</strong>
+          <p>Ajuste textos, questões, letras em Caixa Alta ou Andika, e veja a folha A4 na hora.</p>
+        </div>
       </li>
       <li>
-        <strong>Baixe em PDF, Word ou PNG</strong>
-        <p>Imprima em A4 com margens limpas ou envie direto às famílias.</p>
+        <span className="step-badge" aria-hidden="true">3</span>
+        <div>
+          <strong>Baixe em PDF, Word ou imprima</strong>
+          <p>Imprima com margens limpas em A4, use Econômico P&B ou envie às famílias.</p>
+        </div>
       </li>
     </ol>
   )
@@ -159,19 +169,23 @@ function Steps() {
 const faqs = [
   [
     'Preciso criar conta ou pagar?',
-    'Não. Todo o ateliê funciona diretamente no navegador, sem cadastro e sem custos.',
+    'Não. Todo o site funciona diretamente no seu navegador, sem cadastro e sem custos.',
+  ],
+  [
+    'Posso montar uma tarefa ou prova com cabeçalho e questões numeradas?',
+    'Sim. Use a opção Montar tarefa ou prova para inserir escola, data, nome, matéria e combinar questões com linhas, caligrafia, múltipla escolha, V/F ou espaço de desenho.',
   ],
   [
     'Onde ficam meus materiais salvos?',
-    'Os rascunhos ficam guardados localmente neste navegador. Você pode exportar uma cópia JSON em Materiais para levar a outro aparelho.',
+    'Os rascunhos e os dados da sua escola ficam guardados localmente neste navegador. Você pode exportar uma cópia em Materiais para levar a outro aparelho.',
   ],
   [
     'Consigo imprimir sem gastar tinta colorida?',
     'Sim. Todos os materiais A4 trazem a opção Econômico P&B no seletor de estilo de impressão.',
   ],
   [
-    'Como funciona editar Word ou responder PDF?',
-    'Na ferramenta Documentos, você abre arquivos .docx ou .pdf direto do seu computador ou celular e baixa uma cópia editada sem enviar nada para servidores.',
+    'Como funciona editar Word ou escrever em PDF?',
+    'Você abre arquivos do seu aparelho, preenche ou edita textos direto na tela e baixa uma cópia limpa sem enviar nada para servidores.',
   ],
 ]
 
@@ -195,13 +209,14 @@ function Landing() {
         <div className="school-hero-copy">
           <h1>Materiais para usar com a sua turma.</h1>
           <p>
-            Atividades ilustradas, planos com BNCC, recados em até 4 vias, álbuns
-            de fotos e murais em folhas A4.
+            Tarefas e provas do zero, atividades ilustradas, planos com BNCC,
+            recados em até 4 vias, álbuns de fotos e murais em folhas A4.
           </p>
           <div className="school-hero-actions">
             <Link className="button" to="/app">
               Criar um material
             </Link>
+            <Link to="/app/colecao/criar-tarefa">Montar tarefa ou prova</Link>
             <Link to="/app/colecao">Explorar coleção</Link>
           </div>
         </div>
@@ -214,7 +229,7 @@ function Landing() {
         />
       </section>
 
-      <section className="school-home-section" aria-label="Ferramentas do ateliê">
+      <section className="school-home-section" aria-label="Ferramentas disponíveis">
         <ClassroomTabs />
       </section>
 
@@ -223,11 +238,14 @@ function Landing() {
           <div>
             <h2>Abra, personalize e imprima</h2>
             <p>
-              Modelos curados para cada momento da Educação Infantil, com edição
-              direta e prévia real.
+              Modelos práticos da Educação Infantil ao Fundamental I, com edição
+              simples e prévia em tempo real.
             </p>
           </div>
-          <Link to="/app/colecao">Ver toda a coleção</Link> <Link to="/app/colecao?acervo=pt-br">Acervo em português</Link>
+          <div className="actions">
+            <Link to="/app/colecao">Ver toda a coleção</Link>
+            <Link to="/app/colecao?acervo=pt-br">Acervo em português</Link>
+          </div>
         </div>
         <CollectionShowcase />
       </section>
@@ -251,6 +269,19 @@ function Help() {
     <div className="school-dashboard">
       <h1>Como podemos ajudar?</h1>
       <Steps />
+      <section className="band">
+        <div className="card quick-help-card">
+          <h2>Novidade: Montar tarefa ou prova completa</h2>
+          <p>
+            Crie uma folha organizada com escola, professora, data, nome e matéria,
+            e adicione questões numeradas (linhas simples, pauta de caligrafia,
+            múltipla escolha, V ou F, ligue ou desenho) em A4.
+          </p>
+          <Link className="button" to="/app/colecao/criar-tarefa">
+            Montar minha tarefa agora
+          </Link>
+        </div>
+      </section>
       <section className="band">
         <h2>Guia rápido por ferramenta</h2>
         <div className="grid">
@@ -352,7 +383,6 @@ function ToolGrid({ selection }: { selection: Tool[] }) {
               height="68"
               width="68"
               alt=""
-              loading="lazy"
             />
             <div className="tool-copy">
               <h3>{info.name}</h3>
@@ -378,6 +408,8 @@ const toolGroups: [string, Tool[]][] = [
 function Dashboard() {
   const [recent, setRecent] = useState<Draft[]>([])
   const [search, setSearch] = useState('')
+  const [profile, setProfile] = useState<SchoolProfile>(() => loadSchoolProfile())
+  const [profileNotice, setProfileNotice] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -405,8 +437,8 @@ function Dashboard() {
         <div className="welcome-copy">
           <h1>Olá! O que vamos preparar hoje?</h1>
           <p>
-            Escolha uma ferramenta ou busque diretamente nos {classroom.length}{' '}
-            modelos da coleção.
+            Monte uma tarefa do zero, escolha um dos {classroom.length} modelos da
+            coleção ou personalize PDFs prontos.
           </p>
         </div>
         <form className="welcome-search" onSubmit={handleSearch} role="search">
@@ -418,7 +450,7 @@ function Dashboard() {
             <input
               id="busca-inicio"
               type="search"
-              placeholder="Ex.: traçado, plano semanal, recado, polaroid…"
+              placeholder="Buscar tarefa, atividade, recado ou turma..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -426,6 +458,86 @@ function Dashboard() {
           <button type="submit">Buscar</button>
         </form>
       </section>
+
+      <section className="quick-starts" aria-label="Atalhos principais">
+        <Link className="card quick-start-card" to="/app/colecao/criar-tarefa">
+          <strong>Montar tarefa ou prova</strong>
+          <p>Cabeçalho escolar + questões numeradas 1, 2, 3 em folha A4 e Word.</p>
+        </Link>
+        <Link className="card quick-start-card" to="/app/criar/fotos-em-pdf">
+          <strong>Organizar fotos em PDF</strong>
+          <p>Distribua 1 a 4 fotos por página A4 ou use molduras Polaroid com legenda.</p>
+        </Link>
+        <Link className="card quick-start-card" to="/app/colecao?acervo=pt-br">
+          <strong>Atividades prontas em PDF (200)</strong>
+          <p>Folhas ilustradas para baixar ou estampar com seu cabeçalho escolar.</p>
+        </Link>
+      </section>
+
+      <details className="card school-profile-card">
+        <summary>
+          Meus dados da escola{profile.school ? ' · ' + profile.school : ''}
+        </summary>
+        <p>
+          Preencha uma vez para aplicar em 1 clique nas suas tarefas, planos e PDFs.
+        </p>
+        <div className="school-form-grid">
+          <label>
+            Nome da escola
+            <input
+              type="text"
+              maxLength={70}
+              placeholder="Ex.: E.M. Paulo Freire"
+              value={profile.school}
+              onChange={(e) => setProfile({ ...profile, school: e.target.value })}
+            />
+          </label>
+          <label>
+            Seu nome (Professora)
+            <input
+              type="text"
+              maxLength={60}
+              placeholder="Ex.: Profa. Ana"
+              value={profile.teacher}
+              onChange={(e) => setProfile({ ...profile, teacher: e.target.value })}
+            />
+          </label>
+          <label>
+            Turma padrão
+            <input
+              type="text"
+              maxLength={40}
+              placeholder="Ex.: Pré II ou 3º ano B"
+              value={profile.classroom}
+              onChange={(e) => setProfile({ ...profile, classroom: e.target.value })}
+            />
+          </label>
+        </div>
+        <div className="actions">
+          <button
+            type="button"
+            onClick={() => {
+              const saved = saveSchoolProfile(profile)
+              setProfile(saved)
+              setProfileNotice('Dados da escola salvos neste dispositivo.')
+            }}
+          >
+            Salvar dados da escola
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              clearSchoolProfile()
+              setProfile(loadSchoolProfile())
+              setProfileNotice('Dados da escola removidos.')
+            }}
+          >
+            Limpar
+          </button>
+        </div>
+        {profileNotice && <p role="status">{profileNotice}</p>}
+      </details>
 
       {recent.length > 0 && (
         <section className="recent-materials">

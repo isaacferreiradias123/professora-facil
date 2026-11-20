@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, type PDFImage } from 'pdf-lib'
-import { fonts, printable } from './pdf-core'
-import { assetUrl, paper, type Sheet } from './classroom-layout'
+import { fonts, printable, type SheetFont } from './pdf-core'
+import { assetUrl, localDate, paper, type Sheet } from './sheet-core'
 
 const point = (mm: number) => (mm * 72) / 25.4
 
@@ -12,8 +12,19 @@ function color(hex: string) {
   )
 }
 
+function isJpegBytes(bytes: Uint8Array) {
+  return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+}
+
 export async function imageBytes(asset: string): Promise<Uint8Array> {
-  if (asset.endsWith('.png')) {
+  if (
+    asset.startsWith('data:image/png') ||
+    asset.startsWith('data:image/jpeg') ||
+    asset.startsWith('data:image/jpg') ||
+    asset.endsWith('.png') ||
+    asset.endsWith('.jpg') ||
+    asset.endsWith('.jpeg')
+  ) {
     const result = await fetch(assetUrl(asset))
     if (!result.ok) throw new Error('Imagem indisponível: ' + asset)
     return new Uint8Array(await result.arrayBuffer())
@@ -22,8 +33,8 @@ export async function imageBytes(asset: string): Promise<Uint8Array> {
   image.src = assetUrl(asset)
   await image.decode()
   const canvas = document.createElement('canvas')
-  canvas.width = image.naturalWidth
-  canvas.height = image.naturalHeight
+  canvas.width = image.naturalWidth || 200
+  canvas.height = image.naturalHeight || 200
   try {
     canvas.getContext('2d')!.drawImage(image, 0, 0)
     const blob = await new Promise<Blob>((resolve, reject) =>
@@ -41,11 +52,20 @@ export async function imageBytes(asset: string): Promise<Uint8Array> {
 export async function classroomPdf(title: string, sheets: Sheet[]) {
   const document = await PDFDocument.create()
   document.setTitle(title)
-  const face = await fonts(document, true)
+  const fontCache = new Map<SheetFont, Awaited<ReturnType<typeof fonts>>>()
+  async function getFace(family: SheetFont = 'noto') {
+    let cached = fontCache.get(family)
+    if (!cached) {
+      cached = await fonts(document, true, family)
+      fontCache.set(family, cached)
+    }
+    return cached
+  }
   const images = new Map<string, PDFImage>()
   for (const sheet of sheets) {
     const size = sheet.size ?? paper
     const page = document.addPage([point(size.width), point(size.height)])
+    const face = await getFace(sheet.font ?? 'noto')
     for (const mark of sheet.marks) {
       if (mark.kind === 'path') {
         const stroke = color(mark.color)
@@ -113,7 +133,10 @@ export async function classroomPdf(title: string, sheets: Sheet[]) {
       } else {
         let image = images.get(mark.asset)
         if (!image) {
-          image = await document.embedPng(await imageBytes(mark.asset))
+          const bytes = await imageBytes(mark.asset)
+          image = isJpegBytes(bytes)
+            ? await document.embedJpg(bytes)
+            : await document.embedPng(bytes)
           images.set(mark.asset, image)
         }
         page.drawImage(image, {
@@ -123,6 +146,77 @@ export async function classroomPdf(title: string, sheets: Sheet[]) {
           height: point(mark.height),
         })
       }
+    }
+  }
+  return new Blob([new Uint8Array(await document.save())], {
+    type: 'application/pdf',
+  })
+}
+
+export async function stampHeaderOnPdf(
+  pdfAsset: string,
+  header: {
+    school?: string
+    teacher?: string
+    classroom?: string
+    date?: string
+    studentLine?: boolean
+  },
+): Promise<Blob> {
+  const response = await fetch(assetUrl(pdfAsset))
+  if (!response.ok) throw new Error('PDF indisponível para personalizar.')
+  const document = await PDFDocument.load(new Uint8Array(await response.arrayBuffer()))
+  const face = await fonts(document, true, 'noto')
+  const page = document.getPages()[0]
+  if (page) {
+    const { width, height } = page.getSize()
+    const margin = 24
+    const boxW = width - margin * 2
+    const bandH = header.studentLine === false ? 32 : 48
+    const boxY = height - bandH - 12
+    page.drawRectangle({
+      x: margin,
+      y: boxY,
+      width: boxW,
+      height: bandH,
+      color: rgb(0.99, 0.99, 0.97),
+      borderColor: rgb(0.65, 0.74, 0.69),
+      borderWidth: 0.7,
+    })
+    page.drawRectangle({
+      x: margin,
+      y: boxY,
+      width: 4,
+      height: bandH,
+      color: rgb(0.12, 0.34, 0.26),
+    })
+    const meta = [
+      header.school?.trim() || 'Atividade Escolar',
+      header.classroom?.trim(),
+      header.teacher?.trim() ? 'Prof. ' + header.teacher.trim() : '',
+      localDate(header.date?.trim() || ''),
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    const topText = printable(meta, face.bold)
+    page.drawText(topText, {
+      x: margin + 12,
+      y: boxY + bandH - 16,
+      size: 10,
+      font: face.bold,
+      color: rgb(0.12, 0.34, 0.26),
+      maxWidth: boxW - 22,
+    })
+    if (header.studentLine !== false) {
+      const student = printable('Aluno(a): ___________________________________________   Data: ___/___/_____', face.regular)
+      page.drawText(student, {
+        x: margin + 12,
+        y: boxY + 10,
+        size: 9.5,
+        font: face.regular,
+        color: rgb(0.15, 0.2, 0.18),
+        maxWidth: boxW - 22,
+      })
     }
   }
   return new Blob([new Uint8Array(await document.save())], {

@@ -3,7 +3,7 @@ import JSZip from 'jszip'
 import { PDFDocument } from 'pdf-lib'
 import { expect, test } from 'vitest'
 import { archiveItems } from '../../src/archive-items'
-import { ageBands, classroom } from '../../src/classroom-catalog'
+import { archiveAgeBands, classroom } from '../../src/classroom-catalog'
 
 function asset(path: string) {
   return readFile(new URL('../../public/colecao/' + path, import.meta.url))
@@ -13,7 +13,7 @@ test('registra e serve o acervo completo, com créditos e arquivos válidos', as
   expect(archiveItems).toHaveLength(200)
   expect(new Set(archiveItems.map((item) => item.id)).size).toBe(200)
   expect(classroom.filter((item) => item.id.startsWith('acervo-'))).toHaveLength(200)
-  for (const age of ageBands) {
+  for (const age of archiveAgeBands) {
     expect(archiveItems.filter((item) => item.age === age)).toHaveLength(50)
   }
   let worksheets = 0

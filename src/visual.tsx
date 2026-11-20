@@ -31,6 +31,7 @@ import {
 } from './workflow'
 import { AdjustLayout, FileDrop, PreviewFeedback } from './editor-ui'
 import { figures, figureUrl } from './art-figures'
+import { loadSchoolProfile } from './school-profile'
 
 type Flow = ReturnType<typeof useWorkflow>
 
@@ -80,9 +81,11 @@ const photoDefaults: Values = {
 }
 
 function dateLabel(date?: string) {
-  return date && /^\d{4}-\d\d-\d\d$/.test(date)
-    ? date.split('-').reverse().join('/')
-    : ''
+  const clean = date?.trim() ?? ''
+  if (!clean) return ''
+  return /^\d{4}-\d\d-\d\d$/.test(clean)
+    ? clean.split('-').reverse().join('/')
+    : clean
 }
 
 function Frame({
@@ -350,8 +353,8 @@ function Photos(props: EditorProps) {
         <div className="empty-preview-box">
           <strong>Prévia das folhas A4</strong>
           <p>
-            Envie suas fotos ao lado para ver a distribuição em tempo real (
-            {options.perPage} por folha
+            Envie suas fotos na etapa Preencher para ver a distribuição em tempo
+            real ({options.perPage} por folha
             {options.polaroid ? ' · estilo Polaroid' : ''}).
           </p>
         </div>
@@ -509,6 +512,28 @@ function Photos(props: EditorProps) {
       <p>
         {photos.length} de {photoLimit} fotos selecionadas.
       </p>
+
+      <div className="actions">
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => {
+            const p = loadSchoolProfile()
+            if (!p.school && !p.classroom) {
+              setMessage('Cadastre os dados da escola no painel inicial para preencher aqui.')
+              return
+            }
+            replace({
+              ...values,
+              title: p.school ? `${p.school} · Fotos` : values.title,
+              albumSubtitle: p.classroom || values.albumSubtitle,
+            })
+            setMessage('Dados da escola aplicados ao álbum.')
+          }}
+        >
+          Preencher com minha escola
+        </button>
+      </div>
 
       <div className="form-grid">
         <TextField flow={flow} label="Título do álbum" id="title" />
@@ -776,6 +801,8 @@ function Art(props: EditorProps) {
     ? formats[values.format as keyof typeof formats]
     : formats['Quadrado 1:1']
 
+  const panelMissingPhoto = panel && values.composition === 'imagem' && !photo
+
   const settings: ArtOptions = {
     title: values.title,
     body: values.body,
@@ -783,6 +810,7 @@ function Art(props: EditorProps) {
     background: values.background || '#E8F2EC',
     foreground: values.foreground || '#1E5643',
     font: values.font || 'Bricolage Grotesque',
+    align: values.align === 'center' ? 'center' : 'left',
   }
 
   useEffect(() => {
@@ -820,6 +848,7 @@ function Art(props: EditorProps) {
           crop: values.artCrop === 'yes',
           composition: values.composition,
           callout: values.callout,
+          align: values.align === 'center' ? 'center' : undefined,
         },
         photo,
         panel,
@@ -963,7 +992,16 @@ function Art(props: EditorProps) {
   const previewArt = (
     <div className="school-preview">
       <PreviewFeedback revision={JSON.stringify(values) + Boolean(photo)} />
-      <div className="art-canvas-frame">
+      {panelMissingPhoto && (
+        <div className="empty-preview-box">
+          <strong>Prévia do painel em folhas A4</strong>
+          <p>
+            Envie uma foto ou arte acima para ver como ela será dividida nas{' '}
+            {geometry.positions.length} folhas A4 com marcas de recorte e colagem.
+          </p>
+        </div>
+      )}
+      <div className="art-canvas-frame" hidden={panelMissingPhoto}>
         <canvas
           ref={ref}
           className="art-preview"
@@ -1166,12 +1204,24 @@ function Art(props: EditorProps) {
               label="Destaque final na arte (opcional)"
               id="callout"
             />
-            <TextField
+            <Choice
               flow={artFlow}
-              label="Legenda para compartilhar (opcional)"
-              id="caption"
-              type="textarea"
+              label="Alinhamento do texto"
+              id="align"
+              options={[
+                ['', 'Automático do estilo'],
+                ['left', 'Alinhado à esquerda'],
+                ['center', 'Centralizado'],
+              ]}
             />
+            <div className="wide">
+              <TextField
+                flow={artFlow}
+                label="Legenda para compartilhar (opcional)"
+                id="caption"
+                type="textarea"
+              />
+            </div>
           </>
         )}
 
@@ -1221,7 +1271,7 @@ function Art(props: EditorProps) {
         {(!panel || values.composition !== 'imagem') && (
           <details className="wide">
             <summary>
-              Ilustração do ateliê{values.figure ? ' · escolhida' : ''}
+              Ilustração decorativa{values.figure ? ' · escolhida' : ''}
             </summary>
             <div
               className="figure-picker"
@@ -1327,6 +1377,7 @@ function Art(props: EditorProps) {
           type="button"
           disabled={
             Boolean(busy) ||
+            panelMissingPhoto ||
             !values.title.trim() ||
             Boolean(ornamentUrl && ornament?.url !== ornamentUrl)
           }
@@ -1339,7 +1390,7 @@ function Art(props: EditorProps) {
           <button
             type="button"
             className="secondary"
-            disabled={Boolean(busy)}
+            disabled={Boolean(busy) || panelMissingPhoto}
             onClick={() => void output(true)}
           >
             <Printer size={17} aria-hidden="true" /> Imprimir

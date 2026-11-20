@@ -19,8 +19,7 @@ test('posiciona, redimensiona e remove respostas em PDF digitalizado, paisagem e
     .drawText('Folha em paisagem', { x: 40, y: 520 })
   source.addPage([595.28, 841.89]).setRotation(degrees(90))
   await page.goto('/app/colecao?ferramenta=documento')
-  await page.getByText('Abrir meu arquivo', { exact: true }).click()
-  await page.getByRole('link', { name: 'Responder no PDF' }).click()
+  await page.getByRole('link', { name: 'Escrever por cima no PDF' }).click()
   await page
     .getByLabel('Selecionar arquivo para responder')
     .setInputFiles({
@@ -77,6 +76,13 @@ test('posiciona, redimensiona e remove respostas em PDF digitalizado, paisagem e
   await page.getByLabel('Posição vertical (%)').fill('22')
   await answer.fill('Resposta da folha rotacionada.')
   await apply.click()
+  await expect(
+    page.getByRole('button', {
+      name: /Selecionar resposta: Resposta da folha rotacionada/,
+    }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: /Mover esta resposta/ }).click()
+  await start.click({ position: { x: 80, y: 120 } })
   await expect(
     page.getByRole('button', {
       name: /Selecionar resposta: Resposta da folha rotacionada/,

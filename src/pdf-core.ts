@@ -2,18 +2,28 @@ import { PDFDocument, type PDFFont } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
 import regularUrl from '@fontsource/noto-sans/files/noto-sans-latin-400-normal.woff?url'
 import boldUrl from '@fontsource/noto-sans/files/noto-sans-latin-700-normal.woff?url'
+import andikaRegularUrl from '@fontsource/andika/files/andika-latin-400-normal.woff?url'
+import andikaBoldUrl from '@fontsource/andika/files/andika-latin-700-normal.woff?url'
 export { a4Points as a4 } from './media'
 
-export async function fonts(doc: PDFDocument, withBold = false) {
+export type SheetFont = 'noto' | 'andika'
+
+export async function fonts(
+  doc: PDFDocument,
+  withBold = false,
+  family: SheetFont = 'noto',
+) {
   doc.registerFontkit(fontkit)
   const load = async (url: string) => {
     const response = await fetch(url)
     if (!response.ok) throw new Error()
     return doc.embedFont(await response.arrayBuffer(), { subset: true })
   }
+  const regSrc = family === 'andika' ? andikaRegularUrl : regularUrl
+  const boldSrc = family === 'andika' ? andikaBoldUrl : boldUrl
   const [regular, bold] = await Promise.all([
-    load(regularUrl),
-    withBold ? load(boldUrl) : undefined,
+    load(regSrc),
+    withBold ? load(boldSrc) : undefined,
   ])
   return { regular, bold: bold ?? regular }
 }
